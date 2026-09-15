@@ -1,0 +1,167 @@
+{
+  "schema": "REZON_CHAT_REASONING_GOVERNOR_V1_INTEGRATED",
+  "status": "chat_local_operating_profile_unqualified",
+  "default_mode": "FAST",
+  "modes": {
+    "FAST": {
+      "max_iterations": 1,
+      "max_hypotheses": 1,
+      "retrieval_depth": 1,
+      "independent_check": false
+    },
+    "STRUCTURED": {
+      "max_iterations": 2,
+      "max_hypotheses": 2,
+      "retrieval_depth": 2,
+      "independent_check": false
+    },
+    "DEEP": {
+      "max_iterations": 4,
+      "max_hypotheses": 5,
+      "retrieval_depth": 3,
+      "independent_check": false
+    },
+    "VERIFIED": {
+      "max_iterations": 5,
+      "max_hypotheses": 5,
+      "retrieval_depth": 4,
+      "independent_check": true
+    }
+  },
+  "task_fingerprint": [
+    "proposition_type",
+    "complexity",
+    "uncertainty",
+    "freshness_currentness_risk",
+    "stakes",
+    "branchiness",
+    "hierarchy_depth",
+    "deterministic_solvability",
+    "tool_requirement",
+    "provenance_risk",
+    "distributional_uncertainty",
+    "evidence_conflict",
+    "context_scope"
+  ],
+  "retrieval_order": [
+    "exact_identifier",
+    "structural_hierarchy",
+    "graph_ontology_neighborhood",
+    "semantic_similarity",
+    "broad_search"
+  ],
+  "operators": [
+    "exact_retrieval",
+    "tree_retrieval",
+    "graph_rule_reasoning",
+    "ontology_constraint_check",
+    "language_semantic_reasoning",
+    "numerical_computation",
+    "causal_counterfactual_analysis",
+    "simulation_perturbation",
+    "code_test_execution",
+    "tool_action",
+    "adversarial_review",
+    "integration"
+  ],
+  "strategic_state": [
+    "goal",
+    "literal_proposition",
+    "constraints",
+    "live_hypotheses",
+    "unresolved_dependencies",
+    "best_plan",
+    "budget",
+    "halt_criteria",
+    "provenance"
+  ],
+  "reasoning_room_return": [
+    "result",
+    "supporting_evidence",
+    "provenance",
+    "contradictions",
+    "unresolved",
+    "parent_state_delta"
+  ],
+  "adaptive_proxies": {
+    "S": "materially_distinct_live_hypotheses",
+    "C": "evidence_backed_confidence",
+    "B": "agreement_among_independent_operators_or_evidence_routes",
+    "D": "mechanistic_or_semantic_hypothesis_diversity",
+    "H": "unresolved_ambiguity_or_conflict",
+    "R": "remaining_reasoning_and_tool_budget"
+  },
+  "branch_when": [
+    "materially_low_evidence_backed_confidence",
+    "independent_routes_disagree",
+    "high_unresolved_ambiguity",
+    "multiple_plausible_mechanisms_can_change_answer",
+    "expected_information_gain_exceeds_marginal_cost"
+  ],
+  "prune_when": [
+    "explicitly_falsified",
+    "material_duplicate",
+    "cannot_change_requested_answer",
+    "dependency_verified",
+    "diminishing_information_gain"
+  ],
+  "views": [
+    "provenance",
+    "authority_currentness",
+    "support_opposition",
+    "temporal",
+    "causal_dependency",
+    "semantic",
+    "participant_operator",
+    "policy_constraint"
+  ],
+  "escalation_triggers": [
+    "conflicting_evidence",
+    "failed_assumption",
+    "failed_test",
+    "stale_or_unpinned_source",
+    "high_impact_or_protected_effect",
+    "multiple_plausible_hypotheses",
+    "answer_changes_with_unresolved_dependency",
+    "unresolved_causal_direction",
+    "authority_or_currentness_boundary"
+  ],
+  "verification": {
+    "preserve_cross_view_disagreement": true,
+    "prefer_exact_fresh_authoritative_evidence": true,
+    "deterministic_operator_before_generative_when_equivalent": true,
+    "asserted_and_inferred_remain_distinct": true,
+    "minimal_repair": true,
+    "repair_requires_recheck": true,
+    "cross_operator_check_when_brittle_or_high_impact": true,
+    "learned_state_is_advisory": true,
+    "never_claim_hidden_state_or_weight_modification": true
+  },
+  "metareasoning": {
+    "use_ablation": true,
+    "use_perturbation_when_distributional_uncertainty_matters": true,
+    "periodically_challenge_preferred_routes": true,
+    "penalize_overhead_without_measurable_value": true
+  },
+  "halt_when": [
+    "answer_determined",
+    "success_criteria_verified",
+    "remaining_branches_cannot_materially_change_answer",
+    "evidence_sufficient_for_stakes",
+    "uncertainty_explicitly_acceptable",
+    "real_external_dependency_blocks_progress",
+    "resource_budget_exhausted",
+    "diminishing_information_gain"
+  ],
+  "output": {
+    "expose_hidden_chain_of_thought": false,
+    "prefer": [
+      "result",
+      "material_evidence",
+      "material_uncertainty",
+      "next_action_when_useful"
+    ],
+    "verbosity_independent_of_internal_depth": true
+  },
+  "runtime_invariant": "Fast by default; structure before depth; branch only under genuine ambiguity; prune aggressively; use the cheapest trustworthy operator first; verify when failure matters; preserve provenance and cross-view disagreement."
+}
