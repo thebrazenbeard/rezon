@@ -2,19 +2,21 @@
 
 This document classifies external repositories by the computation or architecture Rezon can literally transfer from them. “Transfer” means mechanism, test idea, data model, or architectural pattern unless code reuse is explicitly appropriate and license-compatible.
 
+Review note: the HCAE mechanism was re-read directly at `basiralab/HCAE@ed13937a5266aadbfa34cd57e6c9a703470c77e9`. License notes below distinguish repository/source observations from architectural usefulness.
+
 | Source | Advertised domain | Transferable mechanism for Rezon | Directness | Cautions |
 |---|---|---|---|---|
-| `GeorgeVJose/DRISHTE-Public` | drone traffic detection/tracking | persistent identity as a track across transient observations; detection vs identity hypothesis; trajectory continuity under noise/occlusion | High conceptually | public repo redacts much implementation; do not invent its re-identification algorithm |
-| `basiralab/HCAE` | multi-view brain-state classification | multi-view relational matrices -> hypergraphs -> fused many-to-many state representation -> compressed embedding | High | old TensorFlow stack; learned embedding must never become identity/authority oracle |
+| `GeorgeVJose/DRISHTE-Public` | drone traffic detection/tracking | persistent identity as a track across transient observations; detection vs identity hypothesis; trajectory continuity under noise/occlusion | High conceptually | public repo redacts much implementation; no declared GitHub license was observed; do not invent its re-identification algorithm |
+| `basiralab/HCAE` | multi-view brain-state classification | multi-view relational matrices -> hypergraphs -> fused many-to-many state representation -> compressed embedding | High | reviewed exact source pin above; README states MIT; old TensorFlow stack; learned embedding must never become identity/authority oracle |
 | `sapientinc/HRM` | hierarchical neural reasoning | slow abstract/high-level reasoning coordinating fast/detailed computation | High architectural | trained recurrent model is not an agent router; transfer principle, not literal architecture |
 | `OpenSPG/KAG` | knowledge augmented generation | heterogeneous operators: planning, retrieval, graph reasoning, language reasoning, numerical calculation; logical-form guidance | High | heavyweight deployment; borrow interfaces and solver ideas first |
 | `VectifyAI/PageIndex` | reasoning-based RAG | hierarchical tree indexing; reasoning-guided relevance retrieval; traceable context selection | High | retrieval claims/benchmarks need independent evaluation for our corpus |
 | `semantica-agi/semantica` | context/knowledge graph + accountable AI | provenance, context graphs, decision objects, deterministic rules, conflicts, snapshots, ontology governance | High | do not replace Vera/Rezon governance wholesale without gap analysis |
-| `ThHanke/ontosphere` | RDF/OWL editor + MCP | OWL reasoning, SHACL validation, reasoner-verified repairs, canonical graph hashing, edit provenance/reversal | High for verifier | distinguish consistency repair from correct-domain repair |
-| `acrion/zelph` | executable semantic network/reasoning engine | graph-native rules, deep unification, derivation chains, graph rewriting | Medium/High research | AGPL/commercial license; experimental fit; avoid premature runtime dependency |
-| `MiXaiLL76/n8n-nodes-sgr-tool-calling` | n8n research agent | bounded planning/adaptation loop, tool inventory, MCP integration, clarification state, iteration budgets | Medium/High | AGPL/commercial license; orchestration reference rather than direct import initially |
+| `ThHanke/ontosphere` | RDF/OWL editor + MCP | OWL reasoning, SHACL validation, reasoner-verified repairs, canonical graph hashing, edit provenance/reversal | High for verifier | actual repository `LICENSE` is Apache-2.0 even though GitHub metadata was observed as `NOASSERTION`; distinguish consistency repair from correct-domain repair |
+| `acrion/zelph` | executable semantic network/reasoning engine | graph-native rules, deep unification, derivation chains, graph rewriting | Medium/High research | AGPL-3.0-or-later / commercial-license option; experimental fit; avoid premature runtime dependency |
+| `MiXaiLL76/n8n-nodes-sgr-tool-calling` | n8n research agent | bounded planning/adaptation loop, tool inventory, MCP integration, clarification state, iteration budgets | Medium/High | license evidence conflicts: repository metadata and `LICENSE` indicate GPL-3.0 while README says AGPL-3.0 and describes AGPL obligations; use as orchestration reference only until authoritative licensing is reconciled |
 | `lucasdinnouti/custom-reverse-proxy` | ML-selected reverse proxy | dynamic backend selection based on observed/predicted resource metrics | Medium/High | toy/research implementation; extract routing pattern, not security posture |
-| `hvala/Binomial-Heterogenicity` | population genetics simulation | Monte Carlo / generational simulation as an example of repeated stochastic model evaluation | Low/Medium | domain code itself is unrelated; do not force relevance |
+| `hvala/Binomial-Heterogenicity` | population genetics simulation | Monte Carlo / generational simulation as an example of repeated stochastic model evaluation | Low/Medium | domain code itself is unrelated; no declared license was observed; do not force relevance |
 
 ## Detailed transfer notes
 
@@ -31,6 +33,8 @@ A tracker maintains a longitudinal hypothesis while detections are transient evi
 ### HCAE
 
 The important transfer is not “brain-like AI.” HCAE literally consumes relational matrices for one subject, supports multiple views, constructs hypergraphs, combines hyperedges, and learns a representation. This supports a Rezon state substrate where several evidence planes describe one subject and where meaningful relations can involve more than two nodes at once.
+
+A stricter semantic reading is now recorded in `docs/research/HCAE_SEMANTIC_REAPPLICATION_V1.md`: the learned projection should normally use a coherent carrier-node set shared across views, and Rezon should distinguish explicit multi-view state, an episode-local encoder, and a corpus-shared encoder for cross-case comparison.
 
 ### HRM
 
