@@ -1,16 +1,40 @@
 # Rezon Kernel V0 Acceptance
 
-Status: SOURCE / BUILD / TEST ACCEPTANCE CANDIDATE
+Status: SOURCE / BUILD / TEST ACCEPTANCE CANDIDATE ? HOSTILE R1 REPAIRED / R2 REREVIEW PENDING
 
-This record binds executable qualification evidence for the first provider-independent Rezon Kernel V0 candidate. It does not establish reasoning superiority, production deployment, installation into another system, model training, provider activation, or downstream behavioral qualification.
+This record binds executable qualification evidence for the provider-independent Rezon Kernel V0 R2 candidate. It does not establish reasoning superiority, production deployment, installation into another system, model training, provider activation, or downstream behavioral qualification.
 
-## Qualified executable payload
+## Exact executable payload
 
 - repository: `thebrazenbeard/rezon`
 - branch: `work/rezon-kernel-v0-p0`
-- executable payload commit: `566432019d422e72d4a9128fa316a166aff102ac`
-- executable payload tree: `d58270640b7ecee570a1a2b306206da1668876c2`
+- executable payload commit: `6675a91935e5bc98ca57a5fa48413e772ac980be`
+- executable payload tree: `3f2e50daa9babb79dc824e6eb1a1bf41aea66f71`
 - predecessor research head: `rezon/hcae-semantic-reapplication-v1@0cf560ce4a573230b94db2982dbec074dd3b1b20`
+
+## Independent hostile history
+
+Masa independently reviewed prior integration head `2500e717895eae123fa4438aa827e63c53fd39eb` and returned `HOSTILE QUALIFICATION FAIL / CHANGES_REQUESTED`.
+
+His frozen hostile branch `masa/rezon-p0-hostile-kernel-review-v2@4d9e8875da618ab12af2253fbeca532d15292368` added nine hostile cases. Those nine cases reproduced locally against `2500e717...` as **9 failed / 0 passed**.
+
+R2 repairs address all seven blocking findings:
+
+- independence cannot rely on arbitrary self-asserted basis references; independence-required execution fails closed and pairwise correlation checks are available;
+- runner-issued execution identity is bound through admission;
+- worker/model output cannot self-promote to `EVIDENCE` merely through descriptor permission;
+- retrieval evidence requires a separate external admission policy bound to exact source/version;
+- contradictory/impossible `ResultReceipt` states are rejected;
+- worker exceptions produce typed `ATTEMPTED_UNKNOWN` receipts/traces rather than escaping the governed run;
+- retracting a proposition invalidates dependent current relations while preserving history.
+
+Three additional Masa material gaps were also hardened:
+
+- `TaskEnvelope` can be bound to runtime execution, authority checks, resource budget, trace, and result receipt through its deterministic digest;
+- admission failures are reflected consistently in both final receipt and execution trace, with unadmitted emitted IDs omitted from admitted output;
+- executor-visible views no longer reveal blinded proposition/relation IDs, while audit traces retain them.
+
+The remaining one-shot node-completion behavior is intentionally retained as a Kernel V0 limit. Dynamic frontier reruns/starvation handling belong to later scheduler qualification and are not claimed here.
 
 ## Reproduction environment
 
@@ -23,8 +47,6 @@ This record binds executable qualification evidence for the first provider-indep
 
 ## Qualification sequence
 
-From a fresh clone of the remote branch at the exact executable payload commit:
-
 ```text
 py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m pip install pytest
@@ -35,37 +57,25 @@ git diff --check
 git status --short
 ```
 
-Observed result for payload commit `566432019d422e72d4a9128fa316a166aff102ac`:
+Observed on a fresh remote clone of executable payload `6675a91935e5bc98ca57a5fa48413e772ac980be`:
 
 ```text
-32 passed in 0.13s
+46 passed in 0.18s
 ```
 
 `compileall` completed successfully, `git diff --check` returned clean, and the qualification checkout had no tracked working-tree changes.
 
-## Covered invariants
+The 46-test suite includes the exact nine-case Masa hostile artifact plus additional regression coverage for pairwise independence, task-envelope/authority binding, executor-side blinding, and receipt/trace agreement.
 
-The executable suite covers:
+## Qualification boundary
 
-- typed epistemic kinds without hypothesis/evidence collapse;
-- literal task-envelope preservation;
-- persistent-subject binding requiring association evidence;
-- explicit independence/contamination metadata;
-- append-oriented episode history and retraction preservation;
-- auditable visibility and blinding;
-- atomic output admission and output-kind restrictions;
-- version-bound retrieval admission;
-- deterministic hypothesis, contradiction, and falsification operators;
-- deterministic scheduler priority; budget exhaustion is reported only when pending work remains;
-- explicit mandatory-worker failure;
-- execution trace and effect-state preservation;
-- hostile cases for proposition substitution, stale source, rollback, duplicate evidence, correlated consensus, advisory-signal authority laundering, malformed receipts, hidden partial failure, and hidden budget exhaustion;
-- provider-neutral strategy benchmark accounting that keeps correctness separate from execution count.
+This establishes only that the exact R2 executable payload satisfies the currently encoded Kernel V0 contracts and the imported Masa R1 hostile cases under the recorded environment.
 
-## Known limits
+It does **not** establish:
 
-This acceptance does not prove that Rezon reasons better than a simpler baseline. It proves that this exact executable payload satisfies the currently encoded Kernel V0 contracts and hostile checks under the recorded environment.
-
-HCAE-derived encoders, HyPER-derived routing, hyperbolic geometry, live LLM/tool executors, graph databases, learned schedulers, production persistence, provider integration, and downstream adoption remain outside this qualification subject.
-
-Mune and Masa independent specialist reviews were requested separately through the BT2 communication bus. Their findings are not included in this PASS unless and until exact-head reports are received and reconciled.
+- independent hostile R2 PASS ? fresh Masa rereview is still required;
+- Mune reproducibility/qualification PASS ? pending;
+- reasoning superiority over single-pass or fixed-multipass baselines;
+- live LLM/tool executor correctness;
+- HCAE/HyPER/hyperbolic routing effectiveness;
+- production persistence, provider integration, deployment, installation, activation, or downstream behavioral effect.
