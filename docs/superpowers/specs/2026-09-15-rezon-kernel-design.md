@@ -1,6 +1,6 @@
 # Rezon Kernel V0 Design
 
-Status: DESIGN APPROVED IN CONVERSATION / IMPLEMENTATION NOT YET QUALIFIED
+Status: P0 RECONCILED DESIGN / IMPLEMENTATION NOT YET QUALIFIED
 
 ## Goal
 
@@ -18,7 +18,12 @@ V0 includes:
 - several local deterministic operators for tests;
 - an adapter boundary for future LLM/tool executors;
 - structured execution traces;
-- a benchmark harness for baseline comparisons.
+- a benchmark harness for baseline comparisons;
+- explicit `TaskEnvelope` and `ResultReceipt` contracts;
+- typed failure and lifecycle/effect states;
+- retrieval receipts with exact source/version provenance;
+- subject-track bindings that distinguish an observation from persistent subject identity;
+- independence/contamination metadata for every execution.
 
 The HCAE-inspired episode encoder is a separate experimental module that consumes the kernel's canonical state after the kernel contract exists. Its design is documented now, but it is not required to make the first kernel test suite pass.
 
@@ -50,6 +55,9 @@ src/rezon/
   scheduler.py      # routing decisions under budgets
   executors.py      # executor protocol and deterministic test executors
   trace.py          # structured trace serialization
+  envelopes.py      # TaskEnvelope, subject/context/authority inputs
+  receipts.py       # ResultReceipt, retrieval receipts, effect/failure states
+  subjects.py       # optional persistent-subject binding boundary
 
 tests/
   test_epistemics.py
@@ -72,6 +80,49 @@ tests/
 8. Budget exhaustion has an explicit terminal result.
 9. Execution results preserve producer, input view, timing, and support references.
 10. No test relies on private model chain-of-thought.
+11. A worker label never establishes independence; independence metadata records executor/model/provider/prompt/context lineage and cross-worker exposure.
+12. Retrieval records exact source/version and cannot promote stale or merely retrieved material into admitted evidence.
+13. Subject binding requires explicit association evidence; similarity, learned geometry, and naming are advisory only.
+14. Failure and effect state are typed; `SOURCE_VERIFIED` cannot imply `INSTALLED`, `ACTIVE`, `EFFECT_OBSERVED`, or `QUALIFIED`.
+15. Learned geometry, token confidence, consensus, path scores, or model prestige may influence routing only; they cannot establish evidence, truth, identity, authority, consent, or effect state.
+16. Result receipts expose unresolved conflicts, skipped/failed mandatory verification, and exact source/execution versions rather than presenting partial runs as clean success.
+
+## P0 envelope, receipt, and failure contracts
+
+The reconciled kernel must expose these concepts even if their first implementation is deliberately small:
+
+```python
+class FailureState(str, Enum):
+    UNAVAILABLE = "unavailable"
+    CONFLICT = "conflict"
+    INVALID_SUBJECT = "invalid_subject"
+    INSUFFICIENT_EVIDENCE = "insufficient_evidence"
+    RESOURCE_LIMIT = "resource_limit"
+    ATTEMPTED_UNKNOWN = "attempted_unknown"
+    CONTRACT_VIOLATION = "contract_violation"
+
+class EffectState(str, Enum):
+    PLAN = "plan"
+    SOURCE_CREATED = "source_created"
+    SOURCE_VERIFIED = "source_verified"
+    REVIEWED = "reviewed"
+    DELIVERED = "delivered"
+    INSTALLED = "installed"
+    ACTIVE = "active"
+    EFFECT_OBSERVED = "effect_observed"
+    QUALIFIED = "qualified"
+    CLOSED = "closed"
+```
+
+`TaskEnvelope` carries the literal request, subject references, constraints, context references, available authority, and budget without silently decomposing or strengthening the proposition. `ResultReceipt` binds the task, exact episode version, worker executions, source versions, accepted/rejected claims, unresolved conflicts, failure states, and effect state.
+
+A `RetrievalReceipt` binds query, source identifier, source version/ref, retrieval method, returned references, and admission status. Retrieval success is not evidence admission.
+
+`IndependenceMetadata` must make correlated executions inspectable. At minimum it records executor/model/provider identity when known, prompt/context lineage, whether another candidate answer was visible, and common upstream evidence references. Unknown fields remain unknown rather than being treated as independent.
+
+## P0 hostile cases
+
+The acceptance suite must include broken implementations or cases for proposition substitution, stale-source promotion, rollback to an older internally valid source, duplicate evidence through multiple summaries, correlated workers masquerading as independent, consensus laundering, learned/token-confidence authority laundering, malformed receipts, mandatory-worker failure, scheduler budget exhaustion, and partial execution presented as clean success.
 
 ## Initial deterministic operators
 
