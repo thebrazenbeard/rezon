@@ -12,6 +12,7 @@ class NodeDescriptor:
     permitted_output_kinds: tuple[PropositionKind, ...]
     accepted_input_kinds: tuple[PropositionKind, ...] = ()
     mandatory_verification: bool = False
+    independence_required: bool = False
 
     def __post_init__(self) -> None:
         if not self.node_id:
