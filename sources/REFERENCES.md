@@ -12,6 +12,15 @@ This file records external repositories examined during Rezon’s initial knowle
 - https://github.com/ThHanke/ontosphere — RDF/OWL graph editor, OWL 2 DL reasoning, SHACL, verified repairs, canonicalization, MCP.
 - https://github.com/acrion/zelph — executable semantic graph, unification, rules, derivation/proof-oriented reasoning.
 
+## Additional geometry / controller / evaluation references
+
+- https://github.com/koriavinash1/HyperbolicReasoning ? Poincare/hyperbolic geometry for hierarchical symbolic explanations; post-kernel structural-geometry research only.
+- https://github.com/deadsmash07/hyperbolic-reasoning-probe ? Euclidean vs hyperbolic probes of hierarchical LLM hidden states; diagnostic/benchmark reference, not runtime authority.
+- https://github.com/ShengxuanQiu/HyPER ? hypothesis-path expansion/reduction controller and scheduler; post-kernel dynamic-routing experiment with advisory path metrics.
+- https://github.com/zeeza18/ZEEJAI-Hyper-Chat ? SFT/GRPO/agentic-RAG training and evaluation stack; training/evaluation reference, not hyperbolic geometry.
+- https://github.com/dakariuishmg/Program_Tool_For_AI_Connectome_Dome ? nested graph/org visualization prototype; possible future graph UX reference only.
+- https://github.com/yixial-1736/connectome_fingerprint ? connectivity prediction with network ablation and permutation testing; evaluation-method reference.
+
 ## Routing / orchestration
 
 - https://github.com/lucasdinnouti/custom-reverse-proxy — ML-assisted target selection / reverse-proxy routing reference.
