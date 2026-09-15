@@ -77,6 +77,45 @@ canonical typed episode state
 
 The learned output never replaces directional logical/causal relations or hard provenance/currentness constraints.
 
+## HCAE semantic reapplication follow-on
+
+A later review lane initially produced `design/rezon-reasoning-foundation-v1@67a30ad4331ddfaa4b5cf51fa877c3e56115fb8d` and draft PR #3 from `main`. That work independently converged on the same deterministic-versus-learned firewall but was created before the lane discovered this consolidation branch. PR #3 is therefore retained as provenance/alternate design material rather than treated as the integration subject.
+
+The integration follow-on is `rezon/hcae-semantic-reapplication-v1`, derived from this consolidated branch.
+
+Material retained from the later lane because it adds non-redundant precision:
+
+1. exact direct HCAE source pin: `basiralab/HCAE@ed13937a5266aadbfa34cd57e6c9a703470c77e9`;
+2. explicit hyperedge construction classes: `EXPLICIT`, `DETERMINISTIC_DERIVED`, `LEARNED`, `HEURISTIC`;
+3. stricter carrier-set semantics: the canonical Rezon graph may be heterogeneous, but an HCAE projection should normally operate over a coherent node set shared across all views rather than mixing propositions, sources, policies, actors, and tools into one learned geometry without a typed projection contract;
+4. separation between `HCAE_EPISODE_LOCAL` and `HCAE_CORPUS_SHARED`.
+
+The fourth point extends the earlier two-consumer model into three related HCAE uses:
+
+```text
+A. explicit multi-view hypergraph state
+   canonical / inspectable / non-neural
+
+B. HCAE_EPISODE_LOCAL
+   per-episode latent structural perception
+   coalition / outlier / reconstruction / compression
+
+C. HCAE_CORPUS_SHARED
+   one shared representation over a frozen compatible corpus
+   cross-case structural analogy / missing-relation suggestion / advisory classification
+```
+
+This distinction is necessary because the studied HCAE implementation trains an encoder separately for each subject. That behavior supports an episode-local interpretation but does not by itself justify comparing independently trained episode embeddings as if they occupied one global coordinate system.
+
+`HCAE_CORPUS_SHARED` is therefore explicitly a Rezon extension and must bind model, corpus, view-schema, carrier-schema, and input-state identities before cross-case comparison is qualified.
+
+The later lane also corrected two source-transfer cautions rather than replacing the broader `SOURCE_TRANSFER_MATRIX.md`:
+
+- Ontosphere's actual repository `LICENSE` is Apache-2.0 even though GitHub metadata was observed as `NOASSERTION`.
+- `MiXaiLL76/n8n-nodes-sgr-tool-calling` has conflicting license evidence: repository metadata and `LICENSE` indicate GPL-3.0 while the README says AGPL-3.0 and describes AGPL obligations. Treat as reference-only until reconciled.
+
+The detailed follow-on is `docs/research/HCAE_SEMANTIC_REAPPLICATION_V1.md`.
+
 ## Next executable frontier
 
 Before writing substantial runtime code, update the Kernel V0 plan against the retained foundation requirements, especially:
@@ -87,6 +126,7 @@ Before writing substantial runtime code, update the Kernel V0 plan against the r
 - retrieval receipts;
 - independence metadata;
 - lifecycle/effect-state preservation;
-- hostile/broken-reference evaluation cases.
+- hostile/broken-reference evaluation cases;
+- HCAE mode separation and carrier/view-schema receipts where structural encoding is introduced.
 
 Only then begin the provider-independent deterministic kernel implementation.
