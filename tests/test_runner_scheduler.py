@@ -26,11 +26,18 @@ def test_scheduler_mandatory_verification_is_first():
     assert decision.reason == "mandatory_verification"
 
 
-def test_scheduler_budget_exhaustion_is_explicit_terminal_failure():
+def test_scheduler_budget_exhaustion_is_failure_only_when_work_remains():
     ep = Episode("e1")
-    decision = DeterministicScheduler().next(ep.snapshot(), (), (), Budget(2, 2))
-    assert decision.action is ScheduleAction.TERMINATE
-    assert decision.failure is FailureState.RESOURCE_LIMIT
+    ep.add_proposition(_p("o1", PropositionKind.OBSERVATION))
+    pending = (NodeDescriptor("echo_hypothesis", (PropositionKind.HYPOTHESIS,)),)
+    exhausted = DeterministicScheduler().next(ep.snapshot(), pending, (), Budget(1, 1))
+    assert exhausted.action is ScheduleAction.TERMINATE
+    assert exhausted.failure is FailureState.RESOURCE_LIMIT
+
+    complete = DeterministicScheduler().next(ep.snapshot(), (), (), Budget(1, 1))
+    assert complete.action is ScheduleAction.TERMINATE
+    assert complete.reason == "no_applicable_rule"
+    assert complete.failure is None
 
 
 def test_scheduler_routes_explicit_contradiction_before_generation():
@@ -81,7 +88,7 @@ def test_runner_records_blinding_and_does_not_upgrade_effect_state():
     )
     outcome = EpisodeRunner((node,), budget_limit=1).run(ep, task_id="t1")
     assert outcome.receipt.effect_state is EffectState.PLAN
-    assert outcome.receipt.failures == (FailureState.RESOURCE_LIMIT,)
+    assert outcome.receipt.failures == ()
     assert len(outcome.trace.records) == 1
     record = outcome.trace.records[0]
     assert record.node_id == "echo_hypothesis"

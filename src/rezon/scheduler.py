@@ -41,34 +41,40 @@ class DeterministicScheduler:
         completed_node_ids: tuple[str, ...],
         budget: Budget,
     ) -> ScheduleDecision:
-        if budget.used >= budget.limit:
-            return ScheduleDecision(
-                ScheduleAction.TERMINATE, reason="budget_exhausted", failure=FailureState.RESOURCE_LIMIT
-            )
         completed = set(completed_node_ids)
         by_id = {node.node_id: node for node in nodes}
 
+        def schedule(node_id: str, reason: str, target_id: str | None = None) -> ScheduleDecision:
+            if budget.used >= budget.limit:
+                return ScheduleDecision(
+                    ScheduleAction.TERMINATE,
+                    reason="budget_exhausted",
+                    target_id=target_id,
+                    failure=FailureState.RESOURCE_LIMIT,
+                )
+            return ScheduleDecision(ScheduleAction.EXECUTE, node_id, reason, target_id)
+
         for node in nodes:
             if node.mandatory_verification and node.node_id not in completed:
-                return ScheduleDecision(ScheduleAction.EXECUTE, node.node_id, "mandatory_verification")
+                return schedule(node.node_id, "mandatory_verification")
 
         if "contradiction_scanner" in by_id and "contradiction_scanner" not in completed:
             if any(r.relation_type.lower() == "contradicts" for r in snapshot.current_relations):
-                return ScheduleDecision(ScheduleAction.EXECUTE, "contradiction_scanner", "explicit_contradiction")
+                return schedule("contradiction_scanner", "explicit_contradiction")
 
         generator = by_id.get("echo_hypothesis")
         hypotheses = [p for p in snapshot.current_propositions if p.kind is PropositionKind.HYPOTHESIS]
         if generator and generator.node_id not in completed:
             if generator.independence_required or not hypotheses:
                 reason = "independent_hypothesis_generation" if generator.independence_required else "missing_hypothesis"
-                return ScheduleDecision(ScheduleAction.EXECUTE, generator.node_id, reason)
+                return schedule(generator.node_id, reason)
 
         falsifier = by_id.get("falsifier")
         if falsifier and falsifier.node_id not in completed:
             target = next((p for p in hypotheses if (p.confidence or 0.0) >= 0.8), None)
             if target is not None:
-                return ScheduleDecision(
-                    ScheduleAction.EXECUTE, falsifier.node_id, "falsify_high_confidence_hypothesis", target.proposition_id
+                return schedule(
+                    falsifier.node_id, "falsify_high_confidence_hypothesis", target.proposition_id
                 )
 
         return ScheduleDecision(ScheduleAction.TERMINATE, reason="no_applicable_rule")
