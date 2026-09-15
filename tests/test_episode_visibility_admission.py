@@ -86,3 +86,18 @@ def test_relation_participants_must_reference_existing_episode_objects():
     bad = Hyperrelation("r1", "e1", "supports", (Participant("missing", "premise"), Participant("p1", "claim")))
     with pytest.raises(EpisodeInvariantError):
         ep.add_relation(bad)
+
+
+def test_execution_admission_is_atomic_when_late_relation_is_invalid():
+    ep = Episode("e1")
+    descriptor = NodeDescriptor("generator", (PropositionKind.HYPOTHESIS,))
+    good = _p("h-new", PropositionKind.HYPOTHESIS, "new", "x1")
+    bad_relation = Hyperrelation(
+        "r-bad", "e1", "supports", (Participant("h-new", "claim"), Participant("missing", "source")),
+        producer_execution_id="x1",
+    )
+    result = ExecutionResult("x1", "generator", (good,), (bad_relation,))
+    with pytest.raises(AdmissionError):
+        admit_execution_result(ep, descriptor, result)
+    assert ep.snapshot().current_propositions == ()
+    assert ep.snapshot().current_relations == ()

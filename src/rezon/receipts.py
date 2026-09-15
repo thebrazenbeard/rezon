@@ -83,3 +83,7 @@ class ResultReceipt:
     effect_state: EffectState = EffectState.PLAN
     source_versions: tuple[str, ...] = ()
     execution_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.task_id or not self.episode_version:
+            raise ValueError("result receipt requires exact task_id and episode_version")

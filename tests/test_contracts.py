@@ -114,3 +114,10 @@ def test_result_receipt_keeps_unresolved_failures_and_effect_state_visible():
     assert receipt.unresolved
     assert receipt.failures == (FailureState.INSUFFICIENT_EVIDENCE,)
     assert receipt.effect_state is EffectState.SOURCE_VERIFIED
+
+
+def test_result_receipt_requires_exact_task_and_episode_subject():
+    with pytest.raises(ValueError):
+        ResultReceipt(task_id="", episode_version="e1@1")
+    with pytest.raises(ValueError):
+        ResultReceipt(task_id="t1", episode_version="")
