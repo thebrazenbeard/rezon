@@ -54,6 +54,6 @@ A stronger model is never automatically an authority source. A reasoning node ma
 
 ## Current status
 
-`work/rezon-kernel-v0-p0` now contains a provider-independent executable Kernel V0 source candidate with typed epistemic state, auditable visibility/blinding, atomic admission, version-bound retrieval, deterministic operators/scheduling, traces/receipts, and hostile semantic checks. The executable payload `03e90e8d97ace99a26938372a398d20c3f4da8ef` reproduced from a fresh remote clone with 32/32 tests passing under Python 3.12.10; see `docs/qualification/KERNEL_V0_ACCEPTANCE.md`.
+`work/rezon-kernel-v0-p0` now contains a provider-independent executable Kernel V0 source candidate with typed epistemic state, auditable visibility/blinding, atomic admission, version-bound retrieval, deterministic operators/scheduling, traces/receipts, and hostile semantic checks. The executable payload `566432019d422e72d4a9128fa316a166aff102ac` reproduced from a fresh remote clone with 32/32 tests passing under Python 3.12.10; see `docs/qualification/KERNEL_V0_ACCEPTANCE.md`.
 
 This is **source/build/test acceptance only**. It does not claim reasoning superiority, production deployment, provider activation, model training, installation into Vera or another project, or downstream behavioral qualification.

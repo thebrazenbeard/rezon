@@ -8,8 +8,8 @@ This record binds executable qualification evidence for the first provider-indep
 
 - repository: `thebrazenbeard/rezon`
 - branch: `work/rezon-kernel-v0-p0`
-- executable payload commit: `03e90e8d97ace99a26938372a398d20c3f4da8ef`
-- executable payload tree: `558a0fac73aa6f98ff43c867180ac2bfe28c4227`
+- executable payload commit: `566432019d422e72d4a9128fa316a166aff102ac`
+- executable payload tree: `d58270640b7ecee570a1a2b306206da1668876c2`
 - predecessor research head: `rezon/hcae-semantic-reapplication-v1@0cf560ce4a573230b94db2982dbec074dd3b1b20`
 
 ## Reproduction environment
@@ -35,10 +35,10 @@ git diff --check
 git status --short
 ```
 
-Observed result for payload commit `03e90e8d97ace99a26938372a398d20c3f4da8ef`:
+Observed result for payload commit `566432019d422e72d4a9128fa316a166aff102ac`:
 
 ```text
-32 passed in 0.16s
+32 passed in 0.13s
 ```
 
 `compileall` completed successfully, `git diff --check` returned clean, and the qualification checkout had no tracked working-tree changes.
@@ -56,7 +56,7 @@ The executable suite covers:
 - atomic output admission and output-kind restrictions;
 - version-bound retrieval admission;
 - deterministic hypothesis, contradiction, and falsification operators;
-- deterministic scheduler priority and budget exhaustion;
+- deterministic scheduler priority; budget exhaustion is reported only when pending work remains;
 - explicit mandatory-worker failure;
 - execution trace and effect-state preservation;
 - hostile cases for proposition substitution, stale source, rollback, duplicate evidence, correlated consensus, advisory-signal authority laundering, malformed receipts, hidden partial failure, and hidden budget exhaustion;
