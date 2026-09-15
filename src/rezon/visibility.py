@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .envelopes import TaskEnvelope
 from .episode import EpisodeSnapshot
 from .epistemics import PropositionKind
 from .nodes import ExecutionView
@@ -21,6 +22,7 @@ def build_execution_view(
     snapshot: EpisodeSnapshot,
     policy: VisibilityPolicy,
     independence: IndependenceMetadata | None = None,
+    task_envelope: TaskEnvelope | None = None,
 ) -> ExecutionView:
     visible = []
     blinded = []
@@ -54,4 +56,5 @@ def build_execution_view(
         blinded_proposition_ids=tuple(blinded),
         blinded_relation_ids=tuple(blinded_relations),
         independence=independence or IndependenceMetadata(),
+        task_envelope=task_envelope,
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .episode import Episode, EpisodeInvariantError
+from .epistemics import PropositionKind
 from .nodes import ExecutionResult, NodeDescriptor
 
 
@@ -36,19 +37,31 @@ def _prevalidate_episode_mutation(episode: Episode, result: ExecutionResult) -> 
         known.add(relation.relation_id)
 
 
-def admit_execution_result(episode: Episode, descriptor: NodeDescriptor, result: ExecutionResult) -> None:
+def admit_execution_result(
+    episode: Episode,
+    descriptor: NodeDescriptor,
+    result: ExecutionResult,
+    *,
+    expected_execution_id: str | None = None,
+) -> None:
     if result.node_id != descriptor.node_id:
         raise AdmissionError("execution result node does not match descriptor")
+    if expected_execution_id is not None and result.execution_id != expected_execution_id:
+        raise AdmissionError("execution result identity does not match runner-issued execution")
     permitted = set(descriptor.permitted_output_kinds)
     for proposition in result.emitted_propositions:
         if proposition.kind not in permitted:
             raise AdmissionError(f"node {descriptor.node_id} may not emit {proposition.kind.value}")
-        if proposition.producer_execution_id not in (None, result.execution_id):
+        if proposition.kind is PropositionKind.EVIDENCE:
+            raise AdmissionError("worker output cannot self-promote to evidence")
+        required_execution_id = expected_execution_id or result.execution_id
+        if proposition.producer_execution_id not in (None, required_execution_id):
             raise AdmissionError("proposition producer does not match execution")
         if proposition.episode_id != episode.episode_id:
             raise AdmissionError("proposition belongs to a different episode")
     for relation in result.emitted_relations:
-        if relation.producer_execution_id not in (None, result.execution_id):
+        required_execution_id = expected_execution_id or result.execution_id
+        if relation.producer_execution_id not in (None, required_execution_id):
             raise AdmissionError("relation producer does not match execution")
         if relation.episode_id != episode.episode_id:
             raise AdmissionError("relation belongs to a different episode")
@@ -60,5 +73,4 @@ def admit_execution_result(episode: Episode, descriptor: NodeDescriptor, result:
         for relation in result.emitted_relations:
             episode.add_relation(relation)
     except EpisodeInvariantError as exc:
-        # Prevalidation should make this unreachable without concurrent mutation.
         raise AdmissionError(str(exc)) from exc

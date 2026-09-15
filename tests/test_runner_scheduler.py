@@ -1,7 +1,8 @@
+from rezon.envelopes import TaskEnvelope
 from rezon.episode import Episode
 from rezon.epistemics import Hyperrelation, Participant, Proposition, PropositionKind
 from rezon.executors import EchoHypothesisExecutor
-from rezon.nodes import NodeDescriptor
+from rezon.nodes import ExecutionResult, NodeDescriptor
 from rezon.receipts import EffectState, FailureState, IndependenceMetadata
 from rezon.runner import EpisodeRunner, RunnerNode
 from rezon.scheduler import Budget, DeterministicScheduler, ScheduleAction
@@ -108,3 +109,130 @@ def test_missing_mandatory_executor_is_visible_failure_not_clean_success():
     assert FailureState.UNAVAILABLE in outcome.receipt.failures
     assert outcome.receipt.effect_state is EffectState.PLAN
     assert "mandatory:verifier" in outcome.receipt.unresolved
+
+
+def test_task_envelope_is_bound_to_executor_trace_receipt_and_authority():
+    class CapturingExecutor:
+        node_id = "echo_hypothesis"
+
+        def __init__(self):
+            self.seen = None
+
+        def execute(self, view, episode_id):
+            self.seen = view
+            return ExecutionResult(view.execution_id, self.node_id)
+
+    executor = CapturingExecutor()
+    ep = Episode("e1")
+    ep.add_proposition(_p("o1", PropositionKind.OBSERVATION))
+    envelope = TaskEnvelope(
+        task_id="t-bound",
+        literal_request="Evaluate the literal proposition A without substituting it",
+        available_authority=("read:policy",),
+        resource_budget=2,
+    )
+    node = RunnerNode(
+        descriptor=NodeDescriptor(
+            "echo_hypothesis",
+            (PropositionKind.HYPOTHESIS,),
+            required_authority=("read:policy",),
+        ),
+        executor=executor,
+        visibility=VisibilityPolicy(),
+    )
+    outcome = EpisodeRunner((node,), budget_limit=8).run(
+        ep, task_id="t-bound", task_envelope=envelope
+    )
+    assert outcome.receipt.failures == ()
+    assert executor.seen.task_envelope == envelope
+    assert outcome.receipt.task_envelope_digest == envelope.digest
+    assert outcome.trace.records[0].task_envelope_digest == envelope.digest
+
+
+def test_required_authority_fails_closed_before_worker_execution():
+    class ShouldNotRun:
+        node_id = "echo_hypothesis"
+
+        def execute(self, view, episode_id):
+            raise AssertionError("worker should not run")
+
+    ep = Episode("e1")
+    ep.add_proposition(_p("o1", PropositionKind.OBSERVATION))
+    envelope = TaskEnvelope("t-auth", "Read protected state", available_authority=("read:public",))
+    node = RunnerNode(
+        descriptor=NodeDescriptor(
+            "echo_hypothesis",
+            (PropositionKind.HYPOTHESIS,),
+            required_authority=("read:protected",),
+        ),
+        executor=ShouldNotRun(),
+        visibility=VisibilityPolicy(),
+    )
+    outcome = EpisodeRunner((node,), budget_limit=2).run(
+        ep, task_id="t-auth", task_envelope=envelope
+    )
+    assert outcome.receipt.failures == (FailureState.CONTRACT_VIOLATION,)
+    assert outcome.receipt.unresolved == ("authority:echo_hypothesis",)
+    assert outcome.trace.records == ()
+
+
+def test_executor_cannot_see_blinded_ids_but_audit_trace_can():
+    class CapturingExecutor:
+        node_id = "echo_hypothesis"
+
+        def __init__(self):
+            self.blinded = None
+
+        def execute(self, view, episode_id):
+            self.blinded = (view.blinded_proposition_ids, view.blinded_relation_ids)
+            return ExecutionResult(view.execution_id, self.node_id)
+
+    executor = CapturingExecutor()
+    ep = Episode("e1")
+    ep.add_proposition(_p("o1", PropositionKind.OBSERVATION))
+    ep.add_proposition(_p("h-secret", PropositionKind.HYPOTHESIS))
+    independence = IndependenceMetadata(
+        executor_id="independent-generator",
+        prompt_lineage="fresh-prompt",
+        context_lineage="fresh-context",
+        saw_other_answer=False,
+        independence_basis_refs=("policy:blind-hypotheses",),
+    )
+    node = RunnerNode(
+        descriptor=NodeDescriptor(
+            "echo_hypothesis", (PropositionKind.HYPOTHESIS,), independence_required=True
+        ),
+        executor=executor,
+        visibility=VisibilityPolicy(blind_kinds=(PropositionKind.HYPOTHESIS,)),
+        independence=independence,
+    )
+    outcome = EpisodeRunner((node,), budget_limit=1).run(ep, task_id="t-blind")
+    assert executor.blinded == ((), ())
+    assert outcome.trace.records[0].blinded_proposition_ids == ("h-secret",)
+
+
+def test_admission_failure_is_consistent_between_receipt_and_trace():
+    class EvidenceLaunderingExecutor:
+        node_id = "echo_hypothesis"
+
+        def execute(self, view, episode_id):
+            proposition = Proposition(
+                "ev-bad",
+                episode_id,
+                PropositionKind.EVIDENCE,
+                "unsupported evidence",
+                producer_execution_id=view.execution_id,
+            )
+            return ExecutionResult(view.execution_id, self.node_id, (proposition,))
+
+    ep = Episode("e1")
+    ep.add_proposition(_p("o1", PropositionKind.OBSERVATION))
+    node = RunnerNode(
+        descriptor=NodeDescriptor("echo_hypothesis", (PropositionKind.EVIDENCE,)),
+        executor=EvidenceLaunderingExecutor(),
+        visibility=VisibilityPolicy(),
+    )
+    outcome = EpisodeRunner((node,), budget_limit=1).run(ep, task_id="t-trace")
+    assert FailureState.CONTRACT_VIOLATION in outcome.receipt.failures
+    assert outcome.trace.records[0].failures == (FailureState.CONTRACT_VIOLATION,)
+    assert outcome.trace.records[0].emitted_proposition_ids == ()

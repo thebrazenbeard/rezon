@@ -5,7 +5,12 @@ from rezon.epistemics import Hyperrelation, Participant, Proposition, Propositio
 from rezon.executors import ContradictionScannerExecutor, EchoHypothesisExecutor, FalsifierExecutor
 from rezon.nodes import ExecutionView
 from rezon.receipts import AdmissionStatus, IndependenceMetadata, RetrievalReceipt
-from rezon.retrieval import RetrievalAdmissionError, admit_retrieval_as_evidence
+from rezon.retrieval import (
+    RetrievalAdmissionError,
+    RetrievalAdmissionEvidence,
+    RetrievalAdmissionPolicy,
+    admit_retrieval_as_evidence,
+)
 
 
 def _view(props=(), relations=(), execution_id="x1"):
@@ -31,11 +36,32 @@ def test_retrieved_only_material_cannot_become_evidence():
 def test_admitted_versioned_retrieval_can_create_evidence_with_provenance():
     ep = Episode("e1")
     receipt = RetrievalReceipt(
-        "ret1", "policy", "repo:policy", "abc123", "exact_ref", ("policy.md#10",), AdmissionStatus.ADMITTED
+        "ret1",
+        "policy",
+        "repo:policy",
+        "abc123",
+        "exact_ref",
+        ("policy.md#10",),
+        AdmissionStatus.ADMITTED,
     )
-    evidence = admit_retrieval_as_evidence(ep, receipt, "ev1", "policy says X")
+    policy = RetrievalAdmissionPolicy((RetrievalAdmissionEvidence(
+        source_id="repo:policy",
+        source_version="abc123",
+        admission_authority_ref="review:admission-1",
+        verification_refs=("receipt:digest-verified",),
+        currentness_ref="receipt:current-head",
+        authoritative_scope="policy/current",
+    ),))
+    evidence = admit_retrieval_as_evidence(ep, receipt, "ev1", "policy says X", policy=policy)
     assert evidence.kind is PropositionKind.EVIDENCE
-    assert evidence.source_refs == ("repo:policy@abc123", "policy.md#10", "retrieval:ret1")
+    assert evidence.source_refs == (
+        "repo:policy@abc123",
+        "policy.md#10",
+        "retrieval:ret1",
+        "admission:review:admission-1",
+        "currentness:receipt:current-head",
+        "receipt:digest-verified",
+    )
 
 
 def test_unversioned_retrieval_fails_closed_even_if_marked_admitted():

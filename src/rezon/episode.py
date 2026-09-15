@@ -74,6 +74,18 @@ class Episode:
             raise EpisodeInvariantError("proposition is already retracted")
         self._active_propositions.remove(proposition_id)
         self._event("proposition_retracted", proposition_id, reason)
+        invalidated_refs = {proposition_id}
+        while True:
+            newly_invalidated: list[str] = []
+            for relation_id in tuple(self._active_relations):
+                relation = self._relations[relation_id]
+                if any(participant.ref_id in invalidated_refs for participant in relation.participants):
+                    self._active_relations.remove(relation_id)
+                    self._event("relation_invalidated", relation_id, f"dependency_retracted:{proposition_id}")
+                    newly_invalidated.append(relation_id)
+            if not newly_invalidated:
+                break
+            invalidated_refs.update(newly_invalidated)
 
     def add_relation(self, relation: Hyperrelation) -> None:
         if relation.episode_id != self.episode_id:

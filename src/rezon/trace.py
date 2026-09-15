@@ -16,6 +16,7 @@ class TraceRecord:
     blinded_relation_ids: tuple[str, ...]
     emitted_proposition_ids: tuple[str, ...]
     independence_demonstrated: bool
+    task_envelope_digest: str | None = None
     failures: tuple[FailureState, ...] = ()
 
 

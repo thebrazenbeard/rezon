@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from hashlib import sha256
+import json
 
 
 @dataclass(frozen=True)
@@ -19,3 +21,8 @@ class TaskEnvelope:
             raise ValueError("task_id and literal_request are required")
         if self.resource_budget is not None and self.resource_budget < 0:
             raise ValueError("resource_budget cannot be negative")
+
+    @property
+    def digest(self) -> str:
+        payload = json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
+        return sha256(payload.encode("utf-8")).hexdigest()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .envelopes import TaskEnvelope
 from .epistemics import Hyperrelation, Proposition, PropositionKind
 from .receipts import FailureState, IndependenceMetadata
 
@@ -13,6 +14,7 @@ class NodeDescriptor:
     accepted_input_kinds: tuple[PropositionKind, ...] = ()
     mandatory_verification: bool = False
     independence_required: bool = False
+    required_authority: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.node_id:
@@ -28,6 +30,7 @@ class ExecutionView:
     blinded_proposition_ids: tuple[str, ...] = ()
     blinded_relation_ids: tuple[str, ...] = ()
     independence: IndependenceMetadata = IndependenceMetadata()
+    task_envelope: TaskEnvelope | None = None
 
 
 @dataclass(frozen=True)

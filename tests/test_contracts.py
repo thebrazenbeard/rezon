@@ -121,3 +121,27 @@ def test_result_receipt_requires_exact_task_and_episode_subject():
         ResultReceipt(task_id="", episode_version="e1@1")
     with pytest.raises(ValueError):
         ResultReceipt(task_id="t1", episode_version="")
+
+
+def test_pairwise_independence_rejects_shared_model_provider_lineage():
+    a = IndependenceMetadata(
+        executor_id="a",
+        model_id="m1",
+        provider_id="p1",
+        prompt_lineage="prompt-a",
+        context_lineage="context-a",
+        saw_other_answer=False,
+        independence_basis_refs=("policy:independent-generation",),
+    )
+    b = IndependenceMetadata(
+        executor_id="b",
+        model_id="m1",
+        provider_id="p1",
+        prompt_lineage="prompt-b",
+        context_lineage="context-b",
+        saw_other_answer=False,
+        independence_basis_refs=("policy:independent-generation",),
+    )
+    assert a.is_demonstrably_independent
+    assert b.is_demonstrably_independent
+    assert not a.demonstrably_independent_from(b)
