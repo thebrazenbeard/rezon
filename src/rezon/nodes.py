@@ -23,12 +23,17 @@ class NodeDescriptor:
     independence_required: bool = False
     required_authority: tuple[str, ...] = ()
     permitted_relation_types: tuple[str, ...] = ()
+    verification_target_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.node_id:
             raise ValueError("node_id is required")
         if any(not relation_type for relation_type in self.permitted_relation_types):
             raise ValueError("permitted relation types must be non-empty")
+        if self.mandatory_verification and not self.verification_target_ids:
+            raise ValueError("mandatory verification requires explicit target IDs")
+        if any(not target_id for target_id in self.verification_target_ids):
+            raise ValueError("verification target IDs must be non-empty")
 
 
 @dataclass(frozen=True)
