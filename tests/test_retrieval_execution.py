@@ -10,6 +10,7 @@ from rezon.retrieval import (
     RetrievalAdmissionEvidence,
     RetrievalAdmissionPolicy,
     admit_retrieval_as_evidence,
+    digest_retrieved_content,
 )
 
 
@@ -35,6 +36,7 @@ def test_retrieved_only_material_cannot_become_evidence():
 
 def test_admitted_versioned_retrieval_can_create_evidence_with_provenance():
     ep = Episode("e1")
+    content = "policy says X"
     receipt = RetrievalReceipt(
         "ret1",
         "policy",
@@ -51,12 +53,15 @@ def test_admitted_versioned_retrieval_can_create_evidence_with_provenance():
         verification_refs=("receipt:digest-verified",),
         currentness_ref="receipt:current-head",
         authoritative_scope="policy/current",
+        content_digest=digest_retrieved_content(content),
+        locator_refs=("policy.md#10",),
     ),))
-    evidence = admit_retrieval_as_evidence(ep, receipt, "ev1", "policy says X", policy=policy)
+    evidence = admit_retrieval_as_evidence(ep, receipt, "ev1", content, policy=policy)
     assert evidence.kind is PropositionKind.EVIDENCE
     assert evidence.source_refs == (
         "repo:policy@abc123",
         "policy.md#10",
+        f"content-sha256:{digest_retrieved_content(content)}",
         "retrieval:ret1",
         "admission:review:admission-1",
         "currentness:receipt:current-head",
