@@ -3,7 +3,13 @@ from rezon.episode import Episode
 from rezon.epistemics import Hyperrelation, Participant, Proposition, PropositionKind
 from rezon.executors import EchoHypothesisExecutor
 from rezon.nodes import ExecutionResult, NodeDescriptor
-from rezon.receipts import EffectState, FailureState, IndependenceMetadata
+from rezon.receipts import (
+    EffectState,
+    FailureState,
+    IndependenceMetadata,
+    IndependenceVerificationEvidence,
+    IndependenceVerificationPolicy,
+)
 from rezon.runner import EpisodeRunner, RunnerNode
 from rezon.scheduler import Budget, DeterministicScheduler, ScheduleAction
 from rezon.visibility import VisibilityPolicy
@@ -11,6 +17,18 @@ from rezon.visibility import VisibilityPolicy
 
 def _p(pid, kind, content=None, confidence=None):
     return Proposition(pid, "e1", kind, content or pid, confidence=confidence)
+
+
+def _independence_policy(metadata: IndependenceMetadata) -> IndependenceVerificationPolicy:
+    return IndependenceVerificationPolicy((IndependenceVerificationEvidence(
+        basis_ref=metadata.independence_basis_refs[0],
+        executor_id=metadata.executor_id,
+        model_id=metadata.model_id,
+        provider_id=metadata.provider_id,
+        prompt_lineage=metadata.prompt_lineage,
+        context_lineage=metadata.context_lineage,
+        verification_refs=("receipt:independence-verified",),
+    ),))
 
 
 def test_scheduler_mandatory_verification_is_first():
@@ -75,19 +93,21 @@ def test_runner_records_blinding_and_does_not_upgrade_effect_state():
     ep = Episode("e1")
     ep.add_proposition(_p("o1", PropositionKind.OBSERVATION, "machine stopped"))
     ep.add_proposition(_p("h-existing", PropositionKind.HYPOTHESIS, "old guess"))
+    independence = IndependenceMetadata(
+        executor_id="echo_hypothesis",
+        model_id="model-a",
+        provider_id="provider-a",
+        prompt_lineage="fresh",
+        context_lineage="blinded",
+        saw_other_answer=False,
+        independence_basis_refs=("policy:blind-hypotheses",),
+    )
     node = RunnerNode(
         descriptor=NodeDescriptor("echo_hypothesis", (PropositionKind.HYPOTHESIS,), independence_required=True),
         executor=EchoHypothesisExecutor(),
         visibility=VisibilityPolicy(blind_kinds=(PropositionKind.HYPOTHESIS,)),
-        independence=IndependenceMetadata(
-            executor_id="echo_hypothesis",
-            model_id="model-a",
-            provider_id="provider-a",
-            prompt_lineage="fresh",
-            context_lineage="blinded",
-            saw_other_answer=False,
-            independence_basis_refs=("policy:blind-hypotheses",),
-        ),
+        independence=independence,
+        independence_policy=_independence_policy(independence),
     )
     outcome = EpisodeRunner((node,), budget_limit=1).run(ep, task_id="t1")
     assert outcome.receipt.effect_state is EffectState.PLAN
@@ -209,6 +229,7 @@ def test_executor_cannot_see_blinded_ids_but_audit_trace_can():
         executor=executor,
         visibility=VisibilityPolicy(blind_kinds=(PropositionKind.HYPOTHESIS,)),
         independence=independence,
+        independence_policy=_independence_policy(independence),
     )
     outcome = EpisodeRunner((node,), budget_limit=1).run(ep, task_id="t-blind")
     assert executor.blinded == ((), ())
