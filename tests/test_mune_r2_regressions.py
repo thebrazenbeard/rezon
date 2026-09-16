@@ -154,6 +154,51 @@ def test_independence_claim_fails_when_prior_hypothesis_is_visible():
     assert "h-new" not in {p.proposition_id for p in ep.snapshot().current_propositions}
 
 
+def test_independence_required_is_candidate_blind_for_any_trusted_policy_basis():
+    class IndependentGenerator:
+        node_id = "echo_hypothesis"
+
+        def execute(self, view, episode_id):
+            emitted = Proposition(
+                "h-new-generic",
+                episode_id,
+                PropositionKind.HYPOTHESIS,
+                "new guess",
+                producer_execution_id=view.execution_id,
+            )
+            return ExecutionResult(
+                execution_id=view.execution_id,
+                node_id=self.node_id,
+                emitted_propositions=(emitted,),
+            )
+
+    ep = Episode("e1")
+    ep.add_proposition(_p("o1", PropositionKind.OBSERVATION))
+    ep.add_proposition(_p("h-old", PropositionKind.HYPOTHESIS, "candidate answer"))
+    metadata = IndependenceMetadata(
+        executor_id="worker-a",
+        model_id="model-a",
+        provider_id="provider-a",
+        prompt_lineage="fresh-prompt",
+        context_lineage="fresh-context",
+        saw_other_answer=False,
+        independence_basis_refs=("policy:independent-generation",),
+    )
+    node = RunnerNode(
+        descriptor=NodeDescriptor(
+            "echo_hypothesis",
+            (PropositionKind.HYPOTHESIS,),
+            independence_required=True,
+        ),
+        executor=IndependentGenerator(),
+        visibility=VisibilityPolicy(),
+        independence=metadata,
+    )
+    outcome = EpisodeRunner((node,), budget_limit=1).run(ep, task_id="t-generic-independent")
+    assert FailureState.CONTRACT_VIOLATION in outcome.receipt.failures
+    assert "h-new-generic" not in {p.proposition_id for p in ep.snapshot().current_propositions}
+
+
 def test_mandatory_verifier_noop_is_not_clean_completion():
     class NoopVerifier:
         node_id = "verifier"
@@ -175,6 +220,33 @@ def test_mandatory_verifier_noop_is_not_clean_completion():
     outcome = EpisodeRunner((node,), budget_limit=1).run(ep, task_id="t-verify")
     assert FailureState.INSUFFICIENT_EVIDENCE in outcome.receipt.failures
     assert outcome.receipt.unresolved
+
+
+def test_failed_mandatory_verifier_remains_unresolved():
+    class FailingVerifier:
+        node_id = "verifier"
+
+        def execute(self, view, episode_id):
+            return ExecutionResult(
+                execution_id=view.execution_id,
+                node_id=self.node_id,
+                failures=(FailureState.INSUFFICIENT_EVIDENCE,),
+            )
+
+    ep = Episode("e1")
+    ep.add_proposition(_p("o1", PropositionKind.OBSERVATION))
+    node = RunnerNode(
+        descriptor=NodeDescriptor(
+            "verifier",
+            (PropositionKind.TEST_RESULT,),
+            mandatory_verification=True,
+        ),
+        executor=FailingVerifier(),
+        visibility=VisibilityPolicy(),
+    )
+    outcome = EpisodeRunner((node,), budget_limit=1).run(ep, task_id="t-failed-verify")
+    assert FailureState.INSUFFICIENT_EVIDENCE in outcome.receipt.failures
+    assert any(item.startswith("verification:") for item in outcome.receipt.unresolved)
 
 
 def test_accepted_input_kinds_are_enforced_before_execution():
