@@ -8,7 +8,13 @@ from .envelopes import TaskEnvelope
 from .episode import Episode
 from .epistemics import PropositionKind
 from .nodes import NodeDescriptor
-from .receipts import EffectState, FailureState, IndependenceMetadata, ResultReceipt
+from .receipts import (
+    EffectState,
+    FailureState,
+    IndependenceMetadata,
+    IndependenceVerificationPolicy,
+    ResultReceipt,
+)
 from .scheduler import Budget, DeterministicScheduler, ScheduleAction
 from .trace import ExecutionTrace, TraceRecord
 from .visibility import VisibilityPolicy, build_execution_view
@@ -20,12 +26,30 @@ class RunnerNode:
     executor: object | None
     visibility: VisibilityPolicy
     independence: IndependenceMetadata = IndependenceMetadata()
+    independence_policy: IndependenceVerificationPolicy | None = None
 
 
 @dataclass(frozen=True)
 class RunOutcome:
     receipt: ResultReceipt
     trace: ExecutionTrace
+
+
+def _dedupe(items: tuple[str, ...] | list[str]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(items))
+
+
+def _view_source_refs(view) -> tuple[str, ...]:
+    refs: list[str] = []
+    for proposition in view.propositions:
+        refs.extend(proposition.source_refs)
+    for relation in view.relations:
+        refs.extend(relation.source_refs)
+    return _dedupe(refs)
+
+
+def _versioned_source_refs(refs: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(ref for ref in refs if "@" in ref)
 
 
 class EpisodeRunner:
@@ -69,6 +93,11 @@ class EpisodeRunner:
         def add_failure(failure: FailureState) -> None:
             if failure not in failures:
                 failures.append(failure)
+
+        def add_source_versions(source_versions: tuple[str, ...]) -> None:
+            for source_version in source_versions:
+                if source_version not in receipt_source_versions:
+                    receipt_source_versions.append(source_version)
 
         def add_preflight_trace(
             execution_id: str,
@@ -174,6 +203,16 @@ class EpisodeRunner:
             independence_ok = False
             if runner_node.descriptor.independence_required:
                 independence = runner_node.independence
+                claim_complete = independence.is_demonstrably_independent
+                if not claim_complete:
+                    add_failure(FailureState.CONTRACT_VIOLATION)
+                    unresolved.append(f"independence:{runner_node.descriptor.node_id}")
+                    break
+
+                policy_verified = bool(
+                    runner_node.independence_policy
+                    and runner_node.independence_policy.verify(independence)
+                )
                 pairwise_ok = all(
                     independence.demonstrably_independent_from(previous)
                     for previous in prior_independent
@@ -182,19 +221,25 @@ class EpisodeRunner:
                     proposition.kind is PropositionKind.HYPOTHESIS
                     for proposition in audit_view.propositions
                 )
-                independence_ok = bool(
-                    independence.is_demonstrably_independent
-                    and pairwise_ok
-                    and candidate_blind
-                )
+                independence_ok = bool(policy_verified and pairwise_ok and candidate_blind)
                 if not independence_ok:
                     add_failure(FailureState.CONTRACT_VIOLATION)
                     unresolved.append(f"independence:{runner_node.descriptor.node_id}")
+                    add_preflight_trace(
+                        execution_id,
+                        runner_node,
+                        audit_view,
+                        FailureState.CONTRACT_VIOLATION,
+                    )
                     break
 
             executor = runner_node.executor
             if decision.target_id is not None and hasattr(executor, "target_hypothesis_id"):
                 executor = type(executor)(decision.target_id)
+
+            input_source_refs = _view_source_refs(audit_view)
+            input_source_versions = _versioned_source_refs(input_source_refs)
+            add_source_versions(input_source_versions)
 
             started = perf_counter()
             try:
@@ -214,6 +259,8 @@ class EpisodeRunner:
                     emitted_proposition_ids=(),
                     independence_demonstrated=independence_ok,
                     task_envelope_digest=task_digest,
+                    source_refs=input_source_refs,
+                    source_versions=input_source_versions,
                     duration_seconds=duration,
                     failures=(FailureState.ATTEMPTED_UNKNOWN,),
                 ))
@@ -228,27 +275,32 @@ class EpisodeRunner:
             for source_ref in result.source_refs:
                 if "@" in source_ref and source_ref not in result_source_versions:
                     result_source_versions.append(source_ref)
-            for source_version in result_source_versions:
-                if source_version not in receipt_source_versions:
-                    receipt_source_versions.append(source_version)
+            execution_source_refs = _dedupe([*input_source_refs, *result.source_refs])
+            execution_source_versions = _dedupe([
+                *input_source_versions,
+                *result_source_versions,
+            ])
+            add_source_versions(execution_source_versions)
 
             execution_failures = list(result.failures)
             admitted_ids: tuple[str, ...] = ()
             admission_ok = False
-            try:
-                admit_execution_result(
-                    episode, runner_node.descriptor, result, expected_execution_id=execution_id
-                )
-                admitted_ids = tuple(p.proposition_id for p in result.emitted_propositions)
-                admission_ok = True
-            except AdmissionError:
-                add_failure(FailureState.CONTRACT_VIOLATION)
-                if FailureState.CONTRACT_VIOLATION not in execution_failures:
-                    execution_failures.append(FailureState.CONTRACT_VIOLATION)
-                unresolved.append(f"admission:{execution_id}")
-
-            for failure in result.failures:
-                add_failure(failure)
+            if result.failures:
+                for failure in result.failures:
+                    add_failure(failure)
+                unresolved.append(f"execution_result:{execution_id}")
+            else:
+                try:
+                    admit_execution_result(
+                        episode, runner_node.descriptor, result, expected_execution_id=execution_id
+                    )
+                    admitted_ids = tuple(p.proposition_id for p in result.emitted_propositions)
+                    admission_ok = True
+                except AdmissionError:
+                    add_failure(FailureState.CONTRACT_VIOLATION)
+                    if FailureState.CONTRACT_VIOLATION not in execution_failures:
+                        execution_failures.append(FailureState.CONTRACT_VIOLATION)
+                    unresolved.append(f"admission:{execution_id}")
 
             if runner_node.descriptor.mandatory_verification and result.failures:
                 unresolved.append(f"verification:{execution_id}")
@@ -256,7 +308,6 @@ class EpisodeRunner:
             if (
                 admission_ok
                 and runner_node.descriptor.mandatory_verification
-                and not result.failures
                 and not any(
                     proposition.kind is PropositionKind.TEST_RESULT
                     and proposition.proposition_id in admitted_ids
@@ -279,8 +330,8 @@ class EpisodeRunner:
                 emitted_proposition_ids=admitted_ids,
                 independence_demonstrated=independence_ok,
                 task_envelope_digest=task_digest,
-                source_refs=result.source_refs,
-                source_versions=tuple(result_source_versions),
+                source_refs=execution_source_refs,
+                source_versions=execution_source_versions,
                 duration_seconds=duration,
                 failures=tuple(execution_failures),
             ))
@@ -292,7 +343,7 @@ class EpisodeRunner:
         receipt = ResultReceipt(
             task_id=task_id,
             episode_version=episode.snapshot().version_ref,
-            unresolved=tuple(unresolved),
+            unresolved=tuple(dict.fromkeys(unresolved)),
             failures=tuple(failures),
             effect_state=EffectState.PLAN,
             source_versions=tuple(receipt_source_versions),
