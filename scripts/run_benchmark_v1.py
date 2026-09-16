@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
 import hashlib
 import json
 from pathlib import Path
@@ -64,14 +63,38 @@ def _pairwise_payload(left: StrategyMetrics, right: StrategyMetrics) -> dict[str
     }
 
 
+def _load_corpus(fixture_paths: tuple[Path, ...]):
+    if not fixture_paths:
+        raise ValueError("Benchmark V1 requires at least one fixture file")
+    file_records = []
+    cases = []
+    for path in fixture_paths:
+        raw = path.read_bytes()
+        file_records.append(
+            {
+                "path": str(path),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }
+        )
+        cases.extend(load_replay_cases(path))
+    case_ids = [case.case_id for case in cases]
+    if len(case_ids) != len(set(case_ids)):
+        raise ValueError("Benchmark V1 composite corpus contains duplicate case_id values")
+    canonical_manifest = json.dumps(
+        file_records,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return tuple(cases), tuple(file_records), hashlib.sha256(canonical_manifest).hexdigest()
+
+
 def build_report(
-    fixture_path: Path,
+    fixture_paths: tuple[Path, ...],
     *,
     seed: int,
     code_version: str,
 ) -> dict[str, object]:
-    fixture_bytes = fixture_path.read_bytes()
-    cases = load_replay_cases(fixture_path)
+    cases, fixture_files, fixture_sha256 = _load_corpus(fixture_paths)
     versions = {case.fixture_version for case in cases}
     if len(versions) != 1:
         raise ValueError("Benchmark V1 requires exactly one fixture version per run")
@@ -111,7 +134,8 @@ def build_report(
     return {
         "benchmark": "rezon-benchmark-v1-layer1",
         "fixture_version": fixture_version,
-        "fixture_sha256": hashlib.sha256(fixture_bytes).hexdigest(),
+        "fixture_files": list(fixture_files),
+        "fixture_sha256": fixture_sha256,
         "code_version": code_version,
         "case_count": len(cases),
         "strategy_input_digest": digest_strategy_inputs(cases),
@@ -152,13 +176,13 @@ def build_report(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run Rezon Benchmark V1 Layer 1 replay")
-    parser.add_argument("fixture", type=Path)
+    parser.add_argument("fixtures", type=Path, nargs="+")
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--code-version", required=True)
     args = parser.parse_args()
 
     report = build_report(
-        args.fixture,
+        tuple(args.fixtures),
         seed=args.seed,
         code_version=args.code_version,
     )
