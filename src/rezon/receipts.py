@@ -177,7 +177,8 @@ class ResultReceipt:
         overlap = set(self.accepted_claim_ids) & set(self.rejected_claim_ids)
         if overlap:
             raise ValueError(f"claims cannot be both accepted and rejected: {sorted(overlap)}")
-        if self.effect_state is EffectState.QUALIFIED:
+        if self.effect_state is not EffectState.PLAN:
             raise ValueError(
-                "ResultReceipt cannot self-issue QUALIFIED; use a separate governed qualification artifact"
+                "ResultReceipt is non-promotional and may report PLAN only; "
+                "higher lifecycle/effect states require a separately governed transition artifact"
             )
