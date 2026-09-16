@@ -76,7 +76,9 @@ class IndependenceMetadata:
             return False
         if self.executor_id == other.executor_id:
             return False
-        if (self.model_id, self.provider_id) == (other.model_id, other.provider_id):
+        if self.model_id == other.model_id:
+            return False
+        if self.provider_id == other.provider_id:
             return False
         if self.prompt_lineage == other.prompt_lineage:
             return False
