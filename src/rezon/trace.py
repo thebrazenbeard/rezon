@@ -19,6 +19,8 @@ class TraceRecord:
     task_envelope_digest: str | None = None
     source_refs: tuple[str, ...] = ()
     source_versions: tuple[str, ...] = ()
+    reported_source_refs: tuple[str, ...] = ()
+    reported_source_versions: tuple[str, ...] = ()
     duration_seconds: float = 0.0
     failures: tuple[FailureState, ...] = ()
 
