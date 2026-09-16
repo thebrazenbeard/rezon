@@ -178,16 +178,14 @@ class EpisodeRunner:
                     independence.demonstrably_independent_from(previous)
                     for previous in prior_independent
                 )
-                view_consistent = True
-                if "policy:blind-hypotheses" in independence.independence_basis_refs:
-                    view_consistent = not any(
-                        proposition.kind is PropositionKind.HYPOTHESIS
-                        for proposition in audit_view.propositions
-                    )
+                candidate_blind = not any(
+                    proposition.kind is PropositionKind.HYPOTHESIS
+                    for proposition in audit_view.propositions
+                )
                 independence_ok = bool(
                     independence.is_demonstrably_independent
                     and pairwise_ok
-                    and view_consistent
+                    and candidate_blind
                 )
                 if not independence_ok:
                     add_failure(FailureState.CONTRACT_VIOLATION)
@@ -251,6 +249,9 @@ class EpisodeRunner:
 
             for failure in result.failures:
                 add_failure(failure)
+
+            if runner_node.descriptor.mandatory_verification and result.failures:
+                unresolved.append(f"verification:{execution_id}")
 
             if (
                 admission_ok
