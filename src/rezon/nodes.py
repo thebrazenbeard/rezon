@@ -14,6 +14,13 @@ class VerificationStatus(str, Enum):
     INCONCLUSIVE = "inconclusive"
 
 
+_DEFAULT_INDEPENDENCE_BLIND_KINDS = (
+    PropositionKind.HYPOTHESIS,
+    PropositionKind.CLAIM,
+    PropositionKind.DECISION,
+)
+
+
 @dataclass(frozen=True)
 class NodeDescriptor:
     node_id: str
@@ -24,6 +31,8 @@ class NodeDescriptor:
     required_authority: tuple[str, ...] = ()
     permitted_relation_types: tuple[str, ...] = ()
     verification_target_ids: tuple[str, ...] = ()
+    independence_blind_kinds: tuple[PropositionKind, ...] = _DEFAULT_INDEPENDENCE_BLIND_KINDS
+    independence_blind_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.node_id:
@@ -34,6 +43,8 @@ class NodeDescriptor:
             raise ValueError("mandatory verification requires explicit target IDs")
         if any(not target_id for target_id in self.verification_target_ids):
             raise ValueError("verification target IDs must be non-empty")
+        if any(not proposition_id for proposition_id in self.independence_blind_ids):
+            raise ValueError("independence blind IDs must be non-empty")
 
 
 @dataclass(frozen=True)
