@@ -226,8 +226,11 @@ class EpisodeRunner:
                     independence.demonstrably_independent_from(previous)
                     for previous in prior_independent
                 )
+                protected_kinds = set(runner_node.descriptor.independence_blind_kinds)
+                protected_ids = set(runner_node.descriptor.independence_blind_ids)
                 candidate_blind = not any(
-                    proposition.kind is PropositionKind.HYPOTHESIS
+                    proposition.kind in protected_kinds
+                    or proposition.proposition_id in protected_ids
                     for proposition in audit_view.propositions
                 )
                 independence_ok = bool(policy_verified and pairwise_ok and candidate_blind)
