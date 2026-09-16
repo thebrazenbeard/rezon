@@ -74,15 +74,40 @@ class Episode:
             raise EpisodeInvariantError("proposition is already retracted")
         self._active_propositions.remove(proposition_id)
         self._event("proposition_retracted", proposition_id, reason)
+
         invalidated_refs = {proposition_id}
         while True:
             newly_invalidated: list[str] = []
+
+            for current_id in tuple(self._active_propositions):
+                proposition = self._propositions[current_id]
+                if any(ref in invalidated_refs for ref in proposition.source_refs):
+                    self._active_propositions.remove(current_id)
+                    self._event(
+                        "proposition_invalidated",
+                        current_id,
+                        f"source_dependency_retracted:{proposition_id}",
+                    )
+                    newly_invalidated.append(current_id)
+
             for relation_id in tuple(self._active_relations):
                 relation = self._relations[relation_id]
-                if any(participant.ref_id in invalidated_refs for participant in relation.participants):
+                participant_dependency = any(
+                    participant.ref_id in invalidated_refs
+                    for participant in relation.participants
+                )
+                source_dependency = any(
+                    ref in invalidated_refs for ref in relation.source_refs
+                )
+                if participant_dependency or source_dependency:
                     self._active_relations.remove(relation_id)
-                    self._event("relation_invalidated", relation_id, f"dependency_retracted:{proposition_id}")
+                    self._event(
+                        "relation_invalidated",
+                        relation_id,
+                        f"dependency_retracted:{proposition_id}",
+                    )
                     newly_invalidated.append(relation_id)
+
             if not newly_invalidated:
                 break
             invalidated_refs.update(newly_invalidated)
@@ -111,9 +136,13 @@ class Episode:
         return EpisodeSnapshot(
             episode_id=self.episode_id,
             version=len(self._events),
-            current_propositions=tuple(p for k, p in self._propositions.items() if k in self._active_propositions),
+            current_propositions=tuple(
+                p for k, p in self._propositions.items() if k in self._active_propositions
+            ),
             all_propositions=tuple(self._propositions.values()),
-            current_relations=tuple(r for k, r in self._relations.items() if k in self._active_relations),
+            current_relations=tuple(
+                r for k, r in self._relations.items() if k in self._active_relations
+            ),
             all_relations=tuple(self._relations.values()),
             events=tuple(self._events),
         )
