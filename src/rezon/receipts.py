@@ -74,6 +74,8 @@ class IndependenceMetadata:
     def demonstrably_independent_from(self, other: "IndependenceMetadata") -> bool:
         if not self.is_demonstrably_independent or not other.is_demonstrably_independent:
             return False
+        if self.executor_id == other.executor_id:
+            return False
         if (self.model_id, self.provider_id) == (other.model_id, other.provider_id):
             return False
         if self.prompt_lineage == other.prompt_lineage:
@@ -176,7 +178,7 @@ class ResultReceipt:
         overlap = set(self.accepted_claim_ids) & set(self.rejected_claim_ids)
         if overlap:
             raise ValueError(f"claims cannot be both accepted and rejected: {sorted(overlap)}")
-        if self.effect_state is EffectState.QUALIFIED:
+        if self.effect_state is not EffectState.PLAN:
             raise ValueError(
-                "ResultReceipt cannot self-issue QUALIFIED; use a separate governed qualification artifact"
+                "ResultReceipt is a reasoning-result artifact and cannot self-promote lifecycle/effect state; use separate governed transition evidence"
             )
