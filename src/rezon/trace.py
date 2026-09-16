@@ -17,6 +17,9 @@ class TraceRecord:
     emitted_proposition_ids: tuple[str, ...]
     independence_demonstrated: bool
     task_envelope_digest: str | None = None
+    source_refs: tuple[str, ...] = ()
+    source_versions: tuple[str, ...] = ()
+    duration_seconds: float = 0.0
     failures: tuple[FailureState, ...] = ()
 
 

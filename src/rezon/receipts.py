@@ -50,15 +50,23 @@ class IndependenceMetadata:
 
     @property
     def is_demonstrably_independent(self) -> bool:
-        trusted_basis = bool(self.independence_basis_refs) and all(
+        """Whether the claim is complete enough to be externally verified.
+
+        Prefix shape is only a claim-format check. The runner does not trust it by
+        itself; independence-required execution also needs a matching external
+        IndependenceVerificationPolicy.
+        """
+        basis_well_formed = bool(self.independence_basis_refs) and all(
             ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES)
             for ref in self.independence_basis_refs
         )
         return bool(
-            trusted_basis
+            basis_well_formed
             and self.saw_other_answer is False
             and not self.common_evidence_refs
             and self.executor_id
+            and self.model_id
+            and self.provider_id
             and self.prompt_lineage
             and self.context_lineage
         )
@@ -66,9 +74,8 @@ class IndependenceMetadata:
     def demonstrably_independent_from(self, other: "IndependenceMetadata") -> bool:
         if not self.is_demonstrably_independent or not other.is_demonstrably_independent:
             return False
-        if self.model_id and other.model_id and self.provider_id and other.provider_id:
-            if (self.model_id, self.provider_id) == (other.model_id, other.provider_id):
-                return False
+        if (self.model_id, self.provider_id) == (other.model_id, other.provider_id):
+            return False
         if self.prompt_lineage == other.prompt_lineage:
             return False
         if self.context_lineage == other.context_lineage:
@@ -76,6 +83,59 @@ class IndependenceMetadata:
         if set(self.common_evidence_refs) & set(other.common_evidence_refs):
             return False
         return True
+
+
+@dataclass(frozen=True)
+class IndependenceVerificationEvidence:
+    basis_ref: str
+    executor_id: str
+    model_id: str
+    provider_id: str
+    prompt_lineage: str
+    context_lineage: str
+    verification_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not all((
+            self.basis_ref,
+            self.executor_id,
+            self.model_id,
+            self.provider_id,
+            self.prompt_lineage,
+            self.context_lineage,
+            self.verification_refs,
+        )):
+            raise ValueError("independence verification evidence must be complete")
+        if not self.basis_ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES):
+            raise ValueError("independence verification basis must use a governed namespace")
+
+
+@dataclass(frozen=True)
+class IndependenceVerificationPolicy:
+    verified_evidence: tuple[IndependenceVerificationEvidence, ...]
+
+    def verify(self, metadata: IndependenceMetadata) -> bool:
+        if not metadata.is_demonstrably_independent:
+            return False
+        claimed_basis = set(metadata.independence_basis_refs)
+        for evidence in self.verified_evidence:
+            if evidence.basis_ref not in claimed_basis:
+                continue
+            if (
+                evidence.executor_id,
+                evidence.model_id,
+                evidence.provider_id,
+                evidence.prompt_lineage,
+                evidence.context_lineage,
+            ) == (
+                metadata.executor_id,
+                metadata.model_id,
+                metadata.provider_id,
+                metadata.prompt_lineage,
+                metadata.context_lineage,
+            ):
+                return True
+        return False
 
 
 @dataclass(frozen=True)
@@ -116,5 +176,7 @@ class ResultReceipt:
         overlap = set(self.accepted_claim_ids) & set(self.rejected_claim_ids)
         if overlap:
             raise ValueError(f"claims cannot be both accepted and rejected: {sorted(overlap)}")
-        if self.effect_state is EffectState.QUALIFIED and (self.failures or self.unresolved):
-            raise ValueError("qualified result cannot contain unresolved failures")
+        if self.effect_state is EffectState.QUALIFIED:
+            raise ValueError(
+                "ResultReceipt cannot self-issue QUALIFIED; use a separate governed qualification artifact"
+            )

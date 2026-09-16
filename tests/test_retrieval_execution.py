@@ -10,6 +10,7 @@ from rezon.retrieval import (
     RetrievalAdmissionEvidence,
     RetrievalAdmissionPolicy,
     admit_retrieval_as_evidence,
+    digest_retrieved_content,
 )
 
 
@@ -21,6 +22,19 @@ def _view(props=(), relations=(), execution_id="x1"):
         relations=tuple(relations),
         independence=IndependenceMetadata(),
     )
+
+
+def _policy(content: str) -> RetrievalAdmissionPolicy:
+    return RetrievalAdmissionPolicy((RetrievalAdmissionEvidence(
+        source_id="repo:policy",
+        source_version="abc123",
+        admission_authority_ref="review:admission-1",
+        verification_refs=("receipt:digest-verified",),
+        currentness_ref="receipt:current-head",
+        authoritative_scope="policy/current",
+        content_digest=digest_retrieved_content(content),
+        locator_refs=("policy.md#10",),
+    ),))
 
 
 def test_retrieved_only_material_cannot_become_evidence():
@@ -35,6 +49,7 @@ def test_retrieved_only_material_cannot_become_evidence():
 
 def test_admitted_versioned_retrieval_can_create_evidence_with_provenance():
     ep = Episode("e1")
+    content = "policy says X"
     receipt = RetrievalReceipt(
         "ret1",
         "policy",
@@ -44,24 +59,48 @@ def test_admitted_versioned_retrieval_can_create_evidence_with_provenance():
         ("policy.md#10",),
         AdmissionStatus.ADMITTED,
     )
-    policy = RetrievalAdmissionPolicy((RetrievalAdmissionEvidence(
-        source_id="repo:policy",
-        source_version="abc123",
-        admission_authority_ref="review:admission-1",
-        verification_refs=("receipt:digest-verified",),
-        currentness_ref="receipt:current-head",
-        authoritative_scope="policy/current",
-    ),))
-    evidence = admit_retrieval_as_evidence(ep, receipt, "ev1", "policy says X", policy=policy)
+    evidence = admit_retrieval_as_evidence(
+        ep,
+        receipt,
+        "ev1",
+        content,
+        policy=_policy(content),
+        required_scope="policy/current",
+    )
     assert evidence.kind is PropositionKind.EVIDENCE
     assert evidence.source_refs == (
         "repo:policy@abc123",
         "policy.md#10",
+        f"content-sha256:{digest_retrieved_content(content)}",
+        "scope:policy/current",
         "retrieval:ret1",
         "admission:review:admission-1",
         "currentness:receipt:current-head",
         "receipt:digest-verified",
     )
+
+
+def test_retrieval_admission_scope_cannot_be_reused_for_unrelated_scope():
+    ep = Episode("e1")
+    content = "policy says X"
+    receipt = RetrievalReceipt(
+        "ret1",
+        "policy",
+        "repo:policy",
+        "abc123",
+        "exact_ref",
+        ("policy.md#10",),
+        AdmissionStatus.ADMITTED,
+    )
+    with pytest.raises(RetrievalAdmissionError):
+        admit_retrieval_as_evidence(
+            ep,
+            receipt,
+            "ev-wrong-scope",
+            content,
+            policy=_policy(content),
+            required_scope="employee/private",
+        )
 
 
 def test_unversioned_retrieval_fails_closed_even_if_marked_admitted():
