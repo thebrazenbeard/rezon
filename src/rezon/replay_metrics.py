@@ -31,7 +31,7 @@ class StrategyMetrics:
     required_violation_hits: int
     required_violation_total: int
     operation_count: int
-    wall_clock_seconds: float
+    wall_clock_seconds: float | None
 
     @property
     def disposition_accuracy(self) -> float:
@@ -52,11 +52,12 @@ class StrategyMetrics:
 class PairwiseDelta:
     left_strategy: str
     right_strategy: str
-    deltas: tuple[tuple[str, float | int], ...]
+    deltas: tuple[tuple[str, float | int | None], ...]
 
 
 _VIOLATION_METRIC_MAP = {
     "UNSUPPORTED_CLAIM": "unsupported_acceptance",
+    "ADMISSION_INTEGRITY": "unsupported_acceptance",
     "PROVENANCE_CURRENTNESS": "provenance_currentness_accepted",
     "INDEPENDENCE_CONTAMINATION": "correlated_consensus_laundering_accepted",
     "FAILURE_VISIBILITY": "hidden_failure_acceptance",
@@ -80,7 +81,8 @@ def evaluate_strategy(
     required_violation_hits = 0
     required_violation_total = 0
     operation_count = 0
-    wall_clock_seconds = 0.0
+    wall_clock_total = 0.0
+    wall_clock_complete = bool(cases)
 
     for case in cases:
         case.validate()
@@ -120,8 +122,10 @@ def evaluate_strategy(
                     violation_acceptance[metric_name] += 1
 
         operation_count += outcome.operation_count
-        if outcome.wall_clock_seconds is not None:
-            wall_clock_seconds += outcome.wall_clock_seconds
+        if outcome.wall_clock_seconds is None:
+            wall_clock_complete = False
+        else:
+            wall_clock_total += outcome.wall_clock_seconds
 
     return StrategyMetrics(
         strategy_name=strategy_name,
@@ -144,7 +148,7 @@ def evaluate_strategy(
         required_violation_hits=required_violation_hits,
         required_violation_total=required_violation_total,
         operation_count=operation_count,
-        wall_clock_seconds=wall_clock_seconds,
+        wall_clock_seconds=wall_clock_total if wall_clock_complete else None,
     )
 
 
@@ -157,10 +161,15 @@ def compare_reports(left: StrategyMetrics, right: StrategyMetrics) -> PairwiseDe
     numeric_names.extend(
         ("disposition_accuracy", "answer_accuracy", "required_violation_recall")
     )
-    deltas = tuple(
-        (name, getattr(left, name) - getattr(right, name))
-        for name in numeric_names
-    )
+
+    def delta(name: str) -> float | int | None:
+        left_value = getattr(left, name)
+        right_value = getattr(right, name)
+        if left_value is None or right_value is None:
+            return None
+        return left_value - right_value
+
+    deltas = tuple((name, delta(name)) for name in numeric_names)
     return PairwiseDelta(
         left_strategy=left.strategy_name,
         right_strategy=right.strategy_name,
