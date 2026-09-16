@@ -68,6 +68,8 @@ class IndependenceMetadata:
     def demonstrably_independent_from(self, other: "IndependenceMetadata") -> bool:
         if not self.is_demonstrably_independent or not other.is_demonstrably_independent:
             return False
+        if self.executor_id == other.executor_id:
+            return False
         if (self.model_id, self.provider_id) == (other.model_id, other.provider_id):
             return False
         if self.prompt_lineage == other.prompt_lineage:
@@ -92,6 +94,7 @@ class RetrievalReceipt:
     verification_refs: tuple[str, ...] = ()
     currentness_ref: str | None = None
     authoritative_scope: str | None = None
+    content_digest: str | None = None
 
     def __post_init__(self) -> None:
         if not self.retrieval_id or not self.query or not self.source_id or not self.method:

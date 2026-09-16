@@ -237,3 +237,58 @@ def test_invalidated_relation_cannot_be_used_as_new_current_dependency():
                 ),
             )
         )
+
+
+def test_worker_proposition_requires_exact_producer_execution_id():
+    episode = Episode("e1")
+    descriptor = NodeDescriptor("generator", (PropositionKind.HYPOTHESIS,))
+    proposition = Proposition("h-no-producer", "e1", PropositionKind.HYPOTHESIS, "guess")
+    with pytest.raises(AdmissionError):
+        admit_execution_result(
+            episode,
+            descriptor,
+            ExecutionResult("x1", "generator", emitted_propositions=(proposition,)),
+            expected_execution_id="x1",
+        )
+
+
+def test_worker_relation_requires_exact_producer_execution_id():
+    episode = Episode("e1")
+    episode.add_proposition(_p("p1", PropositionKind.CLAIM))
+    descriptor = NodeDescriptor("generator", (PropositionKind.CLAIM,))
+    relation = Hyperrelation(
+        "r-no-producer",
+        "e1",
+        "supports",
+        (Participant("p1", "claim"),),
+    )
+    with pytest.raises(AdmissionError):
+        admit_execution_result(
+            episode,
+            descriptor,
+            ExecutionResult("x1", "generator", emitted_relations=(relation,)),
+            expected_execution_id="x1",
+        )
+
+
+def test_same_executor_cannot_claim_pairwise_independence():
+    left = IndependenceMetadata(
+        executor_id="same",
+        model_id="m1",
+        provider_id="p1",
+        prompt_lineage="prompt-a",
+        context_lineage="context-a",
+        saw_other_answer=False,
+        independence_basis_refs=("policy:left",),
+    )
+    right = IndependenceMetadata(
+        executor_id="same",
+        model_id="m2",
+        provider_id="p2",
+        prompt_lineage="prompt-b",
+        context_lineage="context-b",
+        saw_other_answer=False,
+        independence_basis_refs=("policy:right",),
+    )
+
+    assert not left.demonstrably_independent_from(right)

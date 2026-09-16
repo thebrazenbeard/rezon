@@ -58,14 +58,14 @@ def admit_execution_result(
         if proposition.kind is PropositionKind.EVIDENCE:
             raise AdmissionError("worker output cannot self-promote to evidence")
         required_execution_id = expected_execution_id or result.execution_id
-        if proposition.producer_execution_id not in (None, required_execution_id):
-            raise AdmissionError("proposition producer does not match execution")
+        if proposition.producer_execution_id != required_execution_id:
+            raise AdmissionError("proposition producer must match execution exactly")
         if proposition.episode_id != episode.episode_id:
             raise AdmissionError("proposition belongs to a different episode")
     for relation in result.emitted_relations:
         required_execution_id = expected_execution_id or result.execution_id
-        if relation.producer_execution_id not in (None, required_execution_id):
-            raise AdmissionError("relation producer does not match execution")
+        if relation.producer_execution_id != required_execution_id:
+            raise AdmissionError("relation producer must match execution exactly")
         if relation.episode_id != episode.episode_id:
             raise AdmissionError("relation belongs to a different episode")
 
