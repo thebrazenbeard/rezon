@@ -34,6 +34,9 @@ class AdmissionStatus(str, Enum):
     UNKNOWN = "unknown"
 
 
+_TRUSTED_INDEPENDENCE_BASIS_PREFIXES = ("policy:", "receipt:", "review:", "runtime:")
+
+
 @dataclass(frozen=True)
 class IndependenceMetadata:
     executor_id: str | None = None
@@ -49,11 +52,16 @@ class IndependenceMetadata:
     def is_demonstrably_independent(self) -> bool:
         """Whether the claim is complete enough to be externally verified.
 
-        The runner does not trust this property by itself. An independence-required
-        execution also needs a matching IndependenceVerificationPolicy.
+        Prefix shape is only a claim-format check. The runner does not trust it by
+        itself; independence-required execution also needs a matching external
+        IndependenceVerificationPolicy.
         """
+        basis_well_formed = bool(self.independence_basis_refs) and all(
+            ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES)
+            for ref in self.independence_basis_refs
+        )
         return bool(
-            self.independence_basis_refs
+            basis_well_formed
             and self.saw_other_answer is False
             and not self.common_evidence_refs
             and self.executor_id
@@ -98,6 +106,8 @@ class IndependenceVerificationEvidence:
             self.verification_refs,
         )):
             raise ValueError("independence verification evidence must be complete")
+        if not self.basis_ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES):
+            raise ValueError("independence verification basis must use a governed namespace")
 
 
 @dataclass(frozen=True)
