@@ -34,9 +34,6 @@ class AdmissionStatus(str, Enum):
     UNKNOWN = "unknown"
 
 
-_TRUSTED_INDEPENDENCE_BASIS_PREFIXES = ("policy:", "receipt:", "review:", "runtime:")
-
-
 @dataclass(frozen=True)
 class IndependenceMetadata:
     executor_id: str | None = None
@@ -50,12 +47,13 @@ class IndependenceMetadata:
 
     @property
     def is_demonstrably_independent(self) -> bool:
-        trusted_basis = bool(self.independence_basis_refs) and all(
-            ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES)
-            for ref in self.independence_basis_refs
-        )
+        """Whether the claim is complete enough to be externally verified.
+
+        The runner does not trust this property by itself. An independence-required
+        execution also needs a matching IndependenceVerificationPolicy.
+        """
         return bool(
-            trusted_basis
+            self.independence_basis_refs
             and self.saw_other_answer is False
             and not self.common_evidence_refs
             and self.executor_id
@@ -77,6 +75,57 @@ class IndependenceMetadata:
         if set(self.common_evidence_refs) & set(other.common_evidence_refs):
             return False
         return True
+
+
+@dataclass(frozen=True)
+class IndependenceVerificationEvidence:
+    basis_ref: str
+    executor_id: str
+    model_id: str
+    provider_id: str
+    prompt_lineage: str
+    context_lineage: str
+    verification_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not all((
+            self.basis_ref,
+            self.executor_id,
+            self.model_id,
+            self.provider_id,
+            self.prompt_lineage,
+            self.context_lineage,
+            self.verification_refs,
+        )):
+            raise ValueError("independence verification evidence must be complete")
+
+
+@dataclass(frozen=True)
+class IndependenceVerificationPolicy:
+    verified_evidence: tuple[IndependenceVerificationEvidence, ...]
+
+    def verify(self, metadata: IndependenceMetadata) -> bool:
+        if not metadata.is_demonstrably_independent:
+            return False
+        claimed_basis = set(metadata.independence_basis_refs)
+        for evidence in self.verified_evidence:
+            if evidence.basis_ref not in claimed_basis:
+                continue
+            if (
+                evidence.executor_id,
+                evidence.model_id,
+                evidence.provider_id,
+                evidence.prompt_lineage,
+                evidence.context_lineage,
+            ) == (
+                metadata.executor_id,
+                metadata.model_id,
+                metadata.provider_id,
+                metadata.prompt_lineage,
+                metadata.context_lineage,
+            ):
+                return True
+        return False
 
 
 @dataclass(frozen=True)
@@ -117,5 +166,7 @@ class ResultReceipt:
         overlap = set(self.accepted_claim_ids) & set(self.rejected_claim_ids)
         if overlap:
             raise ValueError(f"claims cannot be both accepted and rejected: {sorted(overlap)}")
-        if self.effect_state is EffectState.QUALIFIED and (self.failures or self.unresolved):
-            raise ValueError("qualified result cannot contain unresolved failures")
+        if self.effect_state is EffectState.QUALIFIED:
+            raise ValueError(
+                "ResultReceipt cannot self-issue QUALIFIED; use a separate governed qualification artifact"
+            )
