@@ -37,7 +37,12 @@ def test_scheduler_mandatory_verification_is_first():
     scheduler = DeterministicScheduler()
     nodes = (
         NodeDescriptor("echo_hypothesis", (PropositionKind.HYPOTHESIS,)),
-        NodeDescriptor("verifier", (PropositionKind.TEST_RESULT,), mandatory_verification=True),
+        NodeDescriptor(
+            "verifier",
+            (PropositionKind.TEST_RESULT,),
+            mandatory_verification=True,
+            verification_target_ids=("o1",),
+        ),
     )
     decision = scheduler.next(ep.snapshot(), nodes, completed_node_ids=(), budget=Budget(5, 0))
     assert decision.action is ScheduleAction.EXECUTE
@@ -122,8 +127,14 @@ def test_runner_records_blinding_and_does_not_upgrade_effect_state():
 
 def test_missing_mandatory_executor_is_visible_failure_not_clean_success():
     ep = Episode("e1")
+    ep.add_proposition(_p("o1", PropositionKind.OBSERVATION))
     node = RunnerNode(
-        descriptor=NodeDescriptor("verifier", (PropositionKind.TEST_RESULT,), mandatory_verification=True),
+        descriptor=NodeDescriptor(
+            "verifier",
+            (PropositionKind.TEST_RESULT,),
+            mandatory_verification=True,
+            verification_target_ids=("o1",),
+        ),
         executor=None,
         visibility=VisibilityPolicy(),
     )
