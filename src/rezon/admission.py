@@ -52,6 +52,7 @@ def admit_execution_result(
     result: ExecutionResult,
     *,
     expected_execution_id: str | None = None,
+    allowed_source_refs: tuple[str, ...] | None = None,
 ) -> None:
     if result.node_id != descriptor.node_id:
         raise AdmissionError("execution result node does not match descriptor")
@@ -62,6 +63,11 @@ def admit_execution_result(
 
     required_execution_id = expected_execution_id or result.execution_id
     permitted = set(descriptor.permitted_output_kinds)
+    permitted_relation_types = {
+        relation_type.lower() for relation_type in descriptor.permitted_relation_types
+    }
+    governed_refs = set(allowed_source_refs or ())
+
     for proposition in result.emitted_propositions:
         if proposition.kind not in permitted:
             raise AdmissionError(f"node {descriptor.node_id} may not emit {proposition.kind.value}")
@@ -71,11 +77,39 @@ def admit_execution_result(
             raise AdmissionError("execution-emitted proposition must bind exact producer execution")
         if proposition.episode_id != episode.episode_id:
             raise AdmissionError("proposition belongs to a different episode")
+        if allowed_source_refs is not None:
+            ungoverned = [ref for ref in proposition.source_refs if ref not in governed_refs]
+            if ungoverned:
+                raise AdmissionError(
+                    f"proposition reports provenance not present in governed execution view: {ungoverned}"
+                )
+
+    staged_prop_ids = {p.proposition_id for p in result.emitted_propositions}
+    relation_participant_refs = governed_refs | staged_prop_ids
     for relation in result.emitted_relations:
+        if relation.relation_type.lower() not in permitted_relation_types:
+            raise AdmissionError(
+                f"node {descriptor.node_id} may not emit relation type {relation.relation_type}"
+            )
         if relation.producer_execution_id != required_execution_id:
             raise AdmissionError("execution-emitted relation must bind exact producer execution")
         if relation.episode_id != episode.episode_id:
             raise AdmissionError("relation belongs to a different episode")
+        if allowed_source_refs is not None:
+            ungoverned_sources = [ref for ref in relation.source_refs if ref not in governed_refs]
+            if ungoverned_sources:
+                raise AdmissionError(
+                    f"relation reports provenance not present in governed execution view: {ungoverned_sources}"
+                )
+            ungoverned_participants = [
+                participant.ref_id
+                for participant in relation.participants
+                if participant.ref_id not in relation_participant_refs
+            ]
+            if ungoverned_participants:
+                raise AdmissionError(
+                    f"relation references objects outside governed execution view: {ungoverned_participants}"
+                )
 
     _prevalidate_episode_mutation(episode, result)
     try:
