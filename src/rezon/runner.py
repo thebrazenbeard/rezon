@@ -301,6 +301,7 @@ class EpisodeRunner:
                 verification_precondition_ok = False
 
             if runner_node.descriptor.mandatory_verification and not result.failures:
+                expected_targets = tuple(runner_node.descriptor.verification_target_ids)
                 verification_targets = tuple(result.verification_target_ids)
                 if result.verification_status is not VerificationStatus.PASSED:
                     add_failure(FailureState.INSUFFICIENT_EVIDENCE)
@@ -308,9 +309,13 @@ class EpisodeRunner:
                         execution_failures.append(FailureState.INSUFFICIENT_EVIDENCE)
                     unresolved.append(f"verification:{execution_id}")
                     verification_precondition_ok = False
-                elif not verification_targets or any(
-                    target_id not in visible_refs for target_id in verification_targets
-                ):
+                elif verification_targets != expected_targets:
+                    add_failure(FailureState.CONTRACT_VIOLATION)
+                    if FailureState.CONTRACT_VIOLATION not in execution_failures:
+                        execution_failures.append(FailureState.CONTRACT_VIOLATION)
+                    unresolved.append(f"verification:{execution_id}")
+                    verification_precondition_ok = False
+                elif any(target_id not in visible_refs for target_id in expected_targets):
                     add_failure(FailureState.CONTRACT_VIOLATION)
                     if FailureState.CONTRACT_VIOLATION not in execution_failures:
                         execution_failures.append(FailureState.CONTRACT_VIOLATION)
@@ -318,7 +323,7 @@ class EpisodeRunner:
                     verification_precondition_ok = False
                 elif not any(
                     proposition.kind is PropositionKind.TEST_RESULT
-                    and set(verification_targets).issubset(set(proposition.source_refs))
+                    and set(expected_targets).issubset(set(proposition.source_refs))
                     for proposition in result.emitted_propositions
                 ):
                     add_failure(FailureState.CONTRACT_VIOLATION)
