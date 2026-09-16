@@ -25,6 +25,6 @@ jobs:
       - name: Test
         run: pytest -q
       - name: Reference benchmark
-        run: python scripts/run_benchmark_v1.py tests/fixtures/benchmark_v1.json --seed 20260916 --code-version "$GITHUB_SHA"
+        run: python scripts/run_benchmark_v1.py tests/fixtures/benchmark_v1.json tests/fixtures/benchmark_v1_clean_controls.json --seed 20260916 --code-version "$GITHUB_SHA"
       - name: Diff check
         run: git diff --check
