@@ -169,6 +169,7 @@ class ResultReceipt:
     source_versions: tuple[str, ...] = ()
     execution_ids: tuple[str, ...] = ()
     task_envelope_digest: str | None = None
+    claim_disposition_complete: bool = True
 
     def __post_init__(self) -> None:
         if not self.task_id or not self.episode_version:
