@@ -53,9 +53,19 @@ class Episode:
             reason=reason,
         ))
 
+    def _inactive_canonical_source_refs(self, source_refs: tuple[str, ...]) -> list[str]:
+        known = set(self._propositions) | set(self._relations)
+        active = self._active_propositions | self._active_relations
+        return [source_ref for source_ref in source_refs if source_ref in known and source_ref not in active]
+
     def add_proposition(self, proposition: Proposition) -> None:
         if proposition.episode_id != self.episode_id:
             raise EpisodeInvariantError("proposition belongs to a different episode")
+        inactive_sources = self._inactive_canonical_source_refs(proposition.source_refs)
+        if inactive_sources:
+            raise EpisodeInvariantError(
+                f"proposition references inactive canonical sources: {inactive_sources}"
+            )
         previous = self._propositions.get(proposition.proposition_id)
         if previous is not None:
             if previous != proposition:
@@ -124,6 +134,11 @@ class Episode:
         if unavailable:
             raise EpisodeInvariantError(
                 f"relation references inactive or unknown objects: {unavailable}"
+            )
+        inactive_sources = self._inactive_canonical_source_refs(relation.source_refs)
+        if inactive_sources:
+            raise EpisodeInvariantError(
+                f"relation references inactive canonical sources: {inactive_sources}"
             )
         previous = self._relations.get(relation.relation_id)
         if previous is not None:
