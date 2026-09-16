@@ -284,7 +284,7 @@ def test_accepted_input_kinds_are_enforced_before_execution():
     assert "t1" not in {p.proposition_id for p in ep.snapshot().current_propositions}
 
 
-def test_trace_and_receipt_preserve_execution_provenance_and_timing():
+def test_trace_distinguishes_consumed_from_worker_reported_provenance_and_timing():
     class SourcedGenerator:
         node_id = "echo_hypothesis"
 
@@ -312,7 +312,9 @@ def test_trace_and_receipt_preserve_execution_provenance_and_timing():
     )
     outcome = EpisodeRunner((node,), budget_limit=1).run(ep, task_id="t-provenance")
     record = outcome.trace.records[0]
-    assert getattr(record, "source_refs", ()) == ("obs:o1", "repo:policy@abc123")
-    assert getattr(record, "duration_seconds", None) is not None
+    assert record.source_refs == ("o1",)
+    assert record.source_versions == ()
+    assert record.reported_source_refs == ("obs:o1", "repo:policy@abc123")
+    assert record.reported_source_versions == ("repo:policy@abc123",)
     assert record.duration_seconds >= 0
-    assert outcome.receipt.source_versions == ("repo:policy@abc123",)
+    assert outcome.receipt.source_versions == ()
