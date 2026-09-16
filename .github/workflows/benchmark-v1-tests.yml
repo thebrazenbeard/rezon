@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - rezon/benchmark-v1-impl
+      - rezon/benchmark-v1-r2-fairness
 
 jobs:
   test:
