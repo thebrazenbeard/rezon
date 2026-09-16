@@ -41,3 +41,4 @@ class ExecutionResult:
     emitted_relations: tuple[Hyperrelation, ...] = ()
     failures: tuple[FailureState, ...] = ()
     source_refs: tuple[str, ...] = ()
+    source_versions: tuple[str, ...] = ()
