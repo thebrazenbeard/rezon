@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import dataclass
+from enum import Enum
 
 from .replay import Disposition, ReplayCandidate, ReplayStrategyOutcome, StrategyInput
 
 
 def _normalize_answer(answer: str) -> str:
     return " ".join(answer.split()).casefold()
+
+
+def _normalize_request(request: str) -> str:
+    return " ".join(request.split())
 
 
 def _candidate_by_id(strategy_input: StrategyInput, candidate_id: str) -> ReplayCandidate | None:
@@ -104,4 +110,219 @@ def fixed_multipass(strategy_input: StrategyInput) -> ReplayStrategyOutcome:
             f"candidate:{candidate.candidate_id}:eligible:{normalized}"
             for candidate, normalized in zip(eligible, normalized_answers)
         ),
+    )
+
+
+class GuardName(str, Enum):
+    PROPOSITION_FIDELITY = "proposition_fidelity"
+    PROVENANCE_CURRENTNESS = "provenance_currentness"
+    ADMISSION_INTEGRITY = "admission_integrity"
+    INDEPENDENCE_CONTAMINATION = "independence_contamination"
+    FAILURE_VISIBILITY = "failure_visibility"
+    AUTHORITY_EFFECT_BOUNDARY = "authority_effect_boundary"
+
+
+@dataclass(frozen=True)
+class GuardConfig:
+    enabled: frozenset[GuardName]
+
+    def without(self, *guards: GuardName) -> "GuardConfig":
+        return GuardConfig(self.enabled.difference(guards))
+
+    def contains(self, guard: GuardName) -> bool:
+        return guard in self.enabled
+
+
+ALL_GUARDS = GuardConfig(frozenset(GuardName))
+
+
+def _source_map(strategy_input: StrategyInput):
+    return {source.source_id: source for source in strategy_input.sources}
+
+
+def _correlated_candidates(candidates: tuple[ReplayCandidate, ...]) -> set[str]:
+    correlated: set[str] = {
+        candidate.candidate_id
+        for candidate in candidates
+        if candidate.saw_other_answer is True
+    }
+    for index, left in enumerate(candidates):
+        for right in candidates[index + 1 :]:
+            same_lineage = any(
+                left_value is not None and left_value == right_value
+                for left_value, right_value in (
+                    (left.model_id, right.model_id),
+                    (left.provider_id, right.provider_id),
+                    (left.prompt_lineage, right.prompt_lineage),
+                    (left.context_lineage, right.context_lineage),
+                )
+            )
+            shared_evidence = bool(
+                set(left.common_evidence_refs).intersection(right.common_evidence_refs)
+            )
+            if same_lineage or shared_evidence:
+                correlated.update((left.candidate_id, right.candidate_id))
+    return correlated
+
+
+def rezon_guarded(
+    strategy_input: StrategyInput,
+    guards: GuardConfig = ALL_GUARDS,
+) -> ReplayStrategyOutcome:
+    """Apply explicit replay governance controls before deterministic integration."""
+    sources = _source_map(strategy_input)
+    rejected: set[str] = set()
+    violations: list[str] = []
+    unresolved: list[str] = []
+    trace: list[str] = []
+    operation_count = 0
+
+    answering = tuple(
+        candidate
+        for candidate in strategy_input.candidates
+        if candidate.answer is not None and candidate.failure is None
+    )
+
+    if guards.contains(GuardName.PROPOSITION_FIDELITY):
+        for candidate in answering:
+            operation_count += 1
+            if (
+                candidate.solved_request is not None
+                and _normalize_request(candidate.solved_request)
+                != _normalize_request(strategy_input.literal_request)
+            ):
+                rejected.add(candidate.candidate_id)
+                if "PROPOSITION_FIDELITY" not in violations:
+                    violations.append("PROPOSITION_FIDELITY")
+                trace.append(f"guard:proposition_fidelity:reject:{candidate.candidate_id}")
+
+    if guards.contains(GuardName.PROVENANCE_CURRENTNESS):
+        for candidate in answering:
+            operation_count += 1
+            stale = any(
+                source_ref in sources and sources[source_ref].is_current is False
+                for source_ref in candidate.source_refs
+            )
+            if stale:
+                rejected.add(candidate.candidate_id)
+                if "PROVENANCE_CURRENTNESS" not in violations:
+                    violations.append("PROVENANCE_CURRENTNESS")
+                trace.append(f"guard:provenance_currentness:reject:{candidate.candidate_id}")
+
+    if guards.contains(GuardName.ADMISSION_INTEGRITY):
+        for candidate in answering:
+            operation_count += 1
+            invalid_ref = any(
+                source_ref not in sources
+                or sources[source_ref].admission_status != "ADMITTED"
+                for source_ref in candidate.source_refs
+            )
+            if invalid_ref:
+                rejected.add(candidate.candidate_id)
+                if "ADMISSION_INTEGRITY" not in violations:
+                    violations.append("ADMISSION_INTEGRITY")
+                trace.append(f"guard:admission_integrity:reject:{candidate.candidate_id}")
+
+    if guards.contains(GuardName.INDEPENDENCE_CONTAMINATION):
+        correlated = _correlated_candidates(answering)
+        operation_count += len(answering)
+        if correlated:
+            rejected.update(correlated)
+            violations.append("INDEPENDENCE_CONTAMINATION")
+            for candidate_id in sorted(correlated):
+                trace.append(f"guard:independence_contamination:reject:{candidate_id}")
+
+    failure_block = False
+    if guards.contains(GuardName.FAILURE_VISIBILITY):
+        for candidate in strategy_input.candidates:
+            operation_count += 1
+            if candidate.failure is not None:
+                failure_block = True
+                rejected.add(candidate.candidate_id)
+                unresolved.append(f"{candidate.candidate_id}:{candidate.failure}")
+                if "FAILURE_VISIBILITY" not in violations:
+                    violations.append("FAILURE_VISIBILITY")
+                trace.append(f"guard:failure_visibility:observe:{candidate.candidate_id}")
+
+    if guards.contains(GuardName.AUTHORITY_EFFECT_BOUNDARY):
+        for candidate in answering:
+            operation_count += 1
+            effect_overreach = candidate.effect_state_claim not in (None, "PLAN")
+            authority_overreach = bool(candidate.authority_claims)
+            if effect_overreach or authority_overreach:
+                rejected.add(candidate.candidate_id)
+                if "AUTHORITY_EFFECT_BOUNDARY" not in violations:
+                    violations.append("AUTHORITY_EFFECT_BOUNDARY")
+                trace.append(f"guard:authority_effect_boundary:reject:{candidate.candidate_id}")
+
+    if failure_block:
+        return ReplayStrategyOutcome(
+            disposition=Disposition.ABSTAIN,
+            rejected_candidate_ids=tuple(
+                candidate.candidate_id
+                for candidate in strategy_input.candidates
+                if candidate.candidate_id in rejected
+            ),
+            violations_detected=tuple(violations),
+            unresolved=tuple(unresolved),
+            operation_count=operation_count,
+            trace=tuple(trace),
+        )
+
+    eligible = tuple(
+        candidate
+        for candidate in answering
+        if candidate.candidate_id not in rejected
+    )
+    if not eligible:
+        return ReplayStrategyOutcome(
+            disposition=Disposition.ABSTAIN,
+            rejected_candidate_ids=tuple(
+                candidate.candidate_id
+                for candidate in strategy_input.candidates
+                if candidate.candidate_id in rejected
+            ),
+            violations_detected=tuple(violations),
+            unresolved=tuple(unresolved),
+            operation_count=operation_count,
+            trace=tuple(trace),
+        )
+
+    normalized_answers = tuple(_normalize_answer(candidate.answer or "") for candidate in eligible)
+    counts = Counter(normalized_answers)
+    highest_count = max(counts.values())
+    winning_normalized = next(
+        normalized
+        for normalized in normalized_answers
+        if counts[normalized] == highest_count
+    )
+    accepted = tuple(
+        candidate.candidate_id
+        for candidate, normalized in zip(eligible, normalized_answers)
+        if normalized == winning_normalized
+    )
+    for candidate, normalized in zip(eligible, normalized_answers):
+        if normalized != winning_normalized:
+            rejected.add(candidate.candidate_id)
+    representative = next(
+        candidate.answer
+        for candidate, normalized in zip(eligible, normalized_answers)
+        if normalized == winning_normalized
+    )
+    operation_count += len(eligible)
+    trace.extend(f"integrate:accept:{candidate_id}" for candidate_id in accepted)
+
+    return ReplayStrategyOutcome(
+        disposition=Disposition.ANSWER,
+        answer=representative,
+        accepted_candidate_ids=accepted,
+        rejected_candidate_ids=tuple(
+            candidate.candidate_id
+            for candidate in strategy_input.candidates
+            if candidate.candidate_id in rejected
+        ),
+        violations_detected=tuple(violations),
+        unresolved=tuple(unresolved),
+        operation_count=operation_count,
+        trace=tuple(trace),
     )
