@@ -57,21 +57,23 @@ def admit_execution_result(
         raise AdmissionError("execution result node does not match descriptor")
     if expected_execution_id is not None and result.execution_id != expected_execution_id:
         raise AdmissionError("execution result identity does not match runner-issued execution")
+    if result.failures:
+        raise AdmissionError("failed execution results cannot mutate canonical episode state")
+
+    required_execution_id = expected_execution_id or result.execution_id
     permitted = set(descriptor.permitted_output_kinds)
     for proposition in result.emitted_propositions:
         if proposition.kind not in permitted:
             raise AdmissionError(f"node {descriptor.node_id} may not emit {proposition.kind.value}")
         if proposition.kind is PropositionKind.EVIDENCE:
             raise AdmissionError("worker output cannot self-promote to evidence")
-        required_execution_id = expected_execution_id or result.execution_id
-        if proposition.producer_execution_id not in (None, required_execution_id):
-            raise AdmissionError("proposition producer does not match execution")
+        if proposition.producer_execution_id != required_execution_id:
+            raise AdmissionError("execution-emitted proposition must bind exact producer execution")
         if proposition.episode_id != episode.episode_id:
             raise AdmissionError("proposition belongs to a different episode")
     for relation in result.emitted_relations:
-        required_execution_id = expected_execution_id or result.execution_id
-        if relation.producer_execution_id not in (None, required_execution_id):
-            raise AdmissionError("relation producer does not match execution")
+        if relation.producer_execution_id != required_execution_id:
+            raise AdmissionError("execution-emitted relation must bind exact producer execution")
         if relation.episode_id != episode.episode_id:
             raise AdmissionError("relation belongs to a different episode")
 
