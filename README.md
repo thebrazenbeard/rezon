@@ -54,8 +54,8 @@ A stronger model is never automatically an authority source. A reasoning node ma
 
 ## Current status
 
-`work/rezon-kernel-v0-r3-mune` contains the current R3 provider-independent Kernel V0 repair candidate. Executable payload `bc3321346234c1127a86aaeddae03da2db463dc8` passed the hosted Python 3.12 qualification surface with **67/67 tests passing**, including Masa's R1 and R2 hostile artifacts, Mune-derived R3 and supplemental provenance/content/scope regressions, and additional adversarial regressions. See `docs/qualification/KERNEL_V0_ACCEPTANCE.md`.
+`work/rezon-kernel-v0-r4-mune` contains the current R4 provider-independent Kernel V0 repair candidate. Executable payload `2f50287f4c8fad5fefb99e5ed73d91e8ad2063dc`, tree `3d729ecc7a558fa030d2d350a3cd82bc5ad3fa6d`, passed the hosted Python 3.12 qualification surface with **79/79 tests passing**, including Masa R1/R2 hostile artifacts, Mune R2/R3 regression surfaces, and additional R4 adversarial cases. See `docs/qualification/KERNEL_V0_ACCEPTANCE.md`.
 
-Masa's R1 and R2 `CHANGES_REQUESTED` dispositions and Mune's R2 `CHANGES_REQUESTED` plus supplemental H5/H6 findings remain preserved as historical exact-subject evidence. R3 repairs those known executable/source blockers but does **not** self-award independent R3 qualification. Fresh exact-head Mune and Masa rereview is required before R3 is promoted into the P0 integration subject or PR #8 is advanced.
+Masa's R1/R2 `CHANGES_REQUESTED` dispositions, Mune's R2 `CHANGES_REQUESTED`, and Mune's R3 `CHANGES_REQUESTED / R3_KERNEL_V0_SEMANTIC_BLOCKERS / HOSTED_67_PASS_NOT_SUFFICIENT` remain preserved as historical exact-subject evidence. R4 repairs those currently known executable/source blockers but does **not** self-award independent R4 qualification. Fresh exact-head Mune and Masa rereview is required before R4 is promoted into the P0 integration subject or predecessor PRs are advanced.
 
 This remains source/build/test candidate evidence only. It does not establish reasoning superiority, live-provider/tool correctness, deployment, installation, activation, or downstream behavioral qualification.
