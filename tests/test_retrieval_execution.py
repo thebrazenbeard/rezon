@@ -65,12 +65,14 @@ def test_admitted_versioned_retrieval_can_create_evidence_with_provenance():
         "ev1",
         content,
         policy=_policy(content),
+        required_scope="policy/current",
     )
     assert evidence.kind is PropositionKind.EVIDENCE
     assert evidence.source_refs == (
         "repo:policy@abc123",
         "policy.md#10",
         f"content-sha256:{digest_retrieved_content(content)}",
+        "scope:policy/current",
         "retrieval:ret1",
         "admission:review:admission-1",
         "currentness:receipt:current-head",
