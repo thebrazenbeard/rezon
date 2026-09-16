@@ -34,6 +34,10 @@ def test_retrieved_only_material_cannot_become_evidence():
 
 
 def test_admitted_versioned_retrieval_can_create_evidence_with_provenance():
+    from hashlib import sha256
+
+    content = "policy says X"
+    digest = sha256(content.encode("utf-8")).hexdigest()
     ep = Episode("e1")
     receipt = RetrievalReceipt(
         "ret1",
@@ -43,6 +47,8 @@ def test_admitted_versioned_retrieval_can_create_evidence_with_provenance():
         "exact_ref",
         ("policy.md#10",),
         AdmissionStatus.ADMITTED,
+        authoritative_scope="policy/current",
+        content_digest=digest,
     )
     policy = RetrievalAdmissionPolicy((RetrievalAdmissionEvidence(
         source_id="repo:policy",
@@ -51,13 +57,16 @@ def test_admitted_versioned_retrieval_can_create_evidence_with_provenance():
         verification_refs=("receipt:digest-verified",),
         currentness_ref="receipt:current-head",
         authoritative_scope="policy/current",
+        content_digest=digest,
     ),))
-    evidence = admit_retrieval_as_evidence(ep, receipt, "ev1", "policy says X", policy=policy)
+    evidence = admit_retrieval_as_evidence(ep, receipt, "ev1", content, policy=policy)
     assert evidence.kind is PropositionKind.EVIDENCE
     assert evidence.source_refs == (
         "repo:policy@abc123",
         "policy.md#10",
         "retrieval:ret1",
+        "scope:policy/current",
+        f"content:sha256:{digest}",
         "admission:review:admission-1",
         "currentness:receipt:current-head",
         "receipt:digest-verified",
@@ -105,3 +114,65 @@ def test_falsifier_requires_explicit_contradictory_test_result():
     with_relation = FalsifierExecutor("h1").execute(_view((h, test_result), (relation,), "xf1"), "e1")
     assert with_relation.emitted_propositions[0].kind is PropositionKind.CLAIM
     assert with_relation.emitted_propositions[0].source_refs == ("t1", "r1")
+
+
+def test_verified_source_cannot_launder_altered_content():
+    from hashlib import sha256
+
+    content = "policy says X"
+    digest = sha256(content.encode("utf-8")).hexdigest()
+    ep = Episode("e1")
+    receipt = RetrievalReceipt(
+        "ret-content",
+        "policy",
+        "repo:policy",
+        "abc123",
+        "exact_ref",
+        ("policy.md#10",),
+        AdmissionStatus.ADMITTED,
+        content_digest=digest,
+        authoritative_scope="policy/current",
+    )
+    policy = RetrievalAdmissionPolicy((RetrievalAdmissionEvidence(
+        source_id="repo:policy",
+        source_version="abc123",
+        admission_authority_ref="review:admission-1",
+        verification_refs=("receipt:digest-verified",),
+        currentness_ref="receipt:current-head",
+        authoritative_scope="policy/current",
+        content_digest=digest,
+    ),))
+
+    with pytest.raises(RetrievalAdmissionError):
+        admit_retrieval_as_evidence(ep, receipt, "ev-fabricated", "FABRICATED CONTENT", policy=policy)
+
+
+def test_retrieval_admission_scope_must_match_verified_scope():
+    from hashlib import sha256
+
+    content = "policy says X"
+    digest = sha256(content.encode("utf-8")).hexdigest()
+    ep = Episode("e1")
+    receipt = RetrievalReceipt(
+        "ret-scope",
+        "policy",
+        "repo:policy",
+        "abc123",
+        "exact_ref",
+        ("policy.md#10",),
+        AdmissionStatus.ADMITTED,
+        content_digest=digest,
+        authoritative_scope="policy/unrelated",
+    )
+    policy = RetrievalAdmissionPolicy((RetrievalAdmissionEvidence(
+        source_id="repo:policy",
+        source_version="abc123",
+        admission_authority_ref="review:admission-1",
+        verification_refs=("receipt:digest-verified",),
+        currentness_ref="receipt:current-head",
+        authoritative_scope="policy/current",
+        content_digest=digest,
+    ),))
+
+    with pytest.raises(RetrievalAdmissionError):
+        admit_retrieval_as_evidence(ep, receipt, "ev-scope", content, policy=policy)

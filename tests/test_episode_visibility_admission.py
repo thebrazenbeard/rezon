@@ -40,6 +40,8 @@ def test_visibility_can_blind_hypotheses_and_records_withheld_ids():
         VisibilityPolicy(blind_kinds=(PropositionKind.HYPOTHESIS,)),
         IndependenceMetadata(
             executor_id="independent-generator",
+            model_id="test-model",
+            provider_id="test-provider",
             prompt_lineage="fresh-prompt",
             context_lineage="view:x1",
             saw_other_answer=False,
