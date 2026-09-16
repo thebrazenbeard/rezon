@@ -99,7 +99,7 @@ def test_subject_binding_requires_association_evidence():
     assert binding.association_evidence_refs == ("receipt:association",)
 
 
-def test_result_receipt_keeps_unresolved_failures_and_effect_state_visible():
+def test_result_receipt_keeps_unresolved_failures_and_plan_state_visible():
     receipt = ResultReceipt(
         task_id="t1",
         episode_version="v7",
@@ -107,13 +107,13 @@ def test_result_receipt_keeps_unresolved_failures_and_effect_state_visible():
         rejected_claim_ids=("p2",),
         unresolved=("conflict:r4",),
         failures=(FailureState.INSUFFICIENT_EVIDENCE,),
-        effect_state=EffectState.SOURCE_VERIFIED,
+        effect_state=EffectState.PLAN,
         source_versions=("repo@abc",),
         execution_ids=("exec1",),
     )
     assert receipt.unresolved
     assert receipt.failures == (FailureState.INSUFFICIENT_EVIDENCE,)
-    assert receipt.effect_state is EffectState.SOURCE_VERIFIED
+    assert receipt.effect_state is EffectState.PLAN
 
 
 def test_result_receipt_requires_exact_task_and_episode_subject():

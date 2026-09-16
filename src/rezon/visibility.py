@@ -31,7 +31,11 @@ def build_execution_view(
     allow_kinds = set(policy.allow_kinds)
     blind_kinds = set(policy.blind_kinds)
     for proposition in snapshot.current_propositions:
-        allowed = (not allow_ids and not allow_kinds) or proposition.proposition_id in allow_ids or proposition.kind in allow_kinds
+        allowed = (
+            (not allow_ids and not allow_kinds)
+            or proposition.proposition_id in allow_ids
+            or proposition.kind in allow_kinds
+        )
         blocked = proposition.proposition_id in blind_ids or proposition.kind in blind_kinds
         if allowed and not blocked:
             visible.append(proposition)
@@ -43,7 +47,12 @@ def build_execution_view(
     blinded_relations = []
     for relation in snapshot.current_relations:
         refs = {participant.ref_id for participant in relation.participants}
-        if refs.issubset(visible_ids | {r.relation_id for r in visible_relations}):
+        dependencies_visible = refs.issubset(
+            visible_ids | {r.relation_id for r in visible_relations}
+        )
+        id_allowed = not allow_ids or relation.relation_id in allow_ids
+        id_blocked = relation.relation_id in blind_ids
+        if dependencies_visible and id_allowed and not id_blocked:
             visible_relations.append(relation)
         else:
             blinded_relations.append(relation.relation_id)

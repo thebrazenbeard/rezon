@@ -15,6 +15,7 @@ class NodeDescriptor:
     mandatory_verification: bool = False
     independence_required: bool = False
     required_authority: tuple[str, ...] = ()
+    permitted_relation_types: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.node_id:
@@ -42,3 +43,5 @@ class ExecutionResult:
     failures: tuple[FailureState, ...] = ()
     source_refs: tuple[str, ...] = ()
     source_versions: tuple[str, ...] = ()
+    verification_satisfied: bool | None = None
+    verification_target_ids: tuple[str, ...] = ()
