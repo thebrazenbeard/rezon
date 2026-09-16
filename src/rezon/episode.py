@@ -53,9 +53,19 @@ class Episode:
             reason=reason,
         ))
 
+    def _inactive_canonical_source_refs(self, source_refs: tuple[str, ...]) -> list[str]:
+        known = set(self._propositions) | set(self._relations)
+        active = self._active_propositions | self._active_relations
+        return [source_ref for source_ref in source_refs if source_ref in known and source_ref not in active]
+
     def add_proposition(self, proposition: Proposition) -> None:
         if proposition.episode_id != self.episode_id:
             raise EpisodeInvariantError("proposition belongs to a different episode")
+        inactive_sources = self._inactive_canonical_source_refs(proposition.source_refs)
+        if inactive_sources:
+            raise EpisodeInvariantError(
+                f"proposition references inactive canonical sources: {inactive_sources}"
+            )
         previous = self._propositions.get(proposition.proposition_id)
         if previous is not None:
             if previous != proposition:
@@ -74,18 +84,47 @@ class Episode:
             raise EpisodeInvariantError("proposition is already retracted")
         self._active_propositions.remove(proposition_id)
         self._event("proposition_retracted", proposition_id, reason)
+
+        # Canonical object IDs appearing in source_refs are dependency edges for
+        # currentness. External provenance strings remain provenance-only because
+        # they do not resolve to canonical proposition/relation IDs.
         invalidated_refs = {proposition_id}
         while True:
-            newly_invalidated: list[str] = []
+            changed = False
+
+            for dependent_id in tuple(self._active_propositions):
+                dependent = self._propositions[dependent_id]
+                if any(source_ref in invalidated_refs for source_ref in dependent.source_refs):
+                    self._active_propositions.remove(dependent_id)
+                    self._event(
+                        "proposition_invalidated",
+                        dependent_id,
+                        f"dependency_retracted:{proposition_id}",
+                    )
+                    invalidated_refs.add(dependent_id)
+                    changed = True
+
             for relation_id in tuple(self._active_relations):
                 relation = self._relations[relation_id]
-                if any(participant.ref_id in invalidated_refs for participant in relation.participants):
+                participant_invalid = any(
+                    participant.ref_id in invalidated_refs
+                    for participant in relation.participants
+                )
+                provenance_dependency_invalid = any(
+                    source_ref in invalidated_refs for source_ref in relation.source_refs
+                )
+                if participant_invalid or provenance_dependency_invalid:
                     self._active_relations.remove(relation_id)
-                    self._event("relation_invalidated", relation_id, f"dependency_retracted:{proposition_id}")
-                    newly_invalidated.append(relation_id)
-            if not newly_invalidated:
+                    self._event(
+                        "relation_invalidated",
+                        relation_id,
+                        f"dependency_retracted:{proposition_id}",
+                    )
+                    invalidated_refs.add(relation_id)
+                    changed = True
+
+            if not changed:
                 break
-            invalidated_refs.update(newly_invalidated)
 
     def add_relation(self, relation: Hyperrelation) -> None:
         if relation.episode_id != self.episode_id:
@@ -95,6 +134,11 @@ class Episode:
         if unavailable:
             raise EpisodeInvariantError(
                 f"relation references inactive or unknown objects: {unavailable}"
+            )
+        inactive_sources = self._inactive_canonical_source_refs(relation.source_refs)
+        if inactive_sources:
+            raise EpisodeInvariantError(
+                f"relation references inactive canonical sources: {inactive_sources}"
             )
         previous = self._relations.get(relation.relation_id)
         if previous is not None:

@@ -1,10 +1,11 @@
-name: Rezon R3 tests
+name: Rezon kernel tests
 
 on:
   push:
     branches:
       - work/rezon-kernel-v0-r3-mune-red
       - work/rezon-kernel-v0-r3-mune
+      - work/rezon-kernel-v0-r4-mune
 
 jobs:
   test:

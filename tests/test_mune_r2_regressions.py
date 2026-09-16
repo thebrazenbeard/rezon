@@ -213,6 +213,7 @@ def test_mandatory_verifier_noop_is_not_clean_completion():
             "verifier",
             (PropositionKind.TEST_RESULT,),
             mandatory_verification=True,
+            verification_target_ids=("o1",),
         ),
         executor=NoopVerifier(),
         visibility=VisibilityPolicy(),
@@ -240,6 +241,7 @@ def test_failed_mandatory_verifier_remains_unresolved():
             "verifier",
             (PropositionKind.TEST_RESULT,),
             mandatory_verification=True,
+            verification_target_ids=("o1",),
         ),
         executor=FailingVerifier(),
         visibility=VisibilityPolicy(),
@@ -275,6 +277,7 @@ def test_accepted_input_kinds_are_enforced_before_execution():
             (PropositionKind.TEST_RESULT,),
             accepted_input_kinds=(PropositionKind.OBSERVATION,),
             mandatory_verification=True,
+            verification_target_ids=("h1",),
         ),
         executor=ObservationVerifier(),
         visibility=VisibilityPolicy(),
@@ -284,7 +287,7 @@ def test_accepted_input_kinds_are_enforced_before_execution():
     assert "t1" not in {p.proposition_id for p in ep.snapshot().current_propositions}
 
 
-def test_trace_and_receipt_preserve_execution_provenance_and_timing():
+def test_trace_and_receipt_separate_consumed_from_worker_reported_provenance():
     class SourcedGenerator:
         node_id = "echo_hypothesis"
 
@@ -294,17 +297,25 @@ def test_trace_and_receipt_preserve_execution_provenance_and_timing():
                 episode_id,
                 PropositionKind.HYPOTHESIS,
                 "candidate",
+                source_refs=("o1",),
                 producer_execution_id=view.execution_id,
             )
             return ExecutionResult(
                 execution_id=view.execution_id,
                 node_id=self.node_id,
                 emitted_propositions=(emitted,),
-                source_refs=("obs:o1", "repo:policy@abc123"),
+                source_refs=("repo:reported@v9",),
+                source_versions=("repo:reported@v9",),
             )
 
     ep = Episode("e1")
-    ep.add_proposition(_p("o1", PropositionKind.OBSERVATION))
+    ep.add_proposition(Proposition(
+        "o1",
+        "e1",
+        PropositionKind.OBSERVATION,
+        "observed",
+        source_refs=("repo:policy@abc123",),
+    ))
     node = RunnerNode(
         descriptor=NodeDescriptor("echo_hypothesis", (PropositionKind.HYPOTHESIS,)),
         executor=SourcedGenerator(),
@@ -312,7 +323,8 @@ def test_trace_and_receipt_preserve_execution_provenance_and_timing():
     )
     outcome = EpisodeRunner((node,), budget_limit=1).run(ep, task_id="t-provenance")
     record = outcome.trace.records[0]
-    assert getattr(record, "source_refs", ()) == ("obs:o1", "repo:policy@abc123")
-    assert getattr(record, "duration_seconds", None) is not None
+    assert record.source_refs == ("repo:policy@abc123",)
+    assert record.reported_source_refs == ("repo:reported@v9",)
+    assert record.reported_source_versions == ("repo:reported@v9",)
     assert record.duration_seconds >= 0
     assert outcome.receipt.source_versions == ("repo:policy@abc123",)

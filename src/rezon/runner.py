@@ -7,7 +7,7 @@ from .admission import AdmissionError, admit_execution_result
 from .envelopes import TaskEnvelope
 from .episode import Episode
 from .epistemics import PropositionKind
-from .nodes import NodeDescriptor
+from .nodes import NodeDescriptor, VerificationStatus
 from .receipts import (
     EffectState,
     FailureState,
@@ -45,6 +45,15 @@ def _view_source_refs(view) -> tuple[str, ...]:
         refs.extend(proposition.source_refs)
     for relation in view.relations:
         refs.extend(relation.source_refs)
+    return _dedupe(refs)
+
+
+def _view_governed_refs(view) -> tuple[str, ...]:
+    refs: list[str] = [
+        *(p.proposition_id for p in view.propositions),
+        *(r.relation_id for r in view.relations),
+    ]
+    refs.extend(_view_source_refs(view))
     return _dedupe(refs)
 
 
@@ -217,8 +226,11 @@ class EpisodeRunner:
                     independence.demonstrably_independent_from(previous)
                     for previous in prior_independent
                 )
+                protected_kinds = set(runner_node.descriptor.independence_blind_kinds)
+                protected_ids = set(runner_node.descriptor.independence_blind_ids)
                 candidate_blind = not any(
-                    proposition.kind is PropositionKind.HYPOTHESIS
+                    proposition.kind in protected_kinds
+                    or proposition.proposition_id in protected_ids
                     for proposition in audit_view.propositions
                 )
                 independence_ok = bool(policy_verified and pairwise_ok and candidate_blind)
@@ -239,6 +251,7 @@ class EpisodeRunner:
 
             input_source_refs = _view_source_refs(audit_view)
             input_source_versions = _versioned_source_refs(input_source_refs)
+            governed_refs = _view_governed_refs(audit_view)
             add_source_versions(input_source_versions)
 
             started = perf_counter()
@@ -271,28 +284,65 @@ class EpisodeRunner:
                 continue
             duration = perf_counter() - started
 
-            result_source_versions = list(result.source_versions)
-            for source_ref in result.source_refs:
-                if "@" in source_ref and source_ref not in result_source_versions:
-                    result_source_versions.append(source_ref)
-            execution_source_refs = _dedupe([*input_source_refs, *result.source_refs])
-            execution_source_versions = _dedupe([
-                *input_source_versions,
-                *result_source_versions,
+            reported_source_refs = _dedupe(list(result.source_refs))
+            reported_source_versions = _dedupe([
+                *result.source_versions,
+                *(ref for ref in result.source_refs if "@" in ref),
             ])
-            add_source_versions(execution_source_versions)
 
             execution_failures = list(result.failures)
             admitted_ids: tuple[str, ...] = ()
             admission_ok = False
+            verification_precondition_ok = True
+
             if result.failures:
                 for failure in result.failures:
                     add_failure(failure)
                 unresolved.append(f"execution_result:{execution_id}")
-            else:
+                if runner_node.descriptor.mandatory_verification:
+                    unresolved.append(f"verification:{execution_id}")
+                verification_precondition_ok = False
+
+            if runner_node.descriptor.mandatory_verification and not result.failures:
+                expected_targets = tuple(runner_node.descriptor.verification_target_ids)
+                verification_targets = tuple(result.verification_target_ids)
+                if result.verification_status is not VerificationStatus.PASSED:
+                    add_failure(FailureState.INSUFFICIENT_EVIDENCE)
+                    if FailureState.INSUFFICIENT_EVIDENCE not in execution_failures:
+                        execution_failures.append(FailureState.INSUFFICIENT_EVIDENCE)
+                    unresolved.append(f"verification:{execution_id}")
+                    verification_precondition_ok = False
+                elif verification_targets != expected_targets:
+                    add_failure(FailureState.CONTRACT_VIOLATION)
+                    if FailureState.CONTRACT_VIOLATION not in execution_failures:
+                        execution_failures.append(FailureState.CONTRACT_VIOLATION)
+                    unresolved.append(f"verification:{execution_id}")
+                    verification_precondition_ok = False
+                elif any(target_id not in visible_refs for target_id in expected_targets):
+                    add_failure(FailureState.CONTRACT_VIOLATION)
+                    if FailureState.CONTRACT_VIOLATION not in execution_failures:
+                        execution_failures.append(FailureState.CONTRACT_VIOLATION)
+                    unresolved.append(f"verification:{execution_id}")
+                    verification_precondition_ok = False
+                elif not any(
+                    proposition.kind is PropositionKind.TEST_RESULT
+                    and set(expected_targets).issubset(set(proposition.source_refs))
+                    for proposition in result.emitted_propositions
+                ):
+                    add_failure(FailureState.CONTRACT_VIOLATION)
+                    if FailureState.CONTRACT_VIOLATION not in execution_failures:
+                        execution_failures.append(FailureState.CONTRACT_VIOLATION)
+                    unresolved.append(f"verification:{execution_id}")
+                    verification_precondition_ok = False
+
+            if not result.failures and verification_precondition_ok:
                 try:
                     admit_execution_result(
-                        episode, runner_node.descriptor, result, expected_execution_id=execution_id
+                        episode,
+                        runner_node.descriptor,
+                        result,
+                        expected_execution_id=execution_id,
+                        allowed_source_refs=governed_refs,
                     )
                     admitted_ids = tuple(p.proposition_id for p in result.emitted_propositions)
                     admission_ok = True
@@ -301,23 +351,8 @@ class EpisodeRunner:
                     if FailureState.CONTRACT_VIOLATION not in execution_failures:
                         execution_failures.append(FailureState.CONTRACT_VIOLATION)
                     unresolved.append(f"admission:{execution_id}")
-
-            if runner_node.descriptor.mandatory_verification and result.failures:
-                unresolved.append(f"verification:{execution_id}")
-
-            if (
-                admission_ok
-                and runner_node.descriptor.mandatory_verification
-                and not any(
-                    proposition.kind is PropositionKind.TEST_RESULT
-                    and proposition.proposition_id in admitted_ids
-                    for proposition in result.emitted_propositions
-                )
-            ):
-                add_failure(FailureState.INSUFFICIENT_EVIDENCE)
-                if FailureState.INSUFFICIENT_EVIDENCE not in execution_failures:
-                    execution_failures.append(FailureState.INSUFFICIENT_EVIDENCE)
-                unresolved.append(f"verification:{execution_id}")
+                    if runner_node.descriptor.mandatory_verification:
+                        unresolved.append(f"verification:{execution_id}")
 
             records.append(TraceRecord(
                 execution_id=execution_id,
@@ -330,8 +365,10 @@ class EpisodeRunner:
                 emitted_proposition_ids=admitted_ids,
                 independence_demonstrated=independence_ok,
                 task_envelope_digest=task_digest,
-                source_refs=execution_source_refs,
-                source_versions=execution_source_versions,
+                source_refs=input_source_refs,
+                source_versions=input_source_versions,
+                reported_source_refs=reported_source_refs,
+                reported_source_versions=reported_source_versions,
                 duration_seconds=duration,
                 failures=tuple(execution_failures),
             ))
@@ -340,14 +377,25 @@ class EpisodeRunner:
             completed.append(runner_node.descriptor.node_id)
             used += 1
 
+        final_snapshot = episode.snapshot()
+        undispositioned_claim_ids = tuple(
+            proposition.proposition_id
+            for proposition in final_snapshot.current_propositions
+            if proposition.kind is PropositionKind.CLAIM
+        )
+        unresolved.extend(
+            f"claim_disposition:{claim_id}" for claim_id in undispositioned_claim_ids
+        )
+
         receipt = ResultReceipt(
             task_id=task_id,
-            episode_version=episode.snapshot().version_ref,
+            episode_version=final_snapshot.version_ref,
             unresolved=tuple(dict.fromkeys(unresolved)),
             failures=tuple(failures),
             effect_state=EffectState.PLAN,
             source_versions=tuple(receipt_source_versions),
             execution_ids=tuple(record.execution_id for record in records),
             task_envelope_digest=task_digest,
+            claim_disposition_complete=not undispositioned_claim_ids,
         )
         return RunOutcome(receipt, ExecutionTrace(tuple(records)))

@@ -1,67 +1,66 @@
 # Rezon Kernel V0 Acceptance
 
-Status: R3 SOURCE / BUILD / TEST CANDIDATE — R1/R2 INDEPENDENT FAILURES REPAIRED / FRESH INDEPENDENT R3 REVIEW PENDING
+Status: R4 SOURCE / BUILD / TEST CANDIDATE — R3 + SUPPLEMENTAL INDEPENDENT REVIEW FAILURES REPAIRED / FRESH INDEPENDENT R4 REVIEW PENDING
 
-This record binds executable qualification evidence for the provider-independent Rezon Kernel V0 R3 candidate. It does not self-award independent hostile qualification and does not establish reasoning superiority, production deployment, installation, model training, provider activation, or downstream behavioral effect.
+This record binds executable qualification evidence for the provider-independent Rezon Kernel V0 R4 candidate. It does not self-award independent hostile qualification and does not establish reasoning superiority, production deployment, installation, model training, provider activation, or downstream behavioral effect.
 
 ## Exact executable payload
 
 - repository: `thebrazenbeard/rezon`
-- repair branch: `work/rezon-kernel-v0-r3-mune`
-- executable payload commit: `bc3321346234c1127a86aaeddae03da2db463dc8`
-- executable payload tree: `29f4476b302cc60cf5fb7a97d2bb12d58afcdf0a`
-- predecessor R2 documentation head: `8383acc9dcffbb545f79ddbbd6d03146966aa9db`
-- predecessor R2 executable payload: `6675a91935e5bc98ca57a5fa48413e772ac980be`
+- repair branch: `work/rezon-kernel-v0-r4-mune`
+- executable payload commit: `90952cd4af2b1d1aefa90565a993c7f8221b39df`
+- executable payload tree: `b2ec15c34f45d00d77c9b66edb6e3296d613c0d9`
+- predecessor R3 documentation head: `4f5319e42fdf2718a62a4f62a96294e4350f88d7`
+- predecessor R3 executable payload: `bc3321346234c1127a86aaeddae03da2db463dc8`
 - research base: `rezon/hcae-semantic-reapplication-v1@0cf560ce4a573230b94db2982dbec074dd3b1b20`
 
 ## Independent review history
 
-Masa independently reviewed R1 and returned `HOSTILE QUALIFICATION FAIL / CHANGES_REQUESTED`. His frozen nine-case R1 hostile artifact reproduced against that subject as **9 failed / 0 passed**. R2 repaired those blocking defects and imported the R1 artifact as a permanent regression surface.
+R1/R2 independent failures remain preserved as exact-subject history. Masa returned `HOSTILE QUALIFICATION FAIL / CHANGES_REQUESTED` on R1 and `CHANGES_REQUESTED / HOSTILE_R2_FAIL` on R2. Mune returned `CHANGES_REQUESTED / R2_EXECUTABLE_SEMANTIC_BLOCKERS / NO_MUNE_FULL_SUITE_PASS` plus supplemental producer-provenance and retrieval-content/scope findings. Those cases remain part of the permanent regression surface.
 
-Mune independently inspected exact R2 and returned `CHANGES_REQUESTED / R2_EXECUTABLE_SEMANTIC_BLOCKERS / NO_MUNE_FULL_SUITE_PASS`. His source/control-flow findings identified currentness resurrection, scheduler/view mismatch, weak independence binding, mandatory-verifier no-op completion, unenforced input kinds, and incomplete execution provenance. Mune could not independently clone/run R2 in his chat transport, so his disposition was not a full-suite execution result.
+Mune rereviewed exact R3 and returned:
 
-Mune later extended the same R2 verdict with supplemental H5/H6 findings: worker producer provenance could be omitted, and valid source/version admission could launder arbitrary caller-supplied evidence content. He additionally required admitted content to remain bound to authoritative scope and reinforced that unknown model/provider correlation cannot establish strong independence.
+`CHANGES_REQUESTED / R3_KERNEL_V0_SEMANTIC_BLOCKERS / HOSTED_67_PASS_NOT_SUFFICIENT`
 
-Masa independently rereviewed exact R2 and returned `CHANGES_REQUESTED / HOSTILE_R2_FAIL`. His fresh R2 artifact `masa/rezon-p0-hostile-r2-v1@82dc308030acb3f6b4b58c2b2c1cabf5ebb2b0fc` added nine new hostile cases covering retrieval-content substitution, stale relation recreation, failed-result mutation, actual-view independence, unknown-provider correlation, missing producer provenance, dead input-kind metadata, bare qualification promotion, and consumed-source-version omission.
+The primary R3 findings covered relation visibility, relation-output capability, provenance trust separation, derived-state currentness, target-bound verification, and honest claim-disposition semantics.
 
-Masa could not independently execute his R2 artifact in that chat runtime, so his R2 disposition was source-proven rather than a numerical independent test run.
+Mune then appended `mune-0019` without rewriting the prior verdict and added two source-proven blockers:
 
-## R3 controls
+- bare `ResultReceipt` construction could self-certify lifecycle/effect states above `PLAN` without governed transition evidence;
+- independence candidate blindness covered visible `HYPOTHESIS` only, allowing answer-bearing `CLAIM` or `DECISION` propositions to remain visible.
 
-R3 adds or strengthens these controls:
+The hosted R3 67-test PASS remains valid source/build/test evidence for that exact subject, but Mune's independent semantic verdict remains `CHANGES_REQUESTED` for R3.
 
-- current relations may depend only on active propositions/relations; invalidated relation IDs cannot silently reactivate;
-- governed result admission applies the same currentness rule, including staged relation dependencies;
-- failed `ExecutionResult` objects cannot mutate canonical episode state;
-- execution-emitted propositions and relations must bind exactly to the runner-issued producer execution ID;
-- scheduler decisions bind exact contradiction/falsification targets, and the runner fails closed if a scheduled target is absent from the execution view;
-- node `accepted_input_kinds` is enforced before execution;
-- mandatory verification must yield an admitted `TEST_RESULT`; no-op or failed verification remains typed and unresolved;
-- strong independence requires complete executor/model/provider/prompt/context lineage, governed-form basis references, a separate external `IndependenceVerificationPolicy` bound to that exact lineage, pairwise separation where applicable, and an actually candidate-blind execution view;
-- incomplete independence claims are rejected before execution without manufacturing an execution trace; complete claims rejected because verification/view checks fail leave an auditable pre-execution denial trace;
-- retrieval admission binds exact source/version, exact locator set, SHA-256 of the promoted content, and explicit authoritative scope through external admission evidence; a valid admission cannot attest replacement text or be silently reused across unrelated scopes;
-- admitted evidence provenance records source/version, locator, content digest, authoritative scope, retrieval identity, admission authority, currentness evidence, and verification refs;
-- `ResultReceipt` is prohibited from self-issuing `QUALIFIED`; qualification requires a separate governed qualification artifact;
-- execution trace records timing, consumed/result source references, exact source versions, visible/blinded inputs, failures, and TaskEnvelope binding;
-- final result receipts aggregate exact versioned source references actually exposed to/used by execution views as well as versions reported by execution results;
-- TaskEnvelope task identity/resource budget/declared authority remains bound into runtime/trace/receipt surfaces;
-- executor-visible views do not expose blinded IDs while audit traces retain them.
+## R4 controls
 
-## TDD / hostile evidence
+R4 adds or strengthens:
 
-The first Mune-derived R3 regression gate was introduced before production repair. Hosted GitHub Actions installed and compiled successfully, then pytest failed **9 cases / 46 passed**. After the first repair pass, the suite reached **55 passed**.
+- relation IDs obey `VisibilityPolicy.allow_ids` and `blind_ids` in addition to dependency visibility;
+- `NodeDescriptor.permitted_relation_types` explicitly gates worker relation emission;
+- governed admission rejects emitted proposition/relation provenance not present in the worker's governed execution view;
+- trace provenance separates trusted consumed `source_refs/source_versions` from worker-reported `reported_source_refs/reported_source_versions`;
+- final receipt source versions derive from consumed governed inputs, not worker self-report;
+- canonical object IDs in proposition/relation `source_refs` act as currentness dependencies; retracting support recursively invalidates dependent current propositions/relations while preserving history;
+- newly added canonical state cannot cite an already inactive canonical source;
+- mandatory-verification descriptors declare exact `verification_target_ids`;
+- verification results carry `VerificationStatus` (`PASSED`, `FAILED`, `INCONCLUSIVE`) plus explicit target IDs;
+- mandatory verification passes only when status is `PASSED`, result targets exactly equal descriptor-declared targets, those targets are visible, and an admitted `TEST_RESULT` cites them;
+- no-op, failed, inconclusive, hidden-target, or target-switching verification remains unresolved/fails closed;
+- `ResultReceipt.claim_disposition_complete` narrows claim-disposition semantics; undispositioned current claims remain explicit unresolved items;
+- ordinary `ResultReceipt` is now intentionally non-promotional and may report `EffectState.PLAN` only; lifecycle/effect promotion requires a separately governed transition artifact;
+- independence-required descriptors define an explicit answer-bearing blindness class, defaulting to `HYPOTHESIS`, `CLAIM`, and `DECISION`, plus optional exact protected proposition IDs; visible protected candidates fail the independence gate before execution.
 
-A subsequent self-review added two new regressions before repair: generic-policy candidate blindness and failed mandatory-verification unresolved state. They reproduced as **2 failed / 55 passed** before becoming green.
+## TDD / adversarial evidence
 
-After importing Masa's exact R2 hostile artifact unchanged, the then-current R3 source reproduced **6 failed / 60 passed**. Those failures exposed content binding, failed-result mutation, pre-execution independence audit semantics, producer attribution, bare qualification promotion, and consumed-source-version accounting. Those controls were repaired.
+Mune's primary R3 findings were first frozen as R4 regressions before production repair. After the first repair pass, the combined suite reached **76 passed / 1 failed**. The remaining failure was an obsolete R3 positive fixture that treated worker self-reported source/version data as trusted provenance. The fixture was updated to assert the stronger consumed-vs-reported boundary; production trust rules were not relaxed. The suite then reached **77 passed**.
 
-The external-independence-policy hardening then exposed three expected regression-fixture incompatibilities. The self-asserted independence case remained invalid; two positive fixtures were updated to provide independently verified lineage rather than weakening the runtime rule. The combined suite reached **66 passed**.
+A One-side hostile review then added two more RED cases before repair: insertion from already inactive canonical support and verifier target switching. Exact pre-repair head `b8433da23a16c9f9ddd90e08d6318769172fb7d7` reproduced **2 failed / 77 passed**. Those controls were repaired and old positive verifier fixtures were updated to declare their intended targets.
 
-Mune's supplemental H6 scope requirement was then encoded as a negative regression before implementation. Exact pre-repair head `e73b77224c98d9fbc1ca0ad52d49a0b9780fed4d` reproduced **1 failed / 66 passed** because retrieval admission had no required-scope contract. R3 then made successful evidence promotion require exact authoritative-scope matching and preserved that scope in provenance.
+Mune's supplemental `mune-0019` findings were discovered after the first R4 review request had already been sent. The prior R4 review subject was therefore treated as stale. Five new negative cases were added before repair: bare `INSTALLED`, `ACTIVE`, and `EFFECT_OBSERVED` receipts plus visible peer `CLAIM` and `DECISION` under an otherwise valid independence policy. Exact RED head `d6bb16c71a09a3038ebdbbbec8d4bf9bdd459515` reproduced **5 failed / 79 passed**. R4 then made `ResultReceipt` PLAN-only and generalized the independence blindness contract. The older positive receipt fixture was narrowed to PLAN rather than weakening the lifecycle control.
 
 ## Hosted qualification sequence
 
-The exact executable payload `bc3321346234c1127a86aaeddae03da2db463dc8` was checked by branch-local GitHub Actions on Ubuntu 24.04 / CPython 3.12.14:
+The exact executable payload `90952cd4af2b1d1aefa90565a993c7f8221b39df` was checked by branch-local GitHub Actions on Ubuntu 24.04.5 / CPython 3.12.14:
 
 ```text
 python -m pip install --upgrade pip
@@ -75,33 +74,33 @@ git diff --check
 Observed result:
 
 ```text
-67 passed in 0.18s
+84 passed in 0.15s
 ```
 
-Install: PASS. Compile: PASS. Full pytest suite: PASS. `git diff --check`: PASS.
+Editable install: PASS. Compile: PASS. Full pytest suite: PASS. `git diff --check`: PASS.
 
-The 67-test suite contains the original Kernel V0 tests, Masa R1 hostile artifact, Masa R2 hostile artifact, Mune-derived R3 regressions, Mune supplemental provenance/content/scope requirements, and additional One-side adversarial regressions.
+The 84-test surface includes original Kernel V0 cases, Masa R1/R2 hostile artifacts, Mune R2/R3 and supplemental regression surfaces, provenance/content/scope cases, and additional R4 adversarial self-review cases.
 
 ## Explicit limits / non-claims
 
-This evidence establishes only that the exact R3 executable payload satisfies the currently encoded Kernel V0 contracts and hostile/regression cases in the recorded hosted environment.
+This evidence establishes only that the exact R4 executable payload satisfies the currently encoded Kernel V0 contracts and hostile/regression cases in the recorded hosted environment.
 
 It does **not** establish:
 
-- fresh independent Masa R3 hostile PASS;
-- fresh independent Mune R3 verification PASS;
-- reasoning superiority over single-pass or fixed-multipass baselines;
+- independent Mune R4 PASS;
+- independent Masa R4 PASS;
+- reasoning superiority over single-pass, higher-effort, or fixed-multipass baselines;
 - live LLM/tool executor correctness;
 - HCAE/HyPER/hyperbolic routing effectiveness;
-- dynamic scheduler rerun/starvation qualification;
-- production persistence, provider integration, deployment, installation, activation, or downstream behavioral effect.
+- production persistence, provider integration, deployment, installation, activation, or downstream behavioral effect;
+- dynamic scheduler rerun/starvation qualification.
 
 Additional trust boundaries remain deliberately unclaimed:
 
-- `TaskEnvelope.available_authority` is still a declared string capability surface, not sufficient authorization for future protected external effects. Live write/provider/tool adapters require issuer/scope/currentness-bound authority evidence before this field may authorize them.
-- `IndependenceVerificationPolicy` is an explicit trusted dependency boundary; Kernel V0 verifies exact lineage against the supplied policy but does not cryptographically establish the policy issuer. A governed higher layer must construct that policy from real verification evidence.
-- retrieval admission verifies the supplied external policy/evidence structure but does not cryptographically establish its issuer; that issuer/currentness boundary belongs to the governed integration layer.
-- the trace has no live tool-effect receipt fields because Kernel V0 has no live external-effect executor. Such fields become mandatory before effectful adapters are qualified.
-- one-shot node completion is retained as a Kernel V0 limit; progress/frontier reruns, starvation, retries/cooldowns, and guard-band behavior belong to later dynamic scheduler qualification.
+- `TaskEnvelope.available_authority` remains declared metadata and is not sufficient authorization for protected external effects. Live write/provider/tool adapters require governed issuer/scope/currentness-bound authority evidence.
+- `IndependenceVerificationPolicy` remains a trusted dependency boundary; Kernel V0 verifies exact lineage against it but does not cryptographically establish its issuer.
+- retrieval admission verifies supplied external policy/evidence structure but does not cryptographically establish its issuer.
+- Kernel V0 has no live external-effect executor; lifecycle/effect transitions require separate governed artifacts before effectful adapters can be qualified.
+- one-shot node completion remains a Kernel V0 limit; frontier reruns, starvation handling, retries/cooldowns, and guard-band behavior belong to later dynamic scheduler qualification.
 
-Fresh exact-head Mune and Masa R3 rereview is required before R3 is promoted into the P0 integration subject or PR #8 is advanced.
+Fresh exact-head Mune and Masa R4 rereview is required before R4 is promoted into the P0 integration subject or any predecessor PR is advanced.
