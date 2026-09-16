@@ -74,7 +74,11 @@ class IndependenceMetadata:
     def demonstrably_independent_from(self, other: "IndependenceMetadata") -> bool:
         if not self.is_demonstrably_independent or not other.is_demonstrably_independent:
             return False
-        if (self.model_id, self.provider_id) == (other.model_id, other.provider_id):
+        if self.executor_id == other.executor_id:
+            return False
+        if self.model_id == other.model_id:
+            return False
+        if self.provider_id == other.provider_id:
             return False
         if self.prompt_lineage == other.prompt_lineage:
             return False
