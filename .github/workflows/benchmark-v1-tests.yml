@@ -20,8 +20,10 @@ jobs:
           python -m pip install pytest
           python -m pip install -e .
       - name: Compile
-        run: python -m compileall -q src
+        run: python -m compileall -q src scripts
       - name: Test
         run: pytest -q
+      - name: Reference benchmark
+        run: python scripts/run_benchmark_v1.py tests/fixtures/benchmark_v1.json --seed 20260916 --code-version "$GITHUB_SHA"
       - name: Diff check
         run: git diff --check
