@@ -54,8 +54,8 @@ A stronger model is never automatically an authority source. A reasoning node ma
 
 ## Current status
 
-`work/rezon-kernel-v0-r3-mune` contains the current R3 provider-independent Kernel V0 repair candidate. Executable payload `2cf746779a5f755d4e7fe57df1c811baeb2ef764` passed the hosted Python 3.12 qualification surface with **66/66 tests passing**, including Masa's R1 and R2 hostile artifacts, Mune-derived R3 regressions, and additional adversarial regressions. See `docs/qualification/KERNEL_V0_ACCEPTANCE.md`.
+`work/rezon-kernel-v0-r3-mune` contains the current R3 provider-independent Kernel V0 repair candidate. Executable payload `bc3321346234c1127a86aaeddae03da2db463dc8` passed the hosted Python 3.12 qualification surface with **67/67 tests passing**, including Masa's R1 and R2 hostile artifacts, Mune-derived R3 and supplemental provenance/content/scope regressions, and additional adversarial regressions. See `docs/qualification/KERNEL_V0_ACCEPTANCE.md`.
 
-Masa's R1 and R2 `CHANGES_REQUESTED` dispositions and Mune's R2 `CHANGES_REQUESTED` disposition remain preserved as historical exact-subject evidence. R3 repairs those known executable/source blockers but does **not** self-award independent R3 qualification. Fresh exact-head Mune and Masa rereview is required before R3 is promoted into the P0 integration subject or PR #8 is advanced.
+Masa's R1 and R2 `CHANGES_REQUESTED` dispositions and Mune's R2 `CHANGES_REQUESTED` plus supplemental H5/H6 findings remain preserved as historical exact-subject evidence. R3 repairs those known executable/source blockers but does **not** self-award independent R3 qualification. Fresh exact-head Mune and Masa rereview is required before R3 is promoted into the P0 integration subject or PR #8 is advanced.
 
 This remains source/build/test candidate evidence only. It does not establish reasoning superiority, live-provider/tool correctness, deployment, installation, activation, or downstream behavioral qualification.
