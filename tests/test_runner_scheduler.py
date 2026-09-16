@@ -81,6 +81,8 @@ def test_runner_records_blinding_and_does_not_upgrade_effect_state():
         visibility=VisibilityPolicy(blind_kinds=(PropositionKind.HYPOTHESIS,)),
         independence=IndependenceMetadata(
             executor_id="echo_hypothesis",
+            model_id="test-model",
+            provider_id="test-provider",
             prompt_lineage="fresh",
             context_lineage="blinded",
             saw_other_answer=False,
@@ -193,6 +195,8 @@ def test_executor_cannot_see_blinded_ids_but_audit_trace_can():
     ep.add_proposition(_p("h-secret", PropositionKind.HYPOTHESIS))
     independence = IndependenceMetadata(
         executor_id="independent-generator",
+        model_id="test-model",
+        provider_id="test-provider",
         prompt_lineage="fresh-prompt",
         context_lineage="fresh-context",
         saw_other_answer=False,

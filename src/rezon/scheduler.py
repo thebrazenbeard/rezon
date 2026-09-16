@@ -59,8 +59,16 @@ class DeterministicScheduler:
                 return schedule(node.node_id, "mandatory_verification")
 
         if "contradiction_scanner" in by_id and "contradiction_scanner" not in completed:
-            if any(r.relation_type.lower() == "contradicts" for r in snapshot.current_relations):
-                return schedule("contradiction_scanner", "explicit_contradiction")
+            contradiction = next(
+                (r for r in snapshot.current_relations if r.relation_type.lower() == "contradicts"),
+                None,
+            )
+            if contradiction is not None:
+                return schedule(
+                    "contradiction_scanner",
+                    "explicit_contradiction",
+                    contradiction.relation_id,
+                )
 
         generator = by_id.get("echo_hypothesis")
         hypotheses = [p for p in snapshot.current_propositions if p.kind is PropositionKind.HYPOTHESIS]

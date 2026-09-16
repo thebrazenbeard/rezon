@@ -90,14 +90,16 @@ class Episode:
     def add_relation(self, relation: Hyperrelation) -> None:
         if relation.episode_id != self.episode_id:
             raise EpisodeInvariantError("relation belongs to a different episode")
-        known = set(self._propositions) | set(self._relations)
-        missing = [p.ref_id for p in relation.participants if p.ref_id not in known]
+        current = self._active_propositions | self._active_relations
+        missing = [p.ref_id for p in relation.participants if p.ref_id not in current]
         if missing:
-            raise EpisodeInvariantError(f"relation references unknown objects: {missing}")
+            raise EpisodeInvariantError(f"relation references inactive or unknown current objects: {missing}")
         previous = self._relations.get(relation.relation_id)
         if previous is not None:
             if previous != relation:
                 raise EpisodeInvariantError("duplicate relation ID has conflicting content")
+            if relation.relation_id not in self._active_relations:
+                raise EpisodeInvariantError("invalidated relation ID cannot be silently reactivated")
             return
         self._relations[relation.relation_id] = relation
         self._active_relations.add(relation.relation_id)

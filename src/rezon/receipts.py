@@ -59,6 +59,8 @@ class IndependenceMetadata:
             and self.saw_other_answer is False
             and not self.common_evidence_refs
             and self.executor_id
+            and self.model_id
+            and self.provider_id
             and self.prompt_lineage
             and self.context_lineage
         )
@@ -66,9 +68,8 @@ class IndependenceMetadata:
     def demonstrably_independent_from(self, other: "IndependenceMetadata") -> bool:
         if not self.is_demonstrably_independent or not other.is_demonstrably_independent:
             return False
-        if self.model_id and other.model_id and self.provider_id and other.provider_id:
-            if (self.model_id, self.provider_id) == (other.model_id, other.provider_id):
-                return False
+        if (self.model_id, self.provider_id) == (other.model_id, other.provider_id):
+            return False
         if self.prompt_lineage == other.prompt_lineage:
             return False
         if self.context_lineage == other.context_lineage:
