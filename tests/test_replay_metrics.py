@@ -129,6 +129,60 @@ def test_metrics_account_for_semantic_failures_separately():
     assert metrics.operation_count == 24
 
 
+def test_unadmitted_evidence_acceptance_counts_as_unsupported_acceptance():
+    case = _case(
+        "unadmitted",
+        Disposition.ABSTAIN,
+        expected_violations=("ADMISSION_INTEGRITY",),
+    )
+
+    def strategy(_inp: StrategyInput) -> ReplayStrategyOutcome:
+        return ReplayStrategyOutcome(Disposition.ANSWER, "A")
+
+    metrics = evaluate_strategy((case,), strategy, strategy_name="broken-admission")
+
+    assert metrics.false_accepts == 1
+    assert metrics.unsupported_acceptance == 1
+
+
+def test_unmeasured_wall_clock_is_unknown_not_zero():
+    case = _case("clean", Disposition.ANSWER, gold_answer="A")
+
+    def strategy(_inp: StrategyInput) -> ReplayStrategyOutcome:
+        return ReplayStrategyOutcome(Disposition.ANSWER, "A")
+
+    metrics = evaluate_strategy((case,), strategy, strategy_name="unmeasured")
+
+    assert metrics.wall_clock_seconds is None
+
+
+def test_wall_clock_total_requires_measurement_for_every_case():
+    cases = (
+        _case("a", Disposition.ANSWER, gold_answer="A"),
+        _case("b", Disposition.ANSWER, gold_answer="A"),
+    )
+
+    def fully_measured(_inp: StrategyInput) -> ReplayStrategyOutcome:
+        return ReplayStrategyOutcome(
+            Disposition.ANSWER,
+            "A",
+            wall_clock_seconds=0.25,
+        )
+
+    measured = evaluate_strategy(cases, fully_measured, strategy_name="measured")
+    assert measured.wall_clock_seconds == 0.5
+
+    def partly_measured(inp: StrategyInput) -> ReplayStrategyOutcome:
+        return ReplayStrategyOutcome(
+            Disposition.ANSWER,
+            "A",
+            wall_clock_seconds=0.25 if inp.case_id == "a" else None,
+        )
+
+    partial = evaluate_strategy(cases, partly_measured, strategy_name="partial")
+    assert partial.wall_clock_seconds is None
+
+
 def test_required_violation_detection_recall_counts_explicit_hits():
     case = _case(
         "stale",
@@ -182,4 +236,5 @@ def test_pairwise_delta_preserves_individual_metric_dimensions():
     assert delta.right_strategy == "bad"
     assert values["false_abstains"] == -1
     assert values["operation_count"] == 4
+    assert values["wall_clock_seconds"] is None
     assert "disposition_accuracy" in values

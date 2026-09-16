@@ -4,7 +4,10 @@ import subprocess
 import sys
 
 
-FIXTURE = Path("tests/fixtures/benchmark_v1.json")
+FIXTURES = (
+    Path("tests/fixtures/benchmark_v1.json"),
+    Path("tests/fixtures/benchmark_v1_clean_controls.json"),
+)
 SCRIPT = Path("scripts/run_benchmark_v1.py")
 
 
@@ -13,7 +16,7 @@ def _run(seed: int = 20260916, code_version: str = "test-code-version") -> dict:
         [
             sys.executable,
             str(SCRIPT),
-            str(FIXTURE),
+            *(str(path) for path in FIXTURES),
             "--seed",
             str(seed),
             "--code-version",
@@ -32,8 +35,13 @@ def test_reference_runner_emits_auditable_metric_report():
     assert report["benchmark"] == "rezon-benchmark-v1-layer1"
     assert report["fixture_version"] == "benchmark-v1.0"
     assert len(report["fixture_sha256"]) == 64
+    assert len(report["fixture_files"]) == 2
+    assert {entry["path"] for entry in report["fixture_files"]} == {
+        str(path) for path in FIXTURES
+    }
+    assert all(len(entry["sha256"]) == 64 for entry in report["fixture_files"])
     assert report["code_version"] == "test-code-version"
-    assert report["case_count"] >= 14
+    assert report["case_count"] == 24
 
     assert set(report["strategies"]) == {
         "single_pass",
@@ -46,9 +54,13 @@ def test_reference_runner_emits_auditable_metric_report():
         assert "disposition_accuracy" in metrics["semantic"]
         assert "false_accepts" in metrics["semantic"]
         assert "operation_count" in metrics["cost"]
-        assert "wall_clock_seconds" in metrics["cost"]
+        assert metrics["cost"]["wall_clock_seconds"] is None
 
     assert report["pairwise_deltas"]
+    assert all(
+        entry["deltas"]["wall_clock_seconds"] is None
+        for entry in report["pairwise_deltas"]
+    )
     assert {entry["removed_guard"] for entry in report["guard_ablation"]} == {
         "proposition_fidelity",
         "provenance_currentness",
@@ -86,5 +98,6 @@ def test_reference_runner_changes_permutation_identity_with_seed_not_fixture_dig
     second = _run(seed=2)
 
     assert first["fixture_sha256"] == second["fixture_sha256"]
+    assert first["fixture_files"] == second["fixture_files"]
     assert first["strategy_input_digest"] == second["strategy_input_digest"]
     assert first["label_permutation"]["permutation_id"] != second["label_permutation"]["permutation_id"]

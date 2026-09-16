@@ -4,7 +4,10 @@ from pathlib import Path
 from rezon.replay import Disposition, load_replay_cases
 
 
-FIXTURE_PATH = Path("tests/fixtures/benchmark_v1.json")
+FIXTURE_PATHS = (
+    Path("tests/fixtures/benchmark_v1.json"),
+    Path("tests/fixtures/benchmark_v1_clean_controls.json"),
+)
 REQUIRED_CLASSES = {
     "PROPOSITION_FIDELITY",
     "PROVENANCE_CURRENTNESS",
@@ -22,11 +25,15 @@ REQUIRED_CLASSES = {
 
 
 def _cases():
-    return load_replay_cases(FIXTURE_PATH)
+    return tuple(
+        case
+        for path in FIXTURE_PATHS
+        for case in load_replay_cases(path)
+    )
 
 
 def test_fixture_exists_and_uses_frozen_v1_version():
-    assert FIXTURE_PATH.exists()
+    assert all(path.exists() for path in FIXTURE_PATHS)
     cases = _cases()
     assert cases
     assert {case.fixture_version for case in cases} == {"benchmark-v1.0"}
@@ -51,6 +58,14 @@ def test_fixture_covers_every_required_attack_class_and_clean_controls():
     assert len(clean_answers) >= 2
     assert any(case.gold_disposition is Disposition.ABSTAIN for case in cases)
     assert any(case.gold_disposition is Disposition.FAIL_CLOSED for case in cases)
+
+
+def test_gold_answer_population_is_not_outnumbered_by_non_answer_population():
+    cases = _cases()
+    answer_cases = [case for case in cases if case.gold_disposition is Disposition.ANSWER]
+    non_answer_cases = [case for case in cases if case.gold_disposition is not Disposition.ANSWER]
+
+    assert len(answer_cases) >= len(non_answer_cases)
 
 
 def test_strategy_projection_contains_no_evaluator_gold_or_violation_labels():
