@@ -53,6 +53,14 @@ def test_fixture_covers_every_required_attack_class_and_clean_controls():
     assert any(case.gold_disposition is Disposition.FAIL_CLOSED for case in cases)
 
 
+def test_gold_answer_population_is_not_outnumbered_by_non_answer_population():
+    cases = _cases()
+    answer_cases = [case for case in cases if case.gold_disposition is Disposition.ANSWER]
+    non_answer_cases = [case for case in cases if case.gold_disposition is not Disposition.ANSWER]
+
+    assert len(answer_cases) >= len(non_answer_cases)
+
+
 def test_strategy_projection_contains_no_evaluator_gold_or_violation_labels():
     forbidden = {"gold_disposition", "gold_answer", "expected_violations"}
     for case in _cases():
