@@ -49,7 +49,10 @@ class RetrievalAdmissionPolicy:
         self,
         receipt: RetrievalReceipt,
         content: str,
+        required_scope: str | None,
     ) -> RetrievalAdmissionEvidence | None:
+        if not required_scope:
+            return None
         content_digest = digest_retrieved_content(content)
         returned_refs = set(receipt.returned_refs)
         for evidence in self.verified_admissions:
@@ -57,6 +60,8 @@ class RetrievalAdmissionPolicy:
                 receipt.source_id,
                 receipt.source_version,
             ):
+                continue
+            if evidence.authoritative_scope != required_scope:
                 continue
             if not evidence.content_digest or evidence.content_digest != content_digest:
                 continue
@@ -73,6 +78,7 @@ def admit_retrieval_as_evidence(
     content: str,
     *,
     policy: RetrievalAdmissionPolicy | None = None,
+    required_scope: str | None = None,
 ) -> Proposition:
     if receipt.admission_status is not AdmissionStatus.ADMITTED:
         raise RetrievalAdmissionError("retrieved material has not been admitted as evidence")
@@ -80,10 +86,12 @@ def admit_retrieval_as_evidence(
         raise RetrievalAdmissionError("admitted evidence requires an exact source version")
     if policy is None:
         raise RetrievalAdmissionError("retrieval admission requires an external admission policy")
-    verified = policy.verify(receipt, content)
+    if not required_scope:
+        raise RetrievalAdmissionError("retrieval admission requires an explicit authoritative scope")
+    verified = policy.verify(receipt, content, required_scope)
     if verified is None:
         raise RetrievalAdmissionError(
-            "retrieval content/locator/source/version lacks exact independent admission evidence"
+            "retrieval content/locator/source/version/scope lacks exact independent admission evidence"
         )
     evidence = Proposition(
         proposition_id=proposition_id,
@@ -94,6 +102,7 @@ def admit_retrieval_as_evidence(
             f"{receipt.source_id}@{receipt.source_version}",
             *receipt.returned_refs,
             f"content-sha256:{verified.content_digest}",
+            f"scope:{verified.authoritative_scope}",
             f"retrieval:{receipt.retrieval_id}",
             f"admission:{verified.admission_authority_ref}",
             f"currentness:{verified.currentness_ref}",
