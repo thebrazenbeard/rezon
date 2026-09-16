@@ -18,6 +18,7 @@ class TraceRecord:
     independence_demonstrated: bool
     task_envelope_digest: str | None = None
     failures: tuple[FailureState, ...] = ()
+    source_versions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

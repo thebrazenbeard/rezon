@@ -101,6 +101,7 @@ def admit_retrieval_as_evidence(
             f"currentness:{verified.currentness_ref}",
             *verified.verification_refs,
         ),
+        source_versions=(f"{receipt.source_id}@{receipt.source_version}",),
     )
     episode.add_proposition(evidence)
     return evidence

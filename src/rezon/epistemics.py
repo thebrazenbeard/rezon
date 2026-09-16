@@ -34,6 +34,7 @@ class Proposition:
     source_refs: tuple[str, ...] = ()
     producer_execution_id: str | None = None
     confidence: float | None = None
+    source_versions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.proposition_id or not self.episode_id or not self.content:
@@ -60,6 +61,7 @@ class Hyperrelation:
     participants: tuple[Participant, ...]
     source_refs: tuple[str, ...] = ()
     producer_execution_id: str | None = None
+    source_versions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.relation_id or not self.episode_id or not self.relation_type:

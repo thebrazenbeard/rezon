@@ -120,5 +120,5 @@ class ResultReceipt:
         overlap = set(self.accepted_claim_ids) & set(self.rejected_claim_ids)
         if overlap:
             raise ValueError(f"claims cannot be both accepted and rejected: {sorted(overlap)}")
-        if self.effect_state is EffectState.QUALIFIED and (self.failures or self.unresolved):
-            raise ValueError("qualified result cannot contain unresolved failures")
+        if self.effect_state is EffectState.QUALIFIED:
+            raise ValueError("bare ResultReceipt cannot self-promote to QUALIFIED; use a governed qualification transition")

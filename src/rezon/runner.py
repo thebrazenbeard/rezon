@@ -27,6 +27,15 @@ class RunOutcome:
     trace: ExecutionTrace
 
 
+def _view_source_versions(view) -> tuple[str, ...]:
+    versions: list[str] = []
+    for item in (*view.propositions, *view.relations):
+        for source_version in item.source_versions:
+            if source_version not in versions:
+                versions.append(source_version)
+    return tuple(versions)
+
+
 class EpisodeRunner:
     def __init__(self, nodes: tuple[RunnerNode, ...], budget_limit: int = 8):
         self.nodes = nodes
@@ -188,6 +197,7 @@ class EpisodeRunner:
                     independence_demonstrated=audit_view.independence.is_demonstrably_independent,
                     task_envelope_digest=task_digest,
                     failures=(FailureState.ATTEMPTED_UNKNOWN,),
+                    source_versions=_view_source_versions(audit_view),
                 ))
                 completed.append(runner_node.descriptor.node_id)
                 used += 1
@@ -197,17 +207,18 @@ class EpisodeRunner:
 
             execution_failures = list(result.failures)
             admitted_ids: tuple[str, ...] = ()
-            try:
-                admit_execution_result(
-                    episode, runner_node.descriptor, result, expected_execution_id=execution_id
-                )
-                admitted_ids = tuple(p.proposition_id for p in result.emitted_propositions)
-            except AdmissionError:
-                if FailureState.CONTRACT_VIOLATION not in failures:
-                    failures.append(FailureState.CONTRACT_VIOLATION)
-                if FailureState.CONTRACT_VIOLATION not in execution_failures:
-                    execution_failures.append(FailureState.CONTRACT_VIOLATION)
-                unresolved.append(f"admission:{execution_id}")
+            if not result.failures:
+                try:
+                    admit_execution_result(
+                        episode, runner_node.descriptor, result, expected_execution_id=execution_id
+                    )
+                    admitted_ids = tuple(p.proposition_id for p in result.emitted_propositions)
+                except AdmissionError:
+                    if FailureState.CONTRACT_VIOLATION not in failures:
+                        failures.append(FailureState.CONTRACT_VIOLATION)
+                    if FailureState.CONTRACT_VIOLATION not in execution_failures:
+                        execution_failures.append(FailureState.CONTRACT_VIOLATION)
+                    unresolved.append(f"admission:{execution_id}")
             for failure in result.failures:
                 if failure not in failures:
                     failures.append(failure)
@@ -234,6 +245,7 @@ class EpisodeRunner:
                 independence_demonstrated=audit_view.independence.is_demonstrably_independent,
                 task_envelope_digest=task_digest,
                 failures=tuple(execution_failures),
+                source_versions=_view_source_versions(audit_view),
             ))
             if runner_node.descriptor.independence_required:
                 prior_independent.append(runner_node.independence)
@@ -246,6 +258,11 @@ class EpisodeRunner:
             unresolved=tuple(unresolved),
             failures=tuple(failures),
             effect_state=EffectState.PLAN,
+            source_versions=tuple(dict.fromkeys(
+                source_version
+                for record in records
+                for source_version in record.source_versions
+            )),
             execution_ids=tuple(record.execution_id for record in records),
             task_envelope_digest=task_digest,
         )
