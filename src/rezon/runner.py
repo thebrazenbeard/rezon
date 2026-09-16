@@ -192,14 +192,6 @@ class EpisodeRunner:
                 if not independence_ok:
                     add_failure(FailureState.CONTRACT_VIOLATION)
                     unresolved.append(f"independence:{runner_node.descriptor.node_id}")
-                    add_preflight_trace(
-                        execution_id,
-                        runner_node,
-                        audit_view,
-                        FailureState.CONTRACT_VIOLATION,
-                    )
-                    completed.append(runner_node.descriptor.node_id)
-                    used += 1
                     break
 
             executor = runner_node.executor
