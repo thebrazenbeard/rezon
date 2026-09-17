@@ -23,7 +23,7 @@ R5 adds a typed support and verification contract to Benchmark V1 so Rezon can d
 
 The objective is not to make every answer cite a source. The objective is to make the required support class explicit and machine-checkable.
 
-R5 is a benchmark/replay contract extension first. It does not yet modify Kernel episode storage, node execution, admission, or runtime scheduling. If the contract survives replay qualification, the same vocabulary can then be integrated into Kernel without inventing a second epistemic ontology.
+R5 is a benchmark/replay contract extension first. It does not yet make support first-class Kernel episode state or change runtime scheduling. If the contract survives replay qualification, the same vocabulary can then be integrated into Kernel without inventing a second epistemic ontology.
 
 ## Architectural decision
 
@@ -48,7 +48,9 @@ R5 adds the missing support classes already anticipated by the design contract:
 - `EMPIRICAL_TEST`
 - `UNKNOWN`
 
-R5 does not rename `RETRIEVED_SOURCE` to `SOURCE_ATTESTATION` in executable code. The design documents use both concepts historically; the R5 implementation preserves the existing enum value to avoid a needless compatibility migration. A future version may introduce an alias or versioned rename if that improves the public API.
+R5 does not rename `RETRIEVED_SOURCE` to `SOURCE_ATTESTATION` in executable code. The design documents use both concepts historically; R5 preserves the existing enum value to avoid a needless compatibility migration. A future version may introduce an alias or versioned rename if that improves the public API.
+
+Extending `SupportKind` is a vocabulary-only shared-contract change. R5 does not thereby claim that Kernel runtime support storage or admission has been implemented.
 
 ## Design invariants
 
@@ -58,10 +60,11 @@ R5 does not rename `RETRIEVED_SOURCE` to `SOURCE_ATTESTATION` in executable code
 4. **No blanket source requirement.** A deterministic calculation, formal derivation, empirical test, simulation, or other qualified non-source support may satisfy an answer requirement without an external source when the task contract allows it.
 5. **Verification is target-bound.** A verification receipt without an exact target cannot satisfy a verification requirement.
 6. **Verification is status-bound.** `VERIFIED` is different from `UNKNOWN`, `UNAVAILABLE`, `FAILED`, `REFUTED`, and `NOT_RUN`.
-7. **Mandatory verification fails closed when unavailable or semantically invalid.** Optional verification may leave the answer unresolved or unsupported according to the task requirement.
+7. **Mandatory verification fails closed when unavailable or semantically invalid.** Optional verification is observational only in R5 and cannot silently become a support gate.
 8. **Model judgment cannot self-promote.** `MODEL_JUDGMENT` and `HEURISTIC` are never implicitly equivalent to `DIRECT_OBSERVATION`, `RETRIEVED_SOURCE`, `DETERMINISTIC_DERIVATION`, `FORMAL_PROOF`, `EMPIRICAL_TEST`, or other stronger support classes.
-9. **Replay gold remains evaluator-only.** Support and verification requirements are strategy-visible policy, not hidden gold labels.
-10. **Benchmark V1.0 stays immutable.** R5 adds a V1.1 typed-support corpus instead of rewriting the frozen V1.0/R2/R3/R4 evidence population.
+9. **Replay gold remains evaluator-only.** Support and verification requirements are strategy-visible task policy, not hidden gold labels.
+10. **Task policy must not encode the answer.** Requirements state acceptable support/verification classes, not which candidate or answer is correct.
+11. **Benchmark V1.0 stays immutable.** R5 adds a V1.1 typed-support corpus instead of rewriting the frozen V1.0/R2/R3/R4 evidence population.
 
 ## Data model
 
@@ -80,7 +83,6 @@ ReplaySupportRecord {
   kind
   method
   source_refs[]
-  evidence_refs[]
   execution_refs[]
   verification_receipt_refs[]
   caveats[]
@@ -89,11 +91,16 @@ ReplaySupportRecord {
 
 Rules:
 
-- `support_id`, `candidate_id`, `kind`, and `method` are required.
-- `candidate_id` must name a candidate in the same replay case.
-- all referenced sources, evidence objects, executions, and verification receipts must either resolve inside the case transport or be explicitly represented as external opaque references under a future versioned contract; R5 V1.1 does not silently accept dangling local references;
+- `support_id`, `candidate_id`, `kind`, and `method` are required;
+- `candidate_id` must name a candidate in the same replay case;
+- every `source_ref` must name a `ReplaySource` in the same V1.1 case;
+- every `execution_ref` must name an execution identity represented by a candidate or typed verification receipt in the same V1.1 case;
+- every `verification_receipt_ref` must name a typed verification receipt in the same V1.1 case;
+- R5 does not invent a local `ReplayEvidence` object merely because legacy `ReplayCandidate.evidence_refs` exists; legacy evidence refs remain opaque provenance labels and do not independently satisfy typed support requirements;
 - `UNKNOWN` is representable but never satisfies a support requirement unless the requirement explicitly permits `UNKNOWN`, which the R5 reference corpus will not do;
 - a `MODEL_JUDGMENT` or `HEURISTIC` record remains advisory even if it contains many references.
+
+Dangling local references are validation errors in V1.1. R5 does not silently reinterpret them as external references.
 
 ### ReplaySupportRequirement
 
@@ -108,12 +115,13 @@ ReplaySupportRequirement {
 }
 ```
 
-R5 defaults:
+R5 rules:
 
 - `minimum_records >= 1` when a requirement exists;
 - `acceptable_kinds` must be non-empty;
-- `require_distinct_support_ids = true` prevents one support object from being counted multiple times;
-- multiple accepted kinds mean logical OR across kinds unless `minimum_records > 1`, in which case the candidate must satisfy the count with distinct qualifying support records.
+- `require_distinct_support_ids = true` in the V1.1 reference implementation;
+- multiple acceptable kinds mean logical OR across kinds;
+- when `minimum_records > 1`, the candidate must satisfy the count with distinct qualifying support records.
 
 The requirement does not duplicate source currentness, source admission, independence, or authority policy. Those remain separate guards.
 
@@ -148,7 +156,11 @@ FAILED
 NOT_RUN
 ```
 
-`VERIFIED` is the only positive status. `REFUTED` is an explicit negative result, not a failed verification transport. `UNKNOWN`, `UNAVAILABLE`, `FAILED`, and `NOT_RUN` are all non-positive and remain distinguishable.
+`VERIFIED` is the only positive status.
+
+`REFUTED` is a successful negative verification result, not a transport failure.
+
+`UNKNOWN`, `UNAVAILABLE`, `FAILED`, and `NOT_RUN` are all non-positive and remain distinguishable.
 
 ### VerificationKind
 
@@ -165,7 +177,7 @@ CONTRADICTION_CHECK
 SCHEMA_VALIDATION
 ```
 
-The vocabulary may be extended in future fixture versions, but R5 implementations fail closed on unknown enum values rather than silently treating them as valid verification.
+The vocabulary may be extended in future fixture versions, but R5 fails closed on unknown enum values rather than silently treating them as valid verification.
 
 ### ReplayVerificationReceipt
 
@@ -175,7 +187,7 @@ ReplayVerificationReceipt {
   kind
   target_ref
   status
-  verifier_execution_id
+  verifier_execution_id?
   support_refs[]
   source_refs[]
   failure?
@@ -184,12 +196,25 @@ ReplayVerificationReceipt {
 
 Rules:
 
-- `verification_id`, `kind`, `target_ref`, `status`, and `verifier_execution_id` are required;
-- `target_ref` must name the candidate, support record, or other explicitly allowed local target identified by the corresponding requirement;
-- `VERIFIED` requires a non-empty target and verifier execution identity;
-- `REFUTED` is valid and causes the targeted positive requirement to fail;
+- `verification_id`, `kind`, `target_ref`, and `status` are required;
+- `target_ref` must name either a candidate or a support record in the same case;
+- `support_refs` must name local support records;
+- `source_refs` are verification provenance only and do not themselves satisfy the answer's support requirement;
+- `VERIFIED`, `REFUTED`, `FAILED`, and attempted `UNKNOWN` require a non-empty `verifier_execution_id` because an execution actually occurred;
+- `UNAVAILABLE` and `NOT_RUN` may omit `verifier_execution_id` because no verifier execution necessarily occurred;
+- `VERIFIED` requires an exact non-empty target and verifier execution identity;
+- `REFUTED` is valid and causes the targeted positive verification requirement to fail;
 - `UNAVAILABLE`, `FAILED`, `UNKNOWN`, and `NOT_RUN` cannot satisfy a mandatory verification requirement;
 - free-form `receipt_claims` remain supported only for V1.0 backward compatibility and do not satisfy a V1.1 typed verification requirement.
+
+A verification receipt cannot authorize a protected effect merely by claiming `TOOL_EFFECT_READBACK`; authority/effect governance remains separate.
+
+### VerificationTargetScope
+
+```text
+ANSWER_CANDIDATE
+QUALIFYING_SUPPORT
+```
 
 ### ReplayVerificationRequirement
 
@@ -198,25 +223,21 @@ ReplayVerificationRequirement {
   requirement_id
   required_kinds[]
   target_scope
-  minimum_verified
   mandatory
 }
 ```
 
-`target_scope` is one of:
-
-```text
-ANSWER_CANDIDATE
-QUALIFYING_SUPPORT
-```
-
 Rules:
 
-- `required_kinds` is non-empty;
-- `minimum_verified >= 1`;
-- a receipt counts only if its kind is required, its target matches `target_scope`, and its status is `VERIFIED`;
-- if `mandatory = true`, an unavailable, malformed, wrong-target, failed, unknown, refuted, or absent required verification produces `FAIL_CLOSED`;
-- if `mandatory = false`, missing positive verification prevents verification-dependent support from being considered sufficient but does not itself force `FAIL_CLOSED`.
+- `required_kinds` must be non-empty;
+- every kind in `required_kinds` is required; this is all-of semantics, not OR semantics;
+- for `ANSWER_CANDIDATE`, each required kind must have at least one exact-target `VERIFIED` receipt for the candidate;
+- for `QUALIFYING_SUPPORT`, every support record counted toward `minimum_records` must have at least one exact-target `VERIFIED` receipt for each required kind;
+- if `mandatory = true`, an absent, unavailable, malformed, wrong-target, failed, unknown, not-run, or refuting required verification prevents the answer and produces `FAIL_CLOSED`;
+- if `mandatory = false`, verification outcomes are recorded and may appear in trace/metrics, but they do not alter candidate eligibility in R5;
+- if a task intends verification to be a condition of answering, it must declare `mandatory = true` rather than relying on an implicit linkage between support and optional verification.
+
+This avoids an ambiguous hidden dependency between `ReplaySupportRequirement` and `ReplayVerificationRequirement`.
 
 ## Replay transport changes
 
@@ -229,7 +250,9 @@ support_refs[]
 verification_receipt_refs[]
 ```
 
-The candidate refers to typed records by ID rather than embedding them. Existing `source_refs`, `evidence_refs`, and `receipt_claims` remain for V1.0 compatibility and for provenance surfaces that are not themselves typed support.
+The candidate refers to typed records by ID rather than embedding them.
+
+Existing `source_refs`, `evidence_refs`, and `receipt_claims` remain for V1.0 compatibility and for provenance surfaces that are not themselves typed support. In V1.1, legacy `evidence_refs` and free-form `receipt_claims` cannot satisfy typed support or typed verification requirements.
 
 ### ReplayCase
 
@@ -271,10 +294,12 @@ For `benchmark-v1.0`:
 For `benchmark-v1.1`:
 
 - typed support records, verification receipts, support requirements, and verification requirements are included in canonical strategy serialization;
-- ordering is deterministic by stable IDs where the transport semantics treat collections as sets;
-- semantic sequence fields retain sequence order where order is meaningful.
+- unordered record collections are canonicalized by stable IDs;
+- fields whose semantics are ordered retain their sequence order.
 
 `digest_strategy_inputs()` should stop relying directly on unconstrained `dataclasses.asdict()` for versioned public digest identity. It should call a version-aware canonical projection function.
+
+Mixed fixture versions remain invalid in one Benchmark V1 run. V1.0 and V1.1 are separate evidence subjects.
 
 ## Guard changes
 
@@ -282,7 +307,7 @@ R5 adds two independently ablatable guards to `rezon_guarded`.
 
 ### SUPPORT_SUFFICIENCY
 
-The guard evaluates only candidates that otherwise remain eligible.
+The guard evaluates candidates that otherwise remain eligible.
 
 For each candidate:
 
@@ -295,20 +320,24 @@ For each candidate:
 
 A support record of kind `MODEL_JUDGMENT`, `HEURISTIC`, or `UNKNOWN` cannot satisfy a requirement for a stronger class.
 
+If a V1.1 case has no `support_requirement`, `SUPPORT_SUFFICIENCY` is a no-op. The absence of a requirement is not itself permission to reinterpret legacy fields as typed support.
+
 ### VERIFICATION_INTEGRITY
 
 For each candidate subject to a verification requirement:
 
 1. resolve candidate-referenced verification receipts;
 2. reject malformed or dangling receipts;
-3. require the configured verification kind(s);
+3. require every configured verification kind;
 4. validate the exact target scope;
-5. count only `VERIFIED` receipts toward `minimum_verified`;
-6. surface `REFUTED` distinctly from unavailable/failed/unknown;
-7. when the requirement is mandatory and the requirement is not met, produce `FAIL_CLOSED` rather than `ABSTAIN`;
-8. when the requirement is optional and unmet, the candidate cannot rely on the missing verification to satisfy support, but the transport failure alone does not force `FAIL_CLOSED`.
+5. count only `VERIFIED` receipts toward satisfaction;
+6. surface `REFUTED` distinctly from unavailable/failed/unknown/not-run;
+7. when the requirement is mandatory and any required kind is unsatisfied, produce `FAIL_CLOSED` rather than `ABSTAIN`;
+8. when the requirement is optional, record the verification state but do not change candidate eligibility.
 
 Free-form V1.0 receipt strings do not satisfy this guard.
+
+If a V1.1 case has no `verification_requirement`, `VERIFICATION_INTEGRITY` is a no-op.
 
 ## Guard ordering
 
@@ -337,11 +366,13 @@ R5 keeps the existing three dispositions:
 New mapping:
 
 - insufficient or wrong support class -> `ABSTAIN` when no candidate remains eligible;
-- malformed typed verification receipt -> `FAIL_CLOSED` if verification is mandatory, otherwise candidate rejection / `ABSTAIN`;
+- malformed typed verification receipt -> `FAIL_CLOSED` if verification is mandatory; otherwise record it without changing eligibility;
 - required verification unavailable -> `FAIL_CLOSED`;
 - required verification `REFUTED` -> `FAIL_CLOSED` for that candidate's proposed answer;
-- optional verification absent/unknown/failed -> candidate may remain only if its support requirement does not depend on that verification;
+- optional verification absent/unknown/failed/refuted -> recorded only, no eligibility change in R5;
 - competing eligible answer tie -> preserve R3 behavior and `ABSTAIN`.
+
+Structural fixture-invalidity remains distinct from a strategy disposition. A fixture with impossible local references should fail validation before strategy execution rather than be converted into a normal candidate `ABSTAIN`.
 
 ## Relationship to existing guards
 
@@ -369,17 +400,19 @@ The initial V1.1 population must include at least these classes:
 5. **Heuristic laundering** — `HEURISTIC` presented as if it were empirical/formal support; must abstain.
 6. **Valid empirical support** — `EMPIRICAL_TEST` satisfies an empirical requirement; may answer.
 7. **Valid formal proof** — `FORMAL_PROOF` satisfies a formal requirement; may answer.
-8. **Dangling support reference** — candidate names missing support ID; fail closed at fixture validation or candidate rejection according to transport location.
-9. **Cross-candidate support theft** — candidate references support whose `candidate_id` names another candidate; must reject.
-10. **Malformed VERIFIED receipt** — `VERIFIED` with empty/wrong target; mandatory verification -> fail closed.
+8. **Dangling support reference** — candidate names missing local support ID; fixture validation must fail before strategy execution.
+9. **Cross-candidate support theft** — candidate references support whose `candidate_id` names another candidate; fixture validation or guard validation must reject deterministically, with the implementation choosing one layer and testing it consistently.
+10. **Malformed VERIFIED receipt** — `VERIFIED` with empty/wrong target; mandatory verification -> fixture validation or fail-closed according to whether the malformation is structural or semantic.
 11. **Wrong-target valid receipt** — syntactically valid receipt verifies a different candidate/support object; mandatory verification -> fail closed.
-12. **Unavailable mandatory verifier** — mandatory verification receipt/status unavailable; fail closed.
-13. **Refuted verification** — exact target receipt status `REFUTED`; fail closed for positive answer.
+12. **Unavailable mandatory verifier** — mandatory verification status `UNAVAILABLE`; fail closed.
+13. **Refuted verification** — exact target receipt status `REFUTED`; fail closed for the positive answer.
 14. **Unknown/NOT_RUN verification** — cannot satisfy mandatory verification.
 15. **Advisory-score laundering** — confidence/path score without typed qualifying support; must abstain.
 16. **Valid source-free calculation with irrelevant stale source present** — deterministic support remains valid; stale unrelated source must not contaminate the calculation merely by existing in the case.
+17. **Legacy evidence-ref laundering** — V1.1 candidate has opaque legacy `evidence_refs` but no qualifying support record; must not answer when typed support is required.
+18. **Free-form receipt laundering** — V1.1 candidate has convincing `receipt_claims` text but no typed verification receipt; mandatory verification must not be satisfied.
 
-The V1.1 population should include clean answer controls in each major support family so reject-everything remains penalized.
+The V1.1 population must include clean answer controls in each major support family so reject-everything remains penalized.
 
 ## Metrics and evaluator changes
 
@@ -388,13 +421,13 @@ R5 extends metrics without creating a prestige score.
 New semantic metrics:
 
 ```text
-support_sufficiency_accepted
-verification_integrity_accepted
+support_sufficiency_violation_accepted
+verification_integrity_violation_accepted
 mandatory_verification_fail_closed_miss
 support_kind_laundering_accepted
 ```
 
-Existing `unsupported_acceptance` remains but becomes grounded in typed support requirements for V1.1 rather than only evaluator violation labels.
+Existing `unsupported_acceptance` remains, but for V1.1 it becomes grounded in typed support requirements rather than only evaluator violation labels.
 
 Evaluator gold remains independent of strategy-visible support requirements. A case may expose that a source-backed answer is required without exposing whether the candidate actually satisfies that requirement.
 
@@ -409,7 +442,8 @@ Required controls:
 - label permutation remains evaluator-side only;
 - case-order permutation remains deterministic;
 - add candidate-order permutations for V1.1 multi-candidate cases so support resolution cannot depend on tuple order;
-- support-record and verification-receipt collection ordering must not change strategy outcome when IDs and semantics are unchanged.
+- support-record and verification-receipt collection ordering must not change strategy outcome when IDs and semantics are unchanged;
+- V1.0 canonical strategy-input digest must remain unchanged.
 
 ## Kernel integration boundary
 
@@ -474,7 +508,7 @@ tests/test_benchmark_v1_r5_support_verification.py
 tests/fixtures/benchmark_v1_1_typed_support.json
 ```
 
-R5 should avoid changes to Kernel `Episode`, runner, scheduler, and admission unless implementation proves a minimal shared enum import requires a narrowly scoped compatibility edit. Any broader Kernel change becomes a separate design subject.
+R5 should avoid changes to Kernel `Episode`, runner, scheduler, and admission. Extending the shared `SupportKind` enum is allowed as a vocabulary-only compatibility change. Any broader Kernel change becomes a separate design subject.
 
 ## Acceptance criteria
 
@@ -483,12 +517,12 @@ R5 design/implementation is not accepted until all of the following are true on 
 1. V1.0 fixture bytes and their recorded digests remain unchanged.
 2. The V1.0 strategy-input digest remains unchanged.
 3. V1.0 reference replay remains reproducible.
-4. V1.1 typed-support fixtures validate deterministically and fail closed on malformed references.
+4. V1.1 typed-support fixtures validate deterministically and fail closed on malformed local references.
 5. A source-backed factual answer can pass with valid admitted/current source support.
 6. A source-free deterministic derivation can pass when deterministic support is the declared requirement.
 7. `MODEL_JUDGMENT`, `HEURISTIC`, and `UNKNOWN` cannot satisfy stronger requirements.
 8. Mandatory verification cannot be satisfied by free-form receipt strings.
-9. Mandatory `UNAVAILABLE`, `FAILED`, `UNKNOWN`, `NOT_RUN`, `REFUTED`, malformed, or wrong-target verification does not answer; the required fail-closed semantics are preserved.
+9. Mandatory `UNAVAILABLE`, `FAILED`, `UNKNOWN`, `NOT_RUN`, `REFUTED`, malformed, or wrong-target verification does not answer; required fail-closed semantics are preserved.
 10. Both new guards are independently ablatable and their hostile cases worsen when removed.
 11. Candidate/support/verification collection-order permutations do not change outcomes.
 12. Gold fields remain structurally absent from strategy inputs.
@@ -515,11 +549,11 @@ One may assign independent workers to these focused attacks:
 
 ### Support Laundering Adversary
 
-Try to satisfy a strong requirement with model judgment, heuristic, duplicate support IDs, dangling refs, cross-candidate support, stale/retrieved-only sources, or high-confidence advisory signals.
+Try to satisfy a strong requirement with model judgment, heuristic, duplicate support IDs, dangling refs, cross-candidate support, stale/retrieved-only sources, legacy evidence refs, or high-confidence advisory signals.
 
 ### Verification Forgery Adversary
 
-Try to produce `VERIFIED` without an exact target, with the wrong target, wrong kind, missing verifier execution, stale support, free-form receipt text, unavailable verifier, or a receipt copied from another candidate.
+Try to produce `VERIFIED` without an exact target, with the wrong target, wrong kind, missing required verifier execution, stale support, free-form receipt text, unavailable verifier, or a receipt copied from another candidate.
 
 ### Version Boundary Adversary
 
