@@ -79,8 +79,11 @@ def test_projected_strategy_inputs_expose_no_gold_or_expected_label_fields():
         names = set(vars(strategy_input))
         assert all("gold" not in name for name in names)
         assert all("expected" not in name for name in names)
-        assert case.gold_answer not in names
-        assert case.expected_violations not in tuple(vars(strategy_input).values())
+        assert not hasattr(strategy_input, "gold_answer")
+        assert not hasattr(strategy_input, "gold_disposition")
+        assert not hasattr(strategy_input, "expected_violations")
+        if case.expected_violations:
+            assert case.expected_violations not in tuple(vars(strategy_input).values())
 
 
 def test_all_three_strategies_run_every_frozen_case_without_live_dependencies():
