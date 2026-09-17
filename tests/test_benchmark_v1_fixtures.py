@@ -21,7 +21,6 @@ REQUIRED_CLASSES = {
     "MANDATORY_VERIFIER_UNAVAILABLE",
     "MALFORMED_SEMANTIC_RECEIPT",
     "INSUFFICIENT_EVIDENCE",
-    "CLEAN_CONTROL",
 }
 
 
@@ -50,7 +49,7 @@ def test_fixture_has_multiple_clean_answer_controls_to_penalize_reject_everythin
     clean_answers = [
         case
         for case in cases
-        if "CLEAN_CONTROL" in case.expected_violations
+        if not case.expected_violations
         and case.gold_disposition is Disposition.ANSWER
     ]
     assert len(clean_answers) >= 3
