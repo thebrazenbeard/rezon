@@ -5,6 +5,7 @@ on:
     branches:
       - rezon/benchmark-v1-impl
       - rezon/benchmark-v1-r2-fairness
+      - rezon/benchmark-v1-r3-ambiguity
 
 jobs:
   test:
