@@ -12,12 +12,24 @@ Strategy = Callable[[StrategyInput], ReplayStrategyOutcome]
 
 _DETECTION_ALIASES = {
     "proposition_fidelity": "PROPOSITION_TYPING",
+    "proposition_substitution": "PROPOSITION_TYPING",
     "provenance_currentness": "PROVENANCE_CURRENTNESS",
+    "stale_source": "PROVENANCE_CURRENTNESS",
+    "rollback_source": "PROVENANCE_CURRENTNESS",
     "admission_integrity": "INPUT_RETRIEVAL",
+    "retrieved_unadmitted_evidence": "INPUT_RETRIEVAL",
     "independence_contamination": "INDEPENDENCE_CONTAMINATION",
+    "duplicate_evidence": "INDEPENDENCE_CONTAMINATION",
+    "correlated_consensus": "INDEPENDENCE_CONTAMINATION",
     "failure_visibility": "FAILURE_HANDLING",
+    "partial_worker_failure": "FAILURE_HANDLING",
+    "mandatory_verifier_unavailable": "FAILURE_HANDLING",
     "authority_effect_boundary": "AUTHORITY_EFFECT",
+    "advisory_signal_authority": "AUTHORITY_EFFECT",
+    "omitted_contradiction": "INTEGRATION",
+    "malformed_semantic_receipt": "INTEGRATION",
 }
+_NON_DETECTION_LABELS = frozenset({"INSUFFICIENT_EVIDENCE"})
 
 
 def _label(value: str) -> str:
@@ -154,21 +166,22 @@ def evaluate_strategy(
         if is_answer_case and outcome.disposition is Disposition.ABSTAIN:
             false_abstains += 1
 
-        expected = {_label(item) for item in case.expected_violations}
+        expected_all = {_label(item) for item in case.expected_violations}
+        expected = expected_all - _NON_DETECTION_LABELS
         detected = {_label(item) for item in outcome.detected_violations}
         required_detections += len(expected)
         detections_found += len(expected & detected)
 
         if is_false_accept:
-            if "UNSUPPORTED_CLAIM" in expected or "UNSUPPORTED_ACCEPTANCE" in expected:
+            if "UNSUPPORTED_CLAIM" in expected_all or "UNSUPPORTED_ACCEPTANCE" in expected_all:
                 unsupported_acceptance += 1
-            if "PROVENANCE_CURRENTNESS" in expected:
+            if "PROVENANCE_CURRENTNESS" in expected_all:
                 provenance_accepted += 1
-            if "INDEPENDENCE_CONTAMINATION" in expected:
+            if "INDEPENDENCE_CONTAMINATION" in expected_all:
                 correlated_accepted += 1
-            if "FAILURE_HANDLING" in expected:
+            if "FAILURE_HANDLING" in expected_all:
                 hidden_failure_accepted += 1
-            if "AUTHORITY_EFFECT" in expected:
+            if "AUTHORITY_EFFECT" in expected_all:
                 authority_effect_errors += 1
 
     strategy_name = getattr(strategy, "__name__", strategy.__class__.__name__)
