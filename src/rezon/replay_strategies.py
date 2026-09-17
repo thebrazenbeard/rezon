@@ -291,11 +291,27 @@ def rezon_guarded(
     normalized_answers = tuple(_normalize_answer(candidate.answer or "") for candidate in eligible)
     counts = Counter(normalized_answers)
     highest_count = max(counts.values())
-    winning_normalized = next(
-        normalized
-        for normalized in normalized_answers
-        if counts[normalized] == highest_count
+    operation_count += len(eligible)
+    tied_winners = tuple(
+        sorted(normalized for normalized, count in counts.items() if count == highest_count)
     )
+    if len(tied_winners) > 1:
+        unresolved.append("eligible_answer_tie")
+        trace.append(f"integrate:ambiguous_tie:{'|'.join(tied_winners)}")
+        return ReplayStrategyOutcome(
+            disposition=Disposition.ABSTAIN,
+            rejected_candidate_ids=tuple(
+                candidate.candidate_id
+                for candidate in strategy_input.candidates
+                if candidate.candidate_id in rejected
+            ),
+            violations_detected=tuple(violations),
+            unresolved=tuple(unresolved),
+            operation_count=operation_count,
+            trace=tuple(trace),
+        )
+
+    winning_normalized = tied_winners[0]
     accepted = tuple(
         candidate.candidate_id
         for candidate, normalized in zip(eligible, normalized_answers)
@@ -309,7 +325,6 @@ def rezon_guarded(
         for candidate, normalized in zip(eligible, normalized_answers)
         if normalized == winning_normalized
     )
-    operation_count += len(eligible)
     trace.extend(f"integrate:accept:{candidate_id}" for candidate_id in accepted)
 
     return ReplayStrategyOutcome(
