@@ -159,6 +159,37 @@ def test_required_violation_detection_recall_is_separate_from_final_disposition(
     assert metrics.required_violation_detection_recall == 2 / 3
 
 
+def test_attack_alias_and_causal_class_count_as_one_required_detection():
+    case = _case(
+        "stale",
+        gold_disposition=Disposition.FAIL_CLOSED,
+        gold_answer=None,
+        expected_violations=("STALE_SOURCE", "PROVENANCE_CURRENTNESS"),
+    )
+    metrics = evaluate_strategy(
+        (case,),
+        _answer("A", detected=("provenance_currentness",)),
+    )
+
+    assert metrics.required_violation_detections == 1
+    assert metrics.required_violation_detections_found == 1
+    assert metrics.required_violation_detection_recall == 1.0
+
+
+def test_insufficient_evidence_is_a_disposition_condition_not_required_guard_detection():
+    case = _case(
+        "insufficient",
+        gold_disposition=Disposition.FAIL_CLOSED,
+        gold_answer=None,
+        expected_violations=("INSUFFICIENT_EVIDENCE",),
+    )
+    metrics = evaluate_strategy((case,), _fail_closed)
+
+    assert metrics.required_violation_detections == 0
+    assert metrics.required_violation_detections_found == 0
+    assert metrics.required_violation_detection_recall == 1.0
+
+
 def test_compare_reports_preserves_independent_metric_deltas_without_score():
     cases = (_case("a"), _case("b"))
     weak = evaluate_strategy(cases, _abstain)
