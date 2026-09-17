@@ -199,11 +199,11 @@ def rezon_guarded(
     if guards.contains(GuardName.PROVENANCE_CURRENTNESS):
         for candidate in answering:
             operation_count += 1
-            stale = any(
-                source_ref in sources and sources[source_ref].is_current is False
+            not_explicitly_current = any(
+                source_ref in sources and sources[source_ref].is_current is not True
                 for source_ref in candidate.source_refs
             )
-            if stale:
+            if not_explicitly_current:
                 rejected.add(candidate.candidate_id)
                 if "PROVENANCE_CURRENTNESS" not in violations:
                     violations.append("PROVENANCE_CURRENTNESS")
