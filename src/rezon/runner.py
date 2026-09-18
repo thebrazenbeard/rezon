@@ -57,8 +57,34 @@ def _view_governed_refs(view) -> tuple[str, ...]:
     return _dedupe(refs)
 
 
-def _versioned_source_refs(refs: tuple[str, ...]) -> tuple[str, ...]:
-    return tuple(ref for ref in refs if "@" in ref)
+def _view_source_versions(view) -> tuple[str, ...]:
+    versions: list[str] = []
+    for proposition in view.propositions:
+        versions.extend(proposition.source_versions)
+    for relation in view.relations:
+        versions.extend(relation.source_versions)
+    return _dedupe(versions)
+
+
+def _independence_view_is_blind(view, descriptor: NodeDescriptor) -> bool:
+    protected_kinds = set(descriptor.independence_blind_kinds)
+    protected_ids = set(descriptor.independence_blind_ids)
+    if any(
+        proposition.kind in protected_kinds
+        or proposition.proposition_id in protected_ids
+        for proposition in view.propositions
+    ):
+        return False
+
+    # Kernel V0 has no typed safe-shared worker-relation class. Fail closed
+    # rather than exposing peer-produced relation identity/type/roles as an
+    # answer-bearing side channel to an independence-required worker.
+    if any(
+        relation.producer_execution_id is not None
+        for relation in view.relations
+    ):
+        return False
+    return True
 
 
 class EpisodeRunner:
@@ -97,7 +123,6 @@ class EpisodeRunner:
         prior_independent: list[IndependenceMetadata] = []
         receipt_source_versions: list[str] = []
         used = 0
-        by_id = {node.descriptor.node_id: node for node in self.nodes}
 
         def add_failure(failure: FailureState) -> None:
             if failure not in failures:
@@ -139,9 +164,23 @@ class EpisodeRunner:
             if decision.action is ScheduleAction.TERMINATE:
                 if decision.failure is not None:
                     add_failure(decision.failure)
+                    if decision.reason == "duplicate_node_id":
+                        unresolved.append("scheduler:duplicate_node_id")
                 break
 
-            runner_node = by_id[decision.node_id]
+            if (
+                decision.node_index is None
+                or decision.node_index < 0
+                or decision.node_index >= len(self.nodes)
+            ):
+                add_failure(FailureState.CONTRACT_VIOLATION)
+                unresolved.append("scheduler:invalid_node_identity")
+                break
+            runner_node = self.nodes[decision.node_index]
+            if runner_node.descriptor.node_id != decision.node_id:
+                add_failure(FailureState.CONTRACT_VIOLATION)
+                unresolved.append("scheduler:descriptor_identity_mismatch")
+                break
             required_authority = set(runner_node.descriptor.required_authority)
             available_authority = set(task_envelope.available_authority if task_envelope else ())
             if required_authority and not required_authority.issubset(available_authority):
@@ -226,12 +265,9 @@ class EpisodeRunner:
                     independence.demonstrably_independent_from(previous)
                     for previous in prior_independent
                 )
-                protected_kinds = set(runner_node.descriptor.independence_blind_kinds)
-                protected_ids = set(runner_node.descriptor.independence_blind_ids)
-                candidate_blind = not any(
-                    proposition.kind in protected_kinds
-                    or proposition.proposition_id in protected_ids
-                    for proposition in audit_view.propositions
+                candidate_blind = _independence_view_is_blind(
+                    audit_view,
+                    runner_node.descriptor,
                 )
                 independence_ok = bool(policy_verified and pairwise_ok and candidate_blind)
                 if not independence_ok:
@@ -250,7 +286,7 @@ class EpisodeRunner:
                 executor = type(executor)(decision.target_id)
 
             input_source_refs = _view_source_refs(audit_view)
-            input_source_versions = _versioned_source_refs(input_source_refs)
+            input_source_versions = _view_source_versions(audit_view)
             governed_refs = _view_governed_refs(audit_view)
             add_source_versions(input_source_versions)
 
@@ -285,10 +321,7 @@ class EpisodeRunner:
             duration = perf_counter() - started
 
             reported_source_refs = _dedupe(list(result.source_refs))
-            reported_source_versions = _dedupe([
-                *result.source_versions,
-                *(ref for ref in result.source_refs if "@" in ref),
-            ])
+            reported_source_versions = _dedupe(list(result.source_versions))
 
             execution_failures = list(result.failures)
             admitted_ids: tuple[str, ...] = ()
@@ -343,6 +376,7 @@ class EpisodeRunner:
                         result,
                         expected_execution_id=execution_id,
                         allowed_source_refs=governed_refs,
+                        allowed_source_versions=input_source_versions,
                     )
                     admitted_ids = tuple(p.proposition_id for p in result.emitted_propositions)
                     admission_ok = True

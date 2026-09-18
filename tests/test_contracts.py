@@ -4,6 +4,7 @@ from rezon.envelopes import TaskEnvelope
 from rezon.epistemics import Hyperrelation, Participant, Proposition, PropositionKind, SupportKind
 from rezon.receipts import (
     AdmissionStatus,
+    ClaimDispositionEvidence,
     EffectState,
     FailureState,
     IndependenceMetadata,
@@ -100,6 +101,16 @@ def test_subject_binding_requires_association_evidence():
 
 
 def test_result_receipt_keeps_unresolved_failures_visible_without_lifecycle_promotion():
+    disposition = ClaimDispositionEvidence(
+        disposition_id="disp-1",
+        task_id="t1",
+        episode_version="v7",
+        issuer_execution_id="exec1",
+        accepted_claim_ids=("p1",),
+        rejected_claim_ids=("p2",),
+        authority_ref="review:claim-disposition",
+        evidence_refs=("receipt:claim-review",),
+    )
     receipt = ResultReceipt(
         task_id="t1",
         episode_version="v7",
@@ -110,6 +121,7 @@ def test_result_receipt_keeps_unresolved_failures_visible_without_lifecycle_prom
         effect_state=EffectState.PLAN,
         source_versions=("repo@abc",),
         execution_ids=("exec1",),
+        claim_disposition_evidence=disposition,
     )
     assert receipt.unresolved
     assert receipt.failures == (FailureState.INSUFFICIENT_EVIDENCE,)
@@ -145,3 +157,25 @@ def test_pairwise_independence_rejects_shared_model_provider_lineage():
     assert a.is_demonstrably_independent
     assert b.is_demonstrably_independent
     assert not a.demonstrably_independent_from(b)
+
+
+def test_claim_disposition_evidence_must_bind_receipt_execution():
+    disposition = ClaimDispositionEvidence(
+        disposition_id="disp-mismatch",
+        task_id="t-disposition",
+        episode_version="e1@4",
+        issuer_execution_id="exec-other",
+        accepted_claim_ids=("c1",),
+        rejected_claim_ids=(),
+        authority_ref="review:claim-disposition",
+        evidence_refs=("receipt:claim-review",),
+    )
+    with pytest.raises(ValueError):
+        ResultReceipt(
+            task_id="t-disposition",
+            episode_version="e1@4",
+            accepted_claim_ids=("c1",),
+            execution_ids=("exec-actual",),
+            claim_disposition_complete=True,
+            claim_disposition_evidence=disposition,
+        )
