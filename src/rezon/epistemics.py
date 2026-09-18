@@ -25,6 +25,28 @@ class SupportKind(str, Enum):
     HEURISTIC = "heuristic"
 
 
+def source_ref_version_bindings(
+    source_refs: tuple[str, ...],
+    source_versions: tuple[str, ...],
+) -> tuple[tuple[str, str], ...] | None:
+    """Return exact ref/version associations when the object establishes them.
+
+    Equal-length tuples are positionally associated. When cardinalities differ,
+    a version is associated only if the exact same token is also present as a
+    source ref. No delimiter or string-shape inference is performed.
+    """
+    if not source_versions:
+        return ()
+    if len(source_refs) == len(source_versions):
+        return tuple(zip(source_refs, source_versions))
+    exact_self_bindings = tuple(
+        (version, version) for version in source_versions if version in source_refs
+    )
+    if len(exact_self_bindings) != len(source_versions):
+        return None
+    return exact_self_bindings
+
+
 @dataclass(frozen=True)
 class Proposition:
     proposition_id: str

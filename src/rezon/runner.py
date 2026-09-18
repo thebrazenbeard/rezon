@@ -4,9 +4,9 @@ from dataclasses import dataclass, replace
 from time import perf_counter
 
 from .admission import AdmissionError, admit_execution_result
-from .envelopes import TaskEnvelope
+from .envelopes import AuthorityVerificationPolicy, TaskEnvelope
 from .episode import Episode
-from .epistemics import PropositionKind
+from .epistemics import PropositionKind, source_ref_version_bindings
 from .nodes import NodeDescriptor, VerificationStatus
 from .receipts import (
     EffectState,
@@ -27,6 +27,7 @@ class RunnerNode:
     visibility: VisibilityPolicy
     independence: IndependenceMetadata = IndependenceMetadata()
     independence_policy: IndependenceVerificationPolicy | None = None
+    authority_policy: AuthorityVerificationPolicy | None = None
 
 
 @dataclass(frozen=True)
@@ -66,9 +67,44 @@ def _view_source_versions(view) -> tuple[str, ...]:
     return _dedupe(versions)
 
 
+def _view_source_bindings(view) -> tuple[tuple[str, str], ...]:
+    bindings: list[tuple[str, str]] = []
+    for source in (*view.propositions, *view.relations):
+        source_bindings = source_ref_version_bindings(
+            source.source_refs,
+            source.source_versions,
+        )
+        if source_bindings is None:
+            continue
+        for binding in source_bindings:
+            if binding not in bindings:
+                bindings.append(binding)
+    return tuple(bindings)
+
+
+def _view_potentially_consumed_evidence_refs(view) -> tuple[str, ...]:
+    refs: list[str] = []
+    for proposition in view.propositions:
+        if proposition.kind is not PropositionKind.EVIDENCE:
+            continue
+        refs.append(proposition.proposition_id)
+        refs.extend(proposition.source_refs)
+    return _dedupe(refs)
+
+
 def _independence_view_is_blind(view, descriptor: NodeDescriptor) -> bool:
     protected_kinds = set(descriptor.independence_blind_kinds)
     protected_ids = set(descriptor.independence_blind_ids)
+
+    # Kernel V0 has no typed safe-shared worker-proposition class. Any visible
+    # prior worker output is therefore answer-bearing by default, regardless of
+    # its proposition kind.
+    if any(
+        proposition.producer_execution_id is not None
+        for proposition in view.propositions
+    ):
+        return False
+
     if any(
         proposition.kind in protected_kinds
         or proposition.proposition_id in protected_ids
@@ -181,12 +217,20 @@ class EpisodeRunner:
                 add_failure(FailureState.CONTRACT_VIOLATION)
                 unresolved.append("scheduler:descriptor_identity_mismatch")
                 break
-            required_authority = set(runner_node.descriptor.required_authority)
-            available_authority = set(task_envelope.available_authority if task_envelope else ())
-            if required_authority and not required_authority.issubset(available_authority):
-                add_failure(FailureState.CONTRACT_VIOLATION)
-                unresolved.append(f"authority:{runner_node.descriptor.node_id}")
-                break
+            required_authority = tuple(runner_node.descriptor.required_authority)
+            if required_authority:
+                authority_verified = bool(
+                    task_envelope is not None
+                    and runner_node.authority_policy is not None
+                    and runner_node.authority_policy.verify(
+                        task_envelope,
+                        required_authority,
+                    )
+                )
+                if not authority_verified:
+                    add_failure(FailureState.CONTRACT_VIOLATION)
+                    unresolved.append(f"authority:{runner_node.descriptor.node_id}")
+                    break
 
             if runner_node.executor is None:
                 add_failure(FailureState.UNAVAILABLE)
@@ -261,6 +305,15 @@ class EpisodeRunner:
                     runner_node.independence_policy
                     and runner_node.independence_policy.verify(independence)
                 )
+                potentially_consumed_evidence = _view_potentially_consumed_evidence_refs(
+                    audit_view
+                )
+                evidence_attestation_matches_view = (
+                    len(independence.consumed_evidence_refs)
+                    == len(set(independence.consumed_evidence_refs))
+                    and set(independence.consumed_evidence_refs)
+                    == set(potentially_consumed_evidence)
+                )
                 pairwise_ok = all(
                     independence.demonstrably_independent_from(previous)
                     for previous in prior_independent
@@ -269,7 +322,12 @@ class EpisodeRunner:
                     audit_view,
                     runner_node.descriptor,
                 )
-                independence_ok = bool(policy_verified and pairwise_ok and candidate_blind)
+                independence_ok = bool(
+                    policy_verified
+                    and evidence_attestation_matches_view
+                    and pairwise_ok
+                    and candidate_blind
+                )
                 if not independence_ok:
                     add_failure(FailureState.CONTRACT_VIOLATION)
                     unresolved.append(f"independence:{runner_node.descriptor.node_id}")
@@ -287,6 +345,7 @@ class EpisodeRunner:
 
             input_source_refs = _view_source_refs(audit_view)
             input_source_versions = _view_source_versions(audit_view)
+            input_source_bindings = _view_source_bindings(audit_view)
             governed_refs = _view_governed_refs(audit_view)
             add_source_versions(input_source_versions)
 
@@ -377,6 +436,7 @@ class EpisodeRunner:
                         expected_execution_id=execution_id,
                         allowed_source_refs=governed_refs,
                         allowed_source_versions=input_source_versions,
+                        allowed_source_bindings=input_source_bindings,
                     )
                     admitted_ids = tuple(p.proposition_id for p in result.emitted_propositions)
                     admission_ok = True

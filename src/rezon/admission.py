@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .episode import Episode, EpisodeInvariantError
-from .epistemics import PropositionKind
+from .epistemics import PropositionKind, source_ref_version_bindings
 from .nodes import ExecutionResult, NodeDescriptor
 
 
@@ -54,6 +54,7 @@ def admit_execution_result(
     expected_execution_id: str | None = None,
     allowed_source_refs: tuple[str, ...] | None = None,
     allowed_source_versions: tuple[str, ...] | None = None,
+    allowed_source_bindings: tuple[tuple[str, str], ...] | None = None,
 ) -> None:
     if result.node_id != descriptor.node_id:
         raise AdmissionError("execution result node does not match descriptor")
@@ -69,6 +70,7 @@ def admit_execution_result(
     }
     governed_refs = set(allowed_source_refs or ())
     governed_source_versions = set(allowed_source_versions or ())
+    governed_source_bindings = set(allowed_source_bindings or ())
 
     for proposition in result.emitted_propositions:
         if proposition.kind not in permitted:
@@ -95,6 +97,23 @@ def admit_execution_result(
                 raise AdmissionError(
                     "proposition reports source versions not present in governed "
                     f"execution view: {ungoverned_versions}"
+                )
+        if allowed_source_bindings is not None and proposition.source_versions:
+            bindings = source_ref_version_bindings(
+                proposition.source_refs,
+                proposition.source_versions,
+            )
+            if bindings is None:
+                raise AdmissionError(
+                    "proposition source versions lack exact source-ref association"
+                )
+            ungoverned_bindings = [
+                binding for binding in bindings if binding not in governed_source_bindings
+            ]
+            if ungoverned_bindings:
+                raise AdmissionError(
+                    "proposition reports source ref/version association not present "
+                    f"in governed execution view: {ungoverned_bindings}"
                 )
 
     staged_prop_ids = {p.proposition_id for p in result.emitted_propositions}
@@ -133,6 +152,23 @@ def admit_execution_result(
                 raise AdmissionError(
                     "relation reports source versions not present in governed "
                     f"execution view: {ungoverned_versions}"
+                )
+        if allowed_source_bindings is not None and relation.source_versions:
+            bindings = source_ref_version_bindings(
+                relation.source_refs,
+                relation.source_versions,
+            )
+            if bindings is None:
+                raise AdmissionError(
+                    "relation source versions lack exact source-ref association"
+                )
+            ungoverned_bindings = [
+                binding for binding in bindings if binding not in governed_source_bindings
+            ]
+            if ungoverned_bindings:
+                raise AdmissionError(
+                    "relation reports source ref/version association not present "
+                    f"in governed execution view: {ungoverned_bindings}"
                 )
 
     _prevalidate_episode_mutation(episode, result)
