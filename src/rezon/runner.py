@@ -290,6 +290,23 @@ class EpisodeRunner:
 
             independence_ok = False
             if runner_node.descriptor.independence_required:
+                # Kernel V0 strong independence permits the shared task
+                # specification but not auxiliary dynamic context. TaskEnvelope
+                # context_refs are an explicit shared-context channel and are
+                # therefore incompatible with an independence_required run.
+                if task_envelope is not None and task_envelope.context_refs:
+                    add_failure(FailureState.CONTRACT_VIOLATION)
+                    unresolved.append(
+                        f"independence_context:{runner_node.descriptor.node_id}"
+                    )
+                    add_preflight_trace(
+                        execution_id,
+                        runner_node,
+                        audit_view,
+                        FailureState.CONTRACT_VIOLATION,
+                    )
+                    break
+
                 independence = runner_node.independence
                 claim_complete = independence.is_demonstrably_independent
                 if not claim_complete:
