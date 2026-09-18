@@ -12,9 +12,10 @@ This record binds the R6 successor to the exact failed R5 subject and preserves 
 - R6 branch: `work/rezon-kernel-v0-r6-hostile-hardening`
 - imported Masa hostile artifact head: `ff22ca92eb5e588f3f50c2a5c0d61599655e9b5a`
 - expanded R6 test-only RED head: `19c330786c88f01e9e6779784b18921842bb62be`
-- R6 executable GREEN head: `5b05fba48c8a93bfb9f9cc41c049a866a1184f2a`
-- R6 executable tree: `2186138de06fc04fed987907a3a30193ab35a103`
+- initial R6 executable GREEN head: `5b05fba48c8a93bfb9f9cc41c049a866a1184f2a`
 - hosted-CI enablement head: `d4f94762a1329a61c2c551217e4063440aed30be`
+- late B4 self-hostile RED head: `f87e887` (generic receipt could still self-assert disposition completeness)
+- current R6 executable GREEN head: `7492271c356f445561a4125a771942b2cf0c95eb`
 
 ## Independent review trigger
 
@@ -69,22 +70,21 @@ Retrieval admission populates explicit source-version provenance, traces/receipt
 
 An email-like locator such as `analyst@example.com` therefore remains a locator/ref and is not promoted to source-version evidence.
 
-### B3 — contradictory claim-disposition completeness
+### B3/B4 — generic ResultReceipt is non-dispositional
 
-`ResultReceipt` now rejects `claim_disposition_complete=True` when any `claim_disposition:<id>` unresolved marker remains.
+The first R6 B4 repair introduced a typed disposition-evidence object, but self-hostile review found that a caller could still manufacture that object and matching strings locally.
 
-### B4 — bare accepted/rejected claim self-assertion
+R6 therefore chose the smaller fail-closed design:
 
-Accepted/rejected claim IDs require a typed `ClaimDispositionEvidence` artifact bound to:
+- `claim_disposition_complete` defaults to `False`;
+- generic `ResultReceipt` rejects any non-empty accepted/rejected claim IDs;
+- generic `ResultReceipt` rejects `claim_disposition_complete=True` even when there are no unresolved markers;
+- the runner never emits claim-disposition completeness;
+- claim disposition is deferred to a future separately governed artifact rather than represented by the generic task receipt.
 
-- exact task ID;
-- exact episode version;
-- issuing execution contained in the same receipt;
-- exact accepted/rejected claim sets;
-- governed authority namespace;
-- non-empty supporting evidence refs.
+Exact late self-hostile test-only head `f87e887` reproduced the remaining completeness self-assertion before this stronger repair.
 
-Bare accepted/rejected fields can no longer self-mint a governed-looking disposition receipt.
+This closes both contradictory completeness and bare accepted/rejected self-minting without introducing a second trusted-string authority layer.
 
 ### B5 — non-proposition peer-answer leakage
 
@@ -123,17 +123,18 @@ R6 also freezes positive/negative controls for:
 - consumed-evidence attestation mismatch failing;
 - shared attested consumed evidence failing pairwise independence;
 - worker attempts to launder an unconsumed explicit source version failing admission;
-- claim-disposition evidence with an issuer absent from the receipt execution set failing structurally;
+- generic receipt claim-disposition completeness self-assertion failing structurally;
 - explicit source-version entries being non-empty and unique.
 
 ## Exact executable qualification
 
-Fresh clone of exact executable head `5b05fba48c8a93bfb9f9cc41c049a866a1184f2a` under CPython 3.12.10:
+Fresh clone of current executable head `7492271c356f445561a4125a771942b2cf0c95eb` under CPython 3.12.10:
 
 - editable install: PASS
 - `python -m compileall -q src`: PASS
 - pytest: **104 passed / 0 failed**
 - `git diff --check`: PASS
+- tracked working tree after test-environment cleanup: clean
 
 A local virtual environment created for the qualification was untracked runtime state and is not repository evidence.
 
@@ -141,9 +142,9 @@ A local virtual environment created for the qualification was untracked runtime 
 
 R6 was added to the existing `Rezon kernel tests` push workflow without changing the test commands.
 
-Hosted GitHub Actions on exact head `d4f94762a1329a61c2c551217e4063440aed30be`:
+Hosted GitHub Actions on current executable head `7492271c356f445561a4125a771942b2cf0c95eb`:
 
-- run: `35350939812`
+- run: `35351614529`
 - event: push
 - runner: GitHub-hosted
 - install: PASS
@@ -152,7 +153,7 @@ Hosted GitHub Actions on exact head `d4f94762a1329a61c2c551217e4063440aed30be`:
 - diff-check: PASS
 - overall conclusion: **success**
 
-The source delta from executable head `5b05fba…` to `d4f9476…` is workflow configuration only.
+Earlier hosted run `35350939812` on CI-enablement head `d4f9476…` was also successful; it is retained as provenance rather than substituted for the current subject.
 
 ## Explicit unresolved / non-claims
 
