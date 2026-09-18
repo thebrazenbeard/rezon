@@ -46,6 +46,7 @@ class IndependenceMetadata:
     context_lineage: str | None = None
     saw_other_answer: bool | None = None
     common_evidence_refs: tuple[str, ...] = ()
+    consumed_evidence_refs: tuple[str, ...] = ()
     independence_basis_refs: tuple[str, ...] = ()
 
     @property
@@ -86,6 +87,8 @@ class IndependenceMetadata:
             return False
         if set(self.common_evidence_refs) & set(other.common_evidence_refs):
             return False
+        if set(self.consumed_evidence_refs) & set(other.consumed_evidence_refs):
+            return False
         return True
 
 
@@ -98,6 +101,9 @@ class IndependenceVerificationEvidence:
     prompt_lineage: str
     context_lineage: str
     verification_refs: tuple[str, ...]
+    saw_other_answer: bool | None = None
+    common_evidence_refs: tuple[str, ...] | None = None
+    consumed_evidence_refs: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         if not all((
@@ -112,6 +118,11 @@ class IndependenceVerificationEvidence:
             raise ValueError("independence verification evidence must be complete")
         if not self.basis_ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES):
             raise ValueError("independence verification basis must use a governed namespace")
+        if any(not ref for ref in self.verification_refs):
+            raise ValueError("independence verification refs must be non-empty")
+        for refs in (self.common_evidence_refs, self.consumed_evidence_refs):
+            if refs is not None and any(not ref for ref in refs):
+                raise ValueError("independence evidence refs must be non-empty")
 
 
 @dataclass(frozen=True)
@@ -131,14 +142,27 @@ class IndependenceVerificationPolicy:
                 evidence.provider_id,
                 evidence.prompt_lineage,
                 evidence.context_lineage,
-            ) == (
+            ) != (
                 metadata.executor_id,
                 metadata.model_id,
                 metadata.provider_id,
                 metadata.prompt_lineage,
                 metadata.context_lineage,
             ):
-                return True
+                continue
+            if evidence.saw_other_answer is not metadata.saw_other_answer:
+                continue
+            if evidence.saw_other_answer is not False:
+                continue
+            if evidence.common_evidence_refs is None:
+                continue
+            if tuple(evidence.common_evidence_refs) != tuple(metadata.common_evidence_refs):
+                continue
+            if evidence.consumed_evidence_refs is None:
+                continue
+            if tuple(evidence.consumed_evidence_refs) != tuple(metadata.consumed_evidence_refs):
+                continue
+            return True
         return False
 
 
@@ -161,6 +185,7 @@ class RetrievalReceipt:
             raise ValueError("retrieval identity, query, source, and method are required")
 
 
+
 @dataclass(frozen=True)
 class ResultReceipt:
     task_id: str
@@ -173,7 +198,7 @@ class ResultReceipt:
     source_versions: tuple[str, ...] = ()
     execution_ids: tuple[str, ...] = ()
     task_envelope_digest: str | None = None
-    claim_disposition_complete: bool = True
+    claim_disposition_complete: bool = False
 
     def __post_init__(self) -> None:
         if not self.task_id or not self.episode_version:
@@ -181,6 +206,16 @@ class ResultReceipt:
         overlap = set(self.accepted_claim_ids) & set(self.rejected_claim_ids)
         if overlap:
             raise ValueError(f"claims cannot be both accepted and rejected: {sorted(overlap)}")
+        if self.accepted_claim_ids or self.rejected_claim_ids:
+            raise ValueError(
+                "generic ResultReceipt cannot assert accepted/rejected claim disposition; "
+                "claim disposition requires a separately governed artifact"
+            )
+        if self.claim_disposition_complete:
+            raise ValueError(
+                "generic ResultReceipt cannot assert claim disposition completeness; "
+                "claim disposition requires a separately governed artifact"
+            )
         if self.effect_state is not EffectState.PLAN:
             raise ValueError(
                 "ResultReceipt is non-promotional and may report PLAN only; "

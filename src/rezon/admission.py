@@ -53,6 +53,7 @@ def admit_execution_result(
     *,
     expected_execution_id: str | None = None,
     allowed_source_refs: tuple[str, ...] | None = None,
+    allowed_source_versions: tuple[str, ...] | None = None,
 ) -> None:
     if result.node_id != descriptor.node_id:
         raise AdmissionError("execution result node does not match descriptor")
@@ -67,6 +68,7 @@ def admit_execution_result(
         relation_type.lower() for relation_type in descriptor.permitted_relation_types
     }
     governed_refs = set(allowed_source_refs or ())
+    governed_source_versions = set(allowed_source_versions or ())
 
     for proposition in result.emitted_propositions:
         if proposition.kind not in permitted:
@@ -82,6 +84,17 @@ def admit_execution_result(
             if ungoverned:
                 raise AdmissionError(
                     f"proposition reports provenance not present in governed execution view: {ungoverned}"
+                )
+        if allowed_source_versions is not None:
+            ungoverned_versions = [
+                version
+                for version in proposition.source_versions
+                if version not in governed_source_versions
+            ]
+            if ungoverned_versions:
+                raise AdmissionError(
+                    "proposition reports source versions not present in governed "
+                    f"execution view: {ungoverned_versions}"
                 )
 
     staged_prop_ids = {p.proposition_id for p in result.emitted_propositions}
@@ -109,6 +122,17 @@ def admit_execution_result(
             if ungoverned_participants:
                 raise AdmissionError(
                     f"relation references objects outside governed execution view: {ungoverned_participants}"
+                )
+        if allowed_source_versions is not None:
+            ungoverned_versions = [
+                version
+                for version in relation.source_versions
+                if version not in governed_source_versions
+            ]
+            if ungoverned_versions:
+                raise AdmissionError(
+                    "relation reports source versions not present in governed "
+                    f"execution view: {ungoverned_versions}"
                 )
 
     _prevalidate_episode_mutation(episode, result)

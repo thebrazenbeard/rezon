@@ -103,8 +103,6 @@ def test_result_receipt_keeps_unresolved_failures_visible_without_lifecycle_prom
     receipt = ResultReceipt(
         task_id="t1",
         episode_version="v7",
-        accepted_claim_ids=("p1",),
-        rejected_claim_ids=("p2",),
         unresolved=("conflict:r4",),
         failures=(FailureState.INSUFFICIENT_EVIDENCE,),
         effect_state=EffectState.PLAN,
@@ -145,3 +143,12 @@ def test_pairwise_independence_rejects_shared_model_provider_lineage():
     assert a.is_demonstrably_independent
     assert b.is_demonstrably_independent
     assert not a.demonstrably_independent_from(b)
+
+
+def test_generic_result_receipt_cannot_assert_claim_disposition_complete():
+    with pytest.raises(ValueError):
+        ResultReceipt(
+            task_id="t-no-disposition-authority",
+            episode_version="e1@0",
+            claim_disposition_complete=True,
+        )

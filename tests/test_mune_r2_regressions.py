@@ -315,6 +315,7 @@ def test_trace_and_receipt_separate_consumed_from_worker_reported_provenance():
         PropositionKind.OBSERVATION,
         "observed",
         source_refs=("repo:policy@abc123",),
+        source_versions=("repo:policy@abc123",),
     ))
     node = RunnerNode(
         descriptor=NodeDescriptor("echo_hypothesis", (PropositionKind.HYPOTHESIS,)),

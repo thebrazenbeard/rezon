@@ -200,11 +200,13 @@ def test_bare_result_receipt_cannot_self_promote_to_qualified():
 
 def test_result_receipt_exposes_source_version_used_by_execution():
     ep = Episode("e1")
-    ep.add_proposition(_p(
+    ep.add_proposition(Proposition(
         "ev1",
+        "e1",
         PropositionKind.EVIDENCE,
         "policy says X",
         source_refs=("repo:policy@v2",),
+        source_versions=("repo:policy@v2",),
     ))
     node = RunnerNode(
         descriptor=NodeDescriptor("echo_hypothesis", (PropositionKind.HYPOTHESIS,)),

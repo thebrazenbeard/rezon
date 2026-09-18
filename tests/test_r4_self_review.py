@@ -40,6 +40,9 @@ def _independence_policy(metadata: IndependenceMetadata) -> IndependenceVerifica
         prompt_lineage=metadata.prompt_lineage,
         context_lineage=metadata.context_lineage,
         verification_refs=("receipt:independence-verified",),
+        saw_other_answer=metadata.saw_other_answer,
+        common_evidence_refs=metadata.common_evidence_refs,
+        consumed_evidence_refs=metadata.consumed_evidence_refs,
     ),))
 
 
