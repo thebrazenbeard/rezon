@@ -8,6 +8,7 @@ on:
       - work/rezon-kernel-v0-r4-mune
       - work/rezon-kernel-v0-r5-independence
       - work/rezon-kernel-v0-r6-hostile-hardening
+      - work/rezon-kernel-v0-r7-hostile-hardening
 
 jobs:
   test:
