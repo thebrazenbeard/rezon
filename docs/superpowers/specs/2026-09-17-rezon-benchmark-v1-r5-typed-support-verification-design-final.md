@@ -6,7 +6,9 @@ Date: 2026-09-17
 
 Repository: `thebrazenbeard/rezon`
 
-Benchmark source base: `rezon/benchmark-v1-r4-unknown-currentness@8f21876098dc4a2f56d55418e4d1f4f2fab0b28e`
+Historical R5 design source base: `rezon/benchmark-v1-r4-unknown-currentness@8f21876098dc4a2f56d55418e4d1f4f2fab0b28e`
+
+Current R4 review subject at this hostile-repair cut: `rezon/benchmark-v1-r4-unknown-currentness@d7373867d3813d32032cb30463e54a6ddf573025`. That later R4 subject adds direct `StrategyInput` structural fail-closed validation while preserving the frozen benchmark metrics. R5 implementation planning must reconcile/rebase onto the accepted current R4 subject after both reviews; this design document does not silently inherit or qualify the later R4 source.
 
 Historical design ancestry: `fc116243...` -> `e22b3c94...` -> `c946ccb8...` -> `f4133f38...`
 
@@ -210,7 +212,7 @@ For every verification receipt:
 - `PROVENANCE_BINDING` and `CURRENTNESS_CHECK` receipts require at least one source ref;
 - other verification kinds may be source-free when the verifier execution itself is the relevant artifact;
 - when a receipt is applicable to a candidate's mandatory verification requirement, its source refs enter `ADMISSION_INTEGRITY` and `PROVENANCE_CURRENTNESS`;
-- an applicable receipt backed by any source that is not explicitly `ADMITTED` and `is_current is True` is not verification-governance-eligible and cannot satisfy or refute the requirement;
+- an applicable receipt is verification-governance-eligible only when **every** referenced source is explicitly `ADMITTED` **and** has `is_current is True`; any unadmitted, unknown-admission, stale, or unknown-currentness source makes that receipt non-satisfying and non-refuting;
 - irrelevant, wrong-target, or non-required receipts do not import their source failures into an unrelated candidate.
 
 This prevents stale, retrieved-only, dangling, or otherwise ungoverned verification provenance from laundering a positive receipt.
