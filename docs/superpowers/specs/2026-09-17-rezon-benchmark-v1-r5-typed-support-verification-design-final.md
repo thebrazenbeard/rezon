@@ -325,6 +325,10 @@ Structural invalidity -> harness error before strategy:
 - retrieved-source support without source refs;
 - illegal verification status fields;
 - nonexistent verification target;
+- dangling verification source ref;
+- duplicate verification `(target_type, target_id, kind)` tuple;
+- attempted self-verification where verifier execution equals the target candidate execution;
+- source-required verification kind without source refs;
 - unknown enum;
 - mixed fixture versions.
 
@@ -334,6 +338,7 @@ Semantic governance failure -> structurally valid input reaches strategy:
 - stale/retrieved-only source-backed support;
 - valid receipt targets another existing object than required;
 - required verification non-positive/missing;
+- applicable exact-target VERIFIED receipt backed by stale/retrieved-only verification source provenance;
 - advisory confidence/path score tries to replace support;
 - correlated consensus;
 - structurally valid support accompanies an evaluator-invalid inference.
@@ -370,7 +375,9 @@ Rules:
 - none for non-answer candidates;
 - `verification_satisfied` required iff verification requirement exists;
 - hidden gold never enters StrategyInput or its digest;
-- `support_sufficient=true` may coexist with `inference_valid=false` to test support-vs-entailment separation.
+- `support_sufficient=true` may coexist with `inference_valid=false` to test support-vs-entailment separation;
+- `verification_satisfied=false` may coexist with a structurally valid exact-target `VERIFIED` receipt when independent evidence such as stale verification provenance makes the assertion unusable;
+- receipt status never writes, derives, or determines evaluator gold.
 
 Existing gold disposition/answer/expected violations remain evaluator-only.
 
@@ -386,6 +393,8 @@ It must not import/call production:
 
 Scoring uses frozen candidate gold assessments plus existing gold disposition/answer.
 
+The hostile population must contain at least one structurally valid exact-target `VERIFIED` receipt whose hidden evaluator assessment is `verification_satisfied=false` for a reason independently encoded outside the production verification-satisfaction helper (for example stale verification provenance). This is the anti-oracle control proving that "receipt says VERIFIED" is not the evaluator's truth rule.
+
 Structural parser/shape validation may be shared; semantic scoring may not.
 
 ## 17. Guard semantics
@@ -399,11 +408,17 @@ Structural parser/shape validation may be shared; semantic scoring may not.
 
 `VERIFICATION_INTEGRITY`:
 
-- computes exact required target per candidate;
+- computes the exact required target per candidate;
 - requires every configured verification kind;
-- counts only exact-target `VERIFIED` receipts;
-- blocks candidate on missing/wrong-target/non-positive required verification;
+- considers only receipts for required kinds and the exact required target;
+- counts a `VERIFIED` receipt only when its verifier execution is trusted/permitted, distinct from the target candidate execution, and its applicable verification-source refs pass admission/currentness;
+- a source-governance-ineligible `VERIFIED` receipt is non-satisfying and records the corresponding source-governance failure;
+- an exact-target `REFUTED` receipt blocks only when its kind is required and its verification provenance is governance-eligible;
+- wrong-target, non-required, or unsolicited receipts cannot satisfy or block eligibility;
+- blocks candidate on missing/non-positive/otherwise unsatisfied required verification;
 - if no answering candidate survives mandatory verification, disposition is `FAIL_CLOSED`.
+
+Receipt status alone is never sufficient authority for verification truth.
 
 Free-form V1.0 evidence/receipt strings cannot satisfy V1.1 typed requirements.
 
@@ -412,10 +427,11 @@ Free-form V1.0 evidence/receipt strings cannot satisfy V1.1 typed requirements.
 1. structural invalidity -> harness error;
 2. ordinary governance/support filters candidates;
 3. mandatory verification blocks candidates;
-4. surviving candidates proceed to ambiguity-preserving integration;
-5. no survivors + at least one verification-blocked answering candidate -> `FAIL_CLOSED`;
-6. no survivors only from ordinary support/governance insufficiency -> `ABSTAIN`;
-7. surviving answer tie -> `ABSTAIN`.
+4. unsolicited/non-required verification receipts remain diagnostic and do not alter eligibility;
+5. surviving candidates proceed to ambiguity-preserving integration;
+6. no survivors + at least one verification-blocked answering candidate -> `FAIL_CLOSED`;
+7. no survivors only from ordinary support/governance insufficiency -> `ABSTAIN`;
+8. surviving answer tie -> `ABSTAIN`.
 
 R5 does not silently redefine separately documented failure-visibility behavior.
 
@@ -479,7 +495,15 @@ Include frozen cases for:
 28. one bad candidate + one fully verified candidate -> good candidate may answer;
 29. all candidates verification-blocked -> FAIL_CLOSED;
 30. candidate/profile/claim/support/receipt/case order permutations preserve outcome;
-31. evaluator-label permutation leaves strategy-visible digest unchanged.
+31. evaluator-label permutation leaves strategy-visible digest unchanged;
+32. exact-target VERIFIED receipt backed by stale verification source -> verification unsatisfied and currentness violation;
+33. exact-target VERIFIED receipt backed by retrieved-only verification source -> verification unsatisfied and admission violation;
+34. dangling verification source ref -> structural error;
+35. verifier execution equals target candidate execution -> structural error;
+36. same `(target_type, target_id, kind)` with VERIFIED and REFUTED receipts -> structural error;
+37. exact-target VERIFIED receipt with hidden `verification_satisfied=false` due stale verification provenance -> counted as a false-VERIFIED hostile oracle unless blocked;
+38. unsolicited exact-target REFUTED receipt with no verification requirement -> diagnostic only, clean candidate may still answer;
+39. REFUTED receipt for a non-required kind -> diagnostic only and cannot candidate-local DoS.
 
 Clean controls span source-backed, deterministic, empirical, and formal support. Always-abstain must be visibly worse than a correct guarded strategy.
 
@@ -493,6 +517,9 @@ verification_unsatisfied_acceptance
 mandatory_verification_fail_closed_miss
 support_kind_capability_laundering
 invalid_inference_acceptance
+verification_source_governance_acceptance
+false_verified_acceptance
+unsolicited_refutation_false_block
 ```
 
 Metrics use hidden candidate gold, never the production guard's own determination.
@@ -507,6 +534,10 @@ Required:
 - independently ablate VERIFICATION_INTEGRITY;
 - each ablation worsens frozen hostile cases;
 - order permutations across candidates/profiles/claims/support/receipts/cases;
+- receipt-status conflict fixture proving duplicate target/kind tuples fail structurally rather than order-resolve;
+- self-verifier fixture proving execution separation is enforced;
+- false-VERIFIED fixture scored only from hidden evaluator gold plus independent failure evidence;
+- unsolicited/non-required REFUTED fixtures proving no candidate-local denial of service;
 - evaluator-label permutation;
 - V1.0 digest regression;
 - V1.1 digest determinism;
