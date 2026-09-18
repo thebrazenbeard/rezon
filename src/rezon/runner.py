@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
+import json
 from time import perf_counter
 from uuid import uuid4
 
@@ -84,14 +85,24 @@ def _view_source_bindings(view) -> tuple[tuple[str, str], ...]:
     return tuple(bindings)
 
 
+def _canonical_episode_snapshot_digest(snapshot) -> str:
+    payload = json.dumps(
+        asdict(snapshot),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _canonical_producer_execution_id(
     node_id: str,
-    episode_version: str,
+    episode_snapshot_digest: str,
     task_specification_digest: str | None,
 ) -> str:
     payload = "\x1f".join((
         node_id,
-        episode_version,
+        episode_snapshot_digest,
         task_specification_digest or "no-task-spec",
     ))
     digest = sha256(payload.encode("utf-8")).hexdigest()
@@ -189,6 +200,7 @@ class EpisodeRunner:
             execution_id: str,
             runner_node: RunnerNode,
             audit_view,
+            canonical_episode_snapshot_digest: str,
             failure: FailureState,
         ) -> None:
             task_specification_digest = (
@@ -203,7 +215,7 @@ class EpisodeRunner:
             )
             canonical_producer_execution_id = _canonical_producer_execution_id(
                 runner_node.descriptor.node_id,
-                audit_view.episode_version,
+                canonical_episode_snapshot_digest,
                 task_specification_digest,
             )
             records.append(TraceRecord(
@@ -220,6 +232,7 @@ class EpisodeRunner:
                 executor_task_specification_digest=task_specification_digest,
                 executor_episode_version=executor_episode_version,
                 canonical_producer_execution_id=canonical_producer_execution_id,
+                canonical_episode_snapshot_digest=canonical_episode_snapshot_digest,
                 duration_seconds=0.0,
                 failures=(failure,),
             ))
@@ -284,9 +297,13 @@ class EpisodeRunner:
                     f"{task_id}:exec:{len(records) + 1}:"
                     f"{runner_node.descriptor.node_id}"
                 )
+            execution_snapshot = episode.snapshot()
+            canonical_episode_snapshot_digest = _canonical_episode_snapshot_digest(
+                execution_snapshot
+            )
             audit_view = build_execution_view(
                 execution_id,
-                episode.snapshot(),
+                execution_snapshot,
                 runner_node.visibility,
                 runner_node.independence,
                 task_envelope,
@@ -304,7 +321,7 @@ class EpisodeRunner:
             )
             canonical_producer_execution_id = _canonical_producer_execution_id(
                 runner_node.descriptor.node_id,
-                audit_view.episode_version,
+                canonical_episode_snapshot_digest,
                 executor_task_specification_digest,
             )
             executor_view = replace(
@@ -335,6 +352,7 @@ class EpisodeRunner:
                     execution_id,
                     runner_node,
                     audit_view,
+                    canonical_episode_snapshot_digest,
                     FailureState.CONTRACT_VIOLATION,
                 )
                 completed.append(runner_node.descriptor.node_id)
@@ -352,6 +370,7 @@ class EpisodeRunner:
                     execution_id,
                     runner_node,
                     audit_view,
+                    canonical_episode_snapshot_digest,
                     FailureState.CONTRACT_VIOLATION,
                 )
                 completed.append(runner_node.descriptor.node_id)
@@ -373,6 +392,7 @@ class EpisodeRunner:
                         execution_id,
                         runner_node,
                         audit_view,
+                        canonical_episode_snapshot_digest,
                         FailureState.CONTRACT_VIOLATION,
                     )
                     break
@@ -418,6 +438,7 @@ class EpisodeRunner:
                         execution_id,
                         runner_node,
                         audit_view,
+                        canonical_episode_snapshot_digest,
                         FailureState.CONTRACT_VIOLATION,
                     )
                     break
@@ -453,6 +474,7 @@ class EpisodeRunner:
                     executor_task_specification_digest=executor_task_specification_digest,
                     executor_episode_version=executor_episode_version,
                     canonical_producer_execution_id=canonical_producer_execution_id,
+                    canonical_episode_snapshot_digest=canonical_episode_snapshot_digest,
                     source_refs=input_source_refs,
                     source_versions=input_source_versions,
                     duration_seconds=duration,
@@ -549,6 +571,7 @@ class EpisodeRunner:
                 executor_task_specification_digest=executor_task_specification_digest,
                 executor_episode_version=executor_episode_version,
                 canonical_producer_execution_id=canonical_producer_execution_id,
+                canonical_episode_snapshot_digest=canonical_episode_snapshot_digest,
                 source_refs=input_source_refs,
                 source_versions=input_source_versions,
                 reported_source_refs=reported_source_refs,

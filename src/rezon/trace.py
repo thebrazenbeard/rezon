@@ -20,6 +20,7 @@ class TraceRecord:
     executor_task_specification_digest: str | None = None
     executor_episode_version: str | None = None
     canonical_producer_execution_id: str | None = None
+    canonical_episode_snapshot_digest: str | None = None
     source_refs: tuple[str, ...] = ()
     source_versions: tuple[str, ...] = ()
     reported_source_refs: tuple[str, ...] = ()
