@@ -430,6 +430,6 @@ class EpisodeRunner:
             source_versions=tuple(receipt_source_versions),
             execution_ids=tuple(record.execution_id for record in records),
             task_envelope_digest=task_digest,
-            claim_disposition_complete=not undispositioned_claim_ids,
+            claim_disposition_complete=False,
         )
         return RunOutcome(receipt, ExecutionTrace(tuple(records)))

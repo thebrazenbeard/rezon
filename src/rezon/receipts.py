@@ -35,7 +35,6 @@ class AdmissionStatus(str, Enum):
 
 
 _TRUSTED_INDEPENDENCE_BASIS_PREFIXES = ("policy:", "receipt:", "review:", "runtime:")
-_TRUSTED_DISPOSITION_AUTHORITY_PREFIXES = ("policy:", "receipt:", "review:", "runtime:")
 
 
 @dataclass(frozen=True)
@@ -188,46 +187,6 @@ class RetrievalReceipt:
 
 
 @dataclass(frozen=True)
-class ClaimDispositionEvidence:
-    disposition_id: str
-    task_id: str
-    episode_version: str
-    issuer_execution_id: str
-    accepted_claim_ids: tuple[str, ...]
-    rejected_claim_ids: tuple[str, ...]
-    authority_ref: str
-    evidence_refs: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        if not all((
-            self.disposition_id,
-            self.task_id,
-            self.episode_version,
-            self.issuer_execution_id,
-            self.authority_ref,
-            self.evidence_refs,
-        )):
-            raise ValueError("claim disposition evidence must be complete")
-        if not self.authority_ref.startswith(_TRUSTED_DISPOSITION_AUTHORITY_PREFIXES):
-            raise ValueError("claim disposition authority must use a governed namespace")
-        if any(not claim_id for claim_id in self.accepted_claim_ids):
-            raise ValueError("accepted claim IDs must be non-empty")
-        if any(not claim_id for claim_id in self.rejected_claim_ids):
-            raise ValueError("rejected claim IDs must be non-empty")
-        if any(not ref for ref in self.evidence_refs):
-            raise ValueError("claim disposition evidence refs must be non-empty")
-        if len(self.accepted_claim_ids) != len(set(self.accepted_claim_ids)):
-            raise ValueError("accepted claim IDs must be unique")
-        if len(self.rejected_claim_ids) != len(set(self.rejected_claim_ids)):
-            raise ValueError("rejected claim IDs must be unique")
-        overlap = set(self.accepted_claim_ids) & set(self.rejected_claim_ids)
-        if overlap:
-            raise ValueError(
-                f"disposition evidence cannot accept and reject the same claim: {sorted(overlap)}"
-            )
-
-
-@dataclass(frozen=True)
 class ResultReceipt:
     task_id: str
     episode_version: str
@@ -239,8 +198,7 @@ class ResultReceipt:
     source_versions: tuple[str, ...] = ()
     execution_ids: tuple[str, ...] = ()
     task_envelope_digest: str | None = None
-    claim_disposition_complete: bool = True
-    claim_disposition_evidence: ClaimDispositionEvidence | None = None
+    claim_disposition_complete: bool = False
 
     def __post_init__(self) -> None:
         if not self.task_id or not self.episode_version:
@@ -248,41 +206,16 @@ class ResultReceipt:
         overlap = set(self.accepted_claim_ids) & set(self.rejected_claim_ids)
         if overlap:
             raise ValueError(f"claims cannot be both accepted and rejected: {sorted(overlap)}")
-        unresolved_claims = tuple(
-            item
-            for item in self.unresolved
-            if item.startswith("claim_disposition:")
-        )
-        if self.claim_disposition_complete and unresolved_claims:
+        if self.accepted_claim_ids or self.rejected_claim_ids:
             raise ValueError(
-                "claim_disposition_complete cannot coexist with unresolved claim disposition"
+                "generic ResultReceipt cannot assert accepted/rejected claim disposition; "
+                "claim disposition requires a separately governed artifact"
             )
-
-        has_disposition = bool(self.accepted_claim_ids or self.rejected_claim_ids)
-        evidence = self.claim_disposition_evidence
-        if has_disposition and evidence is None:
+        if self.claim_disposition_complete:
             raise ValueError(
-                "accepted/rejected claim disposition requires governed disposition evidence"
+                "generic ResultReceipt cannot assert claim disposition completeness; "
+                "claim disposition requires a separately governed artifact"
             )
-        if evidence is not None:
-            if evidence.task_id != self.task_id:
-                raise ValueError("claim disposition evidence task_id does not match receipt")
-            if evidence.episode_version != self.episode_version:
-                raise ValueError(
-                    "claim disposition evidence episode_version does not match receipt"
-                )
-            if evidence.issuer_execution_id not in self.execution_ids:
-                raise ValueError(
-                    "claim disposition evidence issuer must be a receipt execution"
-                )
-            if evidence.accepted_claim_ids != self.accepted_claim_ids:
-                raise ValueError(
-                    "accepted claim IDs must exactly match disposition evidence"
-                )
-            if evidence.rejected_claim_ids != self.rejected_claim_ids:
-                raise ValueError(
-                    "rejected claim IDs must exactly match disposition evidence"
-                )
         if self.effect_state is not EffectState.PLAN:
             raise ValueError(
                 "ResultReceipt is non-promotional and may report PLAN only; "
