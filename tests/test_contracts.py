@@ -179,3 +179,11 @@ def test_claim_disposition_evidence_must_bind_receipt_execution():
             claim_disposition_complete=True,
             claim_disposition_evidence=disposition,
         )
+
+def test_generic_result_receipt_cannot_assert_claim_disposition_complete():
+    with pytest.raises(ValueError):
+        ResultReceipt(
+            task_id="t-no-disposition-authority",
+            episode_version="e1@0",
+            claim_disposition_complete=True,
+        )
