@@ -82,6 +82,10 @@ def test_independence_required_worker_cannot_receive_auxiliary_context_refs():
     assert FailureState.CONTRACT_VIOLATION in outcome.receipt.failures
     assert outcome.trace.records
     assert outcome.trace.records[0].independence_demonstrated is False
+    assert (
+        outcome.trace.records[0].executor_task_specification_digest
+        == envelope.to_task_specification().digest
+    )
     assert "h-envelope-leak" not in {
         proposition.proposition_id
         for proposition in episode.snapshot().current_propositions
@@ -91,7 +95,7 @@ def test_independence_required_worker_cannot_receive_auxiliary_context_refs():
 def test_independence_required_worker_can_receive_task_spec_without_context_refs():
     class TaskSpecReader:
         def execute(self, view, episode_id):
-            envelope = view.task_envelope
+            envelope = view.task_specification
             return ExecutionResult(
                 execution_id=view.execution_id,
                 node_id="echo_hypothesis",

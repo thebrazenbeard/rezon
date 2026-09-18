@@ -17,7 +17,7 @@ class TraceRecord:
     emitted_proposition_ids: tuple[str, ...]
     independence_demonstrated: bool
     task_envelope_digest: str | None = None
-    executor_task_envelope_digest: str | None = None
+    executor_task_specification_digest: str | None = None
     source_refs: tuple[str, ...] = ()
     source_versions: tuple[str, ...] = ()
     reported_source_refs: tuple[str, ...] = ()

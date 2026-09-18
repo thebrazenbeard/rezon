@@ -66,4 +66,9 @@ def build_execution_view(
         blinded_relation_ids=tuple(blinded_relations),
         independence=independence or IndependenceMetadata(),
         task_envelope=task_envelope,
+        task_specification=(
+            task_envelope.to_task_specification()
+            if task_envelope is not None
+            else None
+        ),
     )

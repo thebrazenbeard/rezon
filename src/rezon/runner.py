@@ -92,21 +92,6 @@ def _view_potentially_consumed_evidence_refs(view) -> tuple[str, ...]:
     return _dedupe(refs)
 
 
-def _executor_task_envelope(
-    task_envelope: TaskEnvelope | None,
-    *,
-    independence_required: bool,
-) -> TaskEnvelope | None:
-    if task_envelope is None or not independence_required:
-        return task_envelope
-    return TaskEnvelope(
-        task_id=task_envelope.task_id,
-        literal_request=task_envelope.literal_request,
-        subject_refs=task_envelope.subject_refs,
-        constraints=task_envelope.constraints,
-    )
-
-
 def _independence_view_is_blind(view, descriptor: NodeDescriptor) -> bool:
     protected_kinds = set(descriptor.independence_blind_kinds)
     protected_ids = set(descriptor.independence_blind_ids)
@@ -190,6 +175,11 @@ class EpisodeRunner:
             audit_view,
             failure: FailureState,
         ) -> None:
+            task_specification_digest = (
+                audit_view.task_specification.digest
+                if audit_view.task_specification is not None
+                else None
+            )
             records.append(TraceRecord(
                 execution_id=execution_id,
                 node_id=runner_node.descriptor.node_id,
@@ -201,6 +191,7 @@ class EpisodeRunner:
                 emitted_proposition_ids=(),
                 independence_demonstrated=False,
                 task_envelope_digest=task_digest,
+                executor_task_specification_digest=task_specification_digest,
                 duration_seconds=0.0,
                 failures=(failure,),
             ))
@@ -255,7 +246,11 @@ class EpisodeRunner:
                     break
                 continue
 
-            execution_id = f"{task_id}:exec:{len(records) + 1}:{runner_node.descriptor.node_id}"
+            execution_id = (
+                f"independent:exec:{len(records) + 1}:{runner_node.descriptor.node_id}"
+                if runner_node.descriptor.independence_required
+                else f"{task_id}:exec:{len(records) + 1}:{runner_node.descriptor.node_id}"
+            )
             audit_view = build_execution_view(
                 execution_id,
                 episode.snapshot(),
@@ -263,20 +258,26 @@ class EpisodeRunner:
                 runner_node.independence,
                 task_envelope,
             )
-            executor_task_envelope = _executor_task_envelope(
-                task_envelope,
-                independence_required=runner_node.descriptor.independence_required,
-            )
-            executor_task_digest = (
-                executor_task_envelope.digest
-                if executor_task_envelope is not None
+            executor_task_specification = audit_view.task_specification
+            executor_task_specification_digest = (
+                executor_task_specification.digest
+                if executor_task_specification is not None
                 else None
             )
             executor_view = replace(
                 audit_view,
                 blinded_proposition_ids=(),
                 blinded_relation_ids=(),
-                task_envelope=executor_task_envelope,
+                task_envelope=(
+                    None
+                    if runner_node.descriptor.independence_required
+                    else audit_view.task_envelope
+                ),
+                independence=(
+                    IndependenceMetadata()
+                    if runner_node.descriptor.independence_required
+                    else audit_view.independence
+                ),
             )
 
             visible_refs = {
@@ -405,7 +406,7 @@ class EpisodeRunner:
                     emitted_proposition_ids=(),
                     independence_demonstrated=independence_ok,
                     task_envelope_digest=task_digest,
-                    executor_task_envelope_digest=executor_task_digest,
+                    executor_task_specification_digest=executor_task_specification_digest,
                     source_refs=input_source_refs,
                     source_versions=input_source_versions,
                     duration_seconds=duration,
@@ -498,7 +499,7 @@ class EpisodeRunner:
                 emitted_proposition_ids=admitted_ids,
                 independence_demonstrated=independence_ok,
                 task_envelope_digest=task_digest,
-                executor_task_envelope_digest=executor_task_digest,
+                executor_task_specification_digest=executor_task_specification_digest,
                 source_refs=input_source_refs,
                 source_versions=input_source_versions,
                 reported_source_refs=reported_source_refs,
