@@ -3,6 +3,7 @@ from rezon.episode import Episode
 from rezon.epistemics import Proposition, PropositionKind
 from rezon.nodes import ExecutionResult, NodeDescriptor
 from rezon.receipts import (
+    FailureState,
     IndependenceMetadata,
     IndependenceVerificationEvidence,
     IndependenceVerificationPolicy,
@@ -88,8 +89,8 @@ def _run_independent(episode: Episode):
 
 
 def test_strong_independence_executor_version_does_not_reveal_hidden_event_count():
-    clean = Episode("opaque-clean")
-    hidden = Episode("opaque-hidden")
+    clean = Episode("opaque")
+    hidden = Episode("opaque")
     hidden.add_proposition(Proposition(
         proposition_id="peer-hidden",
         episode_id=hidden.episode_id,
@@ -110,8 +111,8 @@ def test_strong_independence_executor_version_does_not_reveal_hidden_event_count
     assert clean_emitted.content == hidden_emitted.content == "independent@0"
 
     # Audit trace retains exact canonical episode versions.
-    assert clean_outcome.trace.records[0].episode_version == "opaque-clean@0"
-    assert hidden_outcome.trace.records[0].episode_version == "opaque-hidden@1"
+    assert clean_outcome.trace.records[0].episode_version == "opaque@0"
+    assert hidden_outcome.trace.records[0].episode_version == "opaque@1"
     assert clean_outcome.trace.records[0].executor_episode_version == "independent@0"
     assert hidden_outcome.trace.records[0].executor_episode_version == "independent@0"
 
@@ -151,3 +152,46 @@ def test_non_independent_executor_retains_true_episode_version():
     assert emitted.content == "ordinary@1"
     assert outcome.trace.records[0].episode_version == "ordinary@1"
     assert outcome.trace.records[0].executor_episode_version == "ordinary@1"
+
+
+def test_strong_independence_preflight_trace_binds_sanitized_executor_version():
+    class ShouldNotRun:
+        def execute(self, view, episode_id):
+            raise AssertionError("context_refs preflight must reject before execution")
+
+    metadata, policy = _independence()
+    episode = Episode("opaque-preflight")
+    episode.add_proposition(Proposition(
+        proposition_id="peer-hidden-preflight",
+        episode_id=episode.episode_id,
+        kind=PropositionKind.HYPOTHESIS,
+        content="peer answer",
+        producer_execution_id="peer:exec:preflight",
+    ))
+    envelope = TaskEnvelope(
+        task_id="t-r12-preflight",
+        literal_request="generate an independent hypothesis",
+        context_refs=("peer-answer:H7",),
+    )
+    node = RunnerNode(
+        descriptor=NodeDescriptor(
+            "echo_hypothesis",
+            (PropositionKind.HYPOTHESIS,),
+            independence_required=True,
+        ),
+        executor=ShouldNotRun(),
+        visibility=VisibilityPolicy(blind_kinds=(PropositionKind.HYPOTHESIS,)),
+        independence=metadata,
+        independence_policy=policy,
+    )
+
+    outcome = EpisodeRunner((node,), budget_limit=1).run(
+        episode,
+        task_id=envelope.task_id,
+        task_envelope=envelope,
+    )
+
+    assert outcome.receipt.failures == (FailureState.CONTRACT_VIOLATION,)
+    assert outcome.trace.records[0].independence_demonstrated is False
+    assert outcome.trace.records[0].episode_version == "opaque-preflight@1"
+    assert outcome.trace.records[0].executor_episode_version == "independent@0"

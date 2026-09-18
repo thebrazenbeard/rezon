@@ -180,6 +180,11 @@ class EpisodeRunner:
                 if audit_view.task_specification is not None
                 else None
             )
+            executor_episode_version = (
+                "independent@0"
+                if runner_node.descriptor.independence_required
+                else audit_view.episode_version
+            )
             records.append(TraceRecord(
                 execution_id=execution_id,
                 node_id=runner_node.descriptor.node_id,
@@ -192,6 +197,7 @@ class EpisodeRunner:
                 independence_demonstrated=False,
                 task_envelope_digest=task_digest,
                 executor_task_specification_digest=task_specification_digest,
+                executor_episode_version=executor_episode_version,
                 duration_seconds=0.0,
                 failures=(failure,),
             ))
@@ -246,11 +252,26 @@ class EpisodeRunner:
                     break
                 continue
 
-            execution_id = (
-                f"independent:exec:{len(records) + 1}:{runner_node.descriptor.node_id}"
-                if runner_node.descriptor.independence_required
-                else f"{task_id}:exec:{len(records) + 1}:{runner_node.descriptor.node_id}"
-            )
+            if runner_node.descriptor.independence_required:
+                independent_task_specification = (
+                    task_envelope.to_task_specification()
+                    if task_envelope is not None
+                    else None
+                )
+                independent_task_key = (
+                    independent_task_specification.digest
+                    if independent_task_specification is not None
+                    else "no-task-spec"
+                )
+                execution_id = (
+                    f"independent:exec:{runner_node.descriptor.node_id}:"
+                    f"{independent_task_key}"
+                )
+            else:
+                execution_id = (
+                    f"{task_id}:exec:{len(records) + 1}:"
+                    f"{runner_node.descriptor.node_id}"
+                )
             audit_view = build_execution_view(
                 execution_id,
                 episode.snapshot(),
@@ -264,8 +285,14 @@ class EpisodeRunner:
                 if executor_task_specification is not None
                 else None
             )
+            executor_episode_version = (
+                "independent@0"
+                if runner_node.descriptor.independence_required
+                else audit_view.episode_version
+            )
             executor_view = replace(
                 audit_view,
+                episode_version=executor_episode_version,
                 blinded_proposition_ids=(),
                 blinded_relation_ids=(),
                 task_envelope=(
@@ -407,6 +434,7 @@ class EpisodeRunner:
                     independence_demonstrated=independence_ok,
                     task_envelope_digest=task_digest,
                     executor_task_specification_digest=executor_task_specification_digest,
+                    executor_episode_version=executor_episode_version,
                     source_refs=input_source_refs,
                     source_versions=input_source_versions,
                     duration_seconds=duration,
@@ -500,6 +528,7 @@ class EpisodeRunner:
                 independence_demonstrated=independence_ok,
                 task_envelope_digest=task_digest,
                 executor_task_specification_digest=executor_task_specification_digest,
+                executor_episode_version=executor_episode_version,
                 source_refs=input_source_refs,
                 source_versions=input_source_versions,
                 reported_source_refs=reported_source_refs,
