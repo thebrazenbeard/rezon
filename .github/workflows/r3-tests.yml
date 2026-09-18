@@ -11,6 +11,7 @@ on:
       - work/rezon-kernel-v0-r7-hostile-hardening
       - work/rezon-kernel-v0-r8-authority-fail-closed
       - work/rezon-kernel-v0-r9-context-isolation
+      - work/rezon-kernel-v0-r10-task-envelope-projection
 
 jobs:
   test:
