@@ -95,15 +95,40 @@ def _canonical_episode_snapshot_digest(snapshot) -> str:
     return sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _canonical_output_digest(result) -> str | None:
+    if not result.emitted_propositions and not result.emitted_relations:
+        return None
+
+    payload = {
+        "emitted_propositions": [
+            asdict(replace(proposition, producer_execution_id=None))
+            for proposition in result.emitted_propositions
+        ],
+        "emitted_relations": [
+            asdict(replace(relation, producer_execution_id=None))
+            for relation in result.emitted_relations
+        ],
+    }
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return sha256(encoded.encode("utf-8")).hexdigest()
+
+
 def _canonical_producer_execution_id(
     node_id: str,
     episode_snapshot_digest: str,
     task_specification_digest: str | None,
+    output_digest: str,
 ) -> str:
     payload = "\x1f".join((
         node_id,
         episode_snapshot_digest,
         task_specification_digest or "no-task-spec",
+        output_digest,
     ))
     digest = sha256(payload.encode("utf-8")).hexdigest()
     return f"canonical:exec:{node_id}:{digest}"
@@ -213,11 +238,6 @@ class EpisodeRunner:
                 if runner_node.descriptor.independence_required
                 else audit_view.episode_version
             )
-            canonical_producer_execution_id = _canonical_producer_execution_id(
-                runner_node.descriptor.node_id,
-                canonical_episode_snapshot_digest,
-                task_specification_digest,
-            )
             records.append(TraceRecord(
                 execution_id=execution_id,
                 node_id=runner_node.descriptor.node_id,
@@ -231,8 +251,9 @@ class EpisodeRunner:
                 task_envelope_digest=task_digest,
                 executor_task_specification_digest=task_specification_digest,
                 executor_episode_version=executor_episode_version,
-                canonical_producer_execution_id=canonical_producer_execution_id,
+                canonical_producer_execution_id=None,
                 canonical_episode_snapshot_digest=canonical_episode_snapshot_digest,
+                canonical_output_digest=None,
                 duration_seconds=0.0,
                 failures=(failure,),
             ))
@@ -319,11 +340,8 @@ class EpisodeRunner:
                 if runner_node.descriptor.independence_required
                 else audit_view.episode_version
             )
-            canonical_producer_execution_id = _canonical_producer_execution_id(
-                runner_node.descriptor.node_id,
-                canonical_episode_snapshot_digest,
-                executor_task_specification_digest,
-            )
+            canonical_output_digest = None
+            canonical_producer_execution_id = None
             executor_view = replace(
                 audit_view,
                 episode_version=executor_episode_version,
@@ -473,8 +491,9 @@ class EpisodeRunner:
                     task_envelope_digest=task_digest,
                     executor_task_specification_digest=executor_task_specification_digest,
                     executor_episode_version=executor_episode_version,
-                    canonical_producer_execution_id=canonical_producer_execution_id,
+                    canonical_producer_execution_id=None,
                     canonical_episode_snapshot_digest=canonical_episode_snapshot_digest,
+                    canonical_output_digest=None,
                     source_refs=input_source_refs,
                     source_versions=input_source_versions,
                     duration_seconds=duration,
@@ -486,6 +505,18 @@ class EpisodeRunner:
                     break
                 continue
             duration = perf_counter() - started
+
+            canonical_output_digest = _canonical_output_digest(result)
+            candidate_canonical_producer_execution_id = (
+                _canonical_producer_execution_id(
+                    runner_node.descriptor.node_id,
+                    canonical_episode_snapshot_digest,
+                    executor_task_specification_digest,
+                    canonical_output_digest,
+                )
+                if canonical_output_digest is not None
+                else None
+            )
 
             reported_source_refs = _dedupe(list(result.source_refs))
             reported_source_versions = _dedupe(list(result.source_versions))
@@ -542,13 +573,18 @@ class EpisodeRunner:
                         runner_node.descriptor,
                         result,
                         expected_execution_id=execution_id,
-                        canonical_producer_execution_id=canonical_producer_execution_id,
+                        canonical_producer_execution_id=(
+                            candidate_canonical_producer_execution_id
+                        ),
                         allowed_source_refs=governed_refs,
                         allowed_source_versions=input_source_versions,
                         allowed_source_bindings=input_source_bindings,
                     )
                     admitted_ids = tuple(p.proposition_id for p in result.emitted_propositions)
                     admission_ok = True
+                    canonical_producer_execution_id = (
+                        candidate_canonical_producer_execution_id
+                    )
                 except AdmissionError:
                     add_failure(FailureState.CONTRACT_VIOLATION)
                     if FailureState.CONTRACT_VIOLATION not in execution_failures:
@@ -572,6 +608,7 @@ class EpisodeRunner:
                 executor_episode_version=executor_episode_version,
                 canonical_producer_execution_id=canonical_producer_execution_id,
                 canonical_episode_snapshot_digest=canonical_episode_snapshot_digest,
+                canonical_output_digest=canonical_output_digest,
                 source_refs=input_source_refs,
                 source_versions=input_source_versions,
                 reported_source_refs=reported_source_refs,
