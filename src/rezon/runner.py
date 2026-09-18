@@ -219,18 +219,14 @@ class EpisodeRunner:
                 break
             required_authority = tuple(runner_node.descriptor.required_authority)
             if required_authority:
-                authority_verified = bool(
-                    task_envelope is not None
-                    and runner_node.authority_policy is not None
-                    and runner_node.authority_policy.verify(
-                        task_envelope,
-                        required_authority,
-                    )
-                )
-                if not authority_verified:
-                    add_failure(FailureState.CONTRACT_VIOLATION)
-                    unresolved.append(f"authority:{runner_node.descriptor.node_id}")
-                    break
+                # Kernel V0 has no independently governed authority verifier.
+                # Caller-supplied envelope strings or in-process policy objects
+                # are declarations/evidence candidates only and cannot authorize
+                # protected execution. Fail closed until that boundary is
+                # separately qualified.
+                add_failure(FailureState.CONTRACT_VIOLATION)
+                unresolved.append(f"authority:{runner_node.descriptor.node_id}")
+                break
 
             if runner_node.executor is None:
                 add_failure(FailureState.UNAVAILABLE)

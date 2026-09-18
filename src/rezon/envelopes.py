@@ -55,6 +55,13 @@ class AuthorityVerificationEvidence:
 
 @dataclass(frozen=True)
 class AuthorityVerificationPolicy:
+    """Candidate authority-evidence matcher, not an authorization grant.
+
+    Kernel V0 deliberately does not accept this in-process object as sufficient
+    authority proof. It remains a structured evidence candidate for a future
+    separately governed verifier boundary.
+    """
+
     verified_evidence: tuple[AuthorityVerificationEvidence, ...]
 
     def verify(
