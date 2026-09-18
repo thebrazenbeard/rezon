@@ -6,6 +6,7 @@ from rezon.episode import Episode
 from rezon.epistemics import Hyperrelation, Participant, Proposition, PropositionKind
 from rezon.nodes import ExecutionResult, NodeDescriptor
 from rezon.receipts import (
+    FailureState,
     IndependenceMetadata,
     IndependenceVerificationEvidence,
     IndependenceVerificationPolicy,
@@ -319,3 +320,48 @@ def test_relation_semantic_difference_changes_output_and_producer_digest(monkeyp
     assert record_a.canonical_episode_snapshot_digest == record_b.canonical_episode_snapshot_digest
     assert record_a.canonical_output_digest != record_b.canonical_output_digest
     assert record_a.canonical_producer_execution_id != record_b.canonical_producer_execution_id
+
+
+class FailedOutput:
+    def execute(self, view, episode_id):
+        return ExecutionResult(
+            execution_id=view.execution_id,
+            node_id="echo_hypothesis",
+            emitted_propositions=(
+                Proposition(
+                    proposition_id="h-r16-failed",
+                    episode_id=episode_id,
+                    kind=PropositionKind.HYPOTHESIS,
+                    content="must not become durable",
+                    producer_execution_id=view.execution_id,
+                ),
+            ),
+            failures=(FailureState.CONTRACT_VIOLATION,),
+        )
+
+
+def test_failed_output_has_digest_but_no_durable_producer_or_mutation(monkeypatch):
+    monkeypatch.setattr(
+        runner_module,
+        "uuid4",
+        lambda: SimpleNamespace(hex="3" * 32),
+    )
+
+    episode = Episode("episode-r16-failed")
+    envelope = _envelope()
+    outcome = EpisodeRunner(
+        (_node(FailedOutput()),),
+        budget_limit=1,
+    ).run(
+        episode,
+        task_id=envelope.task_id,
+        task_envelope=envelope,
+    )
+
+    record = outcome.trace.records[0]
+
+    assert outcome.receipt.failures == (FailureState.CONTRACT_VIOLATION,)
+    assert record.canonical_output_digest is not None
+    assert record.canonical_producer_execution_id is None
+    assert record.emitted_proposition_ids == ()
+    assert episode.snapshot().current_propositions == ()
