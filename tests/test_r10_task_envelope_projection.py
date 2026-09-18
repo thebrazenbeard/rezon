@@ -43,16 +43,12 @@ def _independence():
 def test_strong_independence_receives_only_task_spec_projection():
     class EnvelopeInspector:
         def execute(self, view, episode_id):
-            envelope = view.task_envelope
+            assert view.task_envelope is None
+            spec = view.task_specification
             content = "|".join((
-                envelope.task_id,
-                envelope.literal_request,
-                ",".join(envelope.subject_refs),
-                ",".join(envelope.constraints),
-                ",".join(envelope.available_authority),
-                str(envelope.privacy_scope),
-                str(envelope.resource_budget),
-                ",".join(envelope.context_refs),
+                spec.literal_request,
+                ",".join(spec.subject_refs),
+                ",".join(spec.constraints),
             ))
             return ExecutionResult(
                 execution_id=view.execution_id,
@@ -79,12 +75,7 @@ def test_strong_independence_receives_only_task_spec_projection():
         resource_budget=1,
         context_refs=(),
     )
-    expected_projection = TaskEnvelope(
-        task_id=envelope.task_id,
-        literal_request=envelope.literal_request,
-        subject_refs=envelope.subject_refs,
-        constraints=envelope.constraints,
-    )
+    expected_projection = envelope.to_task_specification()
     node = RunnerNode(
         descriptor=NodeDescriptor(
             "echo_hypothesis",
@@ -110,15 +101,17 @@ def test_strong_independence_receives_only_task_spec_projection():
         for proposition in episode.snapshot().current_propositions
     }
     assert admitted["h-r10-projected"] == (
-        "t-r10-projection|generate independent hypothesis|"
-        "subject:one|bounded||None|None|"
+        "generate independent hypothesis|subject:one|bounded"
     )
     assert outcome.trace.records[0].task_envelope_digest == envelope.digest
     assert (
-        outcome.trace.records[0].executor_task_envelope_digest
+        outcome.trace.records[0].executor_task_specification_digest
         == expected_projection.digest
     )
-    assert outcome.trace.records[0].executor_task_envelope_digest != envelope.digest
+    assert (
+        outcome.trace.records[0].executor_task_specification_digest
+        != envelope.digest
+    )
 
 
 def test_non_independent_worker_keeps_full_task_envelope():
@@ -169,4 +162,7 @@ def test_non_independent_worker_keeps_full_task_envelope():
     }
     assert admitted["h-r10-shared"] == "metadata:authority|privacy:scope"
     assert outcome.trace.records[0].task_envelope_digest == envelope.digest
-    assert outcome.trace.records[0].executor_task_envelope_digest == envelope.digest
+    assert (
+        outcome.trace.records[0].executor_task_specification_digest
+        == envelope.to_task_specification().digest
+    )

@@ -6,6 +6,22 @@ import json
 
 
 @dataclass(frozen=True)
+class TaskSpecification:
+    literal_request: str
+    subject_refs: tuple[str, ...] = ()
+    constraints: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.literal_request:
+            raise ValueError("literal_request is required")
+
+    @property
+    def digest(self) -> str:
+        payload = json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
+        return sha256(payload.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
 class TaskEnvelope:
     task_id: str
     literal_request: str
@@ -26,6 +42,13 @@ class TaskEnvelope:
     def digest(self) -> str:
         payload = json.dumps(asdict(self), sort_keys=True, separators=(",", ":"))
         return sha256(payload.encode("utf-8")).hexdigest()
+
+    def to_task_specification(self) -> TaskSpecification:
+        return TaskSpecification(
+            literal_request=self.literal_request,
+            subject_refs=self.subject_refs,
+            constraints=self.constraints,
+        )
 
 
 @dataclass(frozen=True)

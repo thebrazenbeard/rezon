@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from .envelopes import TaskEnvelope
+from .envelopes import TaskEnvelope, TaskSpecification
 from .epistemics import Hyperrelation, Proposition, PropositionKind
 from .receipts import FailureState, IndependenceMetadata
 
@@ -57,6 +57,7 @@ class ExecutionView:
     blinded_relation_ids: tuple[str, ...] = ()
     independence: IndependenceMetadata = IndependenceMetadata()
     task_envelope: TaskEnvelope | None = None
+    task_specification: TaskSpecification | None = None
 
 
 @dataclass(frozen=True)

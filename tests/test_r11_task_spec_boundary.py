@@ -102,7 +102,16 @@ def test_strong_independence_cannot_observe_original_task_id():
 def test_strong_independence_still_receives_task_defining_specification():
     class TaskSpecProbe:
         def execute(self, view, episode_id):
-            spec = getattr(view, "task_specification", None) or view.task_envelope
+            assert view.task_envelope is None
+            spec = view.task_specification
+            for forbidden in (
+                "task_id",
+                "available_authority",
+                "privacy_scope",
+                "resource_budget",
+                "context_refs",
+            ):
+                assert not hasattr(spec, forbidden)
             return ExecutionResult(
                 execution_id=view.execution_id,
                 node_id="echo_hypothesis",
