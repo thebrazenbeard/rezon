@@ -222,7 +222,7 @@ class FixedRelationOutput:
     def execute(self, view, episode_id):
         return ExecutionResult(
             execution_id=view.execution_id,
-            node_id="relation_node",
+            node_id="echo_hypothesis",
             emitted_relations=(
                 Hyperrelation(
                     relation_id="r-r16-fixed",
@@ -241,7 +241,7 @@ def _relation_node(executor):
     base = _node(executor)
     return RunnerNode(
         descriptor=NodeDescriptor(
-            "relation_node",
+            "echo_hypothesis",
             (PropositionKind.HYPOTHESIS,),
             accepted_input_kinds=(PropositionKind.OBSERVATION,),
             independence_required=True,
