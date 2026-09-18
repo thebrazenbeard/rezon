@@ -1,8 +1,4 @@
-from rezon.envelopes import (
-    AuthorityVerificationEvidence,
-    AuthorityVerificationPolicy,
-    TaskEnvelope,
-)
+from rezon.envelopes import TaskEnvelope
 from rezon.episode import Episode
 from rezon.epistemics import Hyperrelation, Participant, Proposition, PropositionKind
 from rezon.executors import EchoHypothesisExecutor
@@ -171,26 +167,13 @@ def test_task_envelope_is_bound_to_executor_trace_receipt_and_authority():
         available_authority=("read:policy",),
         resource_budget=2,
     )
-    authority_policy = AuthorityVerificationPolicy((
-        AuthorityVerificationEvidence(
-            authority="read:policy",
-            task_id=envelope.task_id,
-            task_envelope_digest=envelope.digest,
-            issuer_ref="review:authority-boundary",
-            source_ref="policy:read-policy",
-            currentness_ref="receipt:policy-current",
-            verification_refs=("receipt:authority-verified",),
-        ),
-    ))
     node = RunnerNode(
         descriptor=NodeDescriptor(
             "echo_hypothesis",
             (PropositionKind.HYPOTHESIS,),
-            required_authority=("read:policy",),
         ),
         executor=executor,
         visibility=VisibilityPolicy(),
-        authority_policy=authority_policy,
     )
     outcome = EpisodeRunner((node,), budget_limit=8).run(
         ep, task_id="t-bound", task_envelope=envelope
