@@ -16,6 +16,7 @@ on:
       - work/rezon-kernel-v0-r12-episode-version-isolation
       - work/rezon-kernel-v0-r13-opaque-execution-identity
       - work/rezon-kernel-v0-r14-attempt-vs-producer-identity
+      - work/rezon-kernel-v0-r15-canonical-state-digest-binding
 
 jobs:
   test:
