@@ -171,3 +171,29 @@ Any Lantern currentness claim requires V3 exact WoWSQL preflight -> B0 -> payloa
 6. Do not create canonical R13+R4 integration without relevant review gates and Patrick's authority.
 7. Do not open donor/learned-routing gate before Kernel V0 independent acceptance.
 8. If reviews remain pending, prefer read-only hostile analysis of frozen subjects over moving R13 without a reproducible defect.
+
+
+## Additional R13 self-hostile full-view differential
+
+After freezing R13, a read-only exact-head differential probe compared the complete strong-independent executor-visible `ExecutionView` across:
+- same trusted static episode ID;
+- same task/spec/node/policy;
+- fixed identical UUID source;
+- clean episode vs one prior hidden peer-produced proposition.
+
+All executor-visible dataclass fields were compared:
+`blinded_proposition_ids`, `blinded_relation_ids`, `episode_version`, `execution_id`, `independence`, `propositions`, `relations`, `task_envelope`, `task_specification`.
+
+Observed:
+- executor-visible `DIFFS = {}`;
+- both runs succeeded;
+- audit-side trace correctly differed in canonical episode version and blinded peer proposition ID;
+- executor-facing history remained unchanged.
+
+Bus evidence:
+- commit `6420609dd65f1ee529c9b06410f6f1a91ca561be`
+- file `messages/rezon-r13-full-executor-view-differential-self-hostile.md`
+
+Meaning ceiling:
+- self-hostile evidence only;
+- not independent PASS and not proof against all side channels.
