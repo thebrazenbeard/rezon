@@ -14,6 +14,18 @@ Historical design ancestry: `fc116243...` -> `e22b3c94...` -> `c946ccb8...` -> `
 
 This document is the only R5 design authority for implementation planning. Earlier R5 design files are historical provenance only.
 
+### 2026-09-18 hostile-rereview repair record
+
+Masa independently reviewed exact predecessor `798b6318b21af0ba28bf706eadac2bd1347c342b` and returned `CHANGES_REQUESTED / DESIGN_HOSTILE_FAIL`. This successor design addresses that exact review without claiming implementation or qualification:
+
+- **B1 verification-source currentness bypass** -> verification source refs resolve locally; applicable receipts require every referenced source to be explicitly `ADMITTED` and explicitly current before they can satisfy or refute a requirement.
+- **B2 circular self-verification** -> every verification kind uses `DISTINCT_EXECUTION_REQUIRED`; verifier execution cannot equal the target candidate execution; no R5 exception exists.
+- **B3 conflicting verification receipts** -> `(target_type, target_id, kind)` is unique; VERIFIED/REFUTED collisions are structural errors.
+- **B4 missing false-VERIFIED oracle** -> hostile fixtures and evaluator rules require a structurally valid exact-target VERIFIED assertion that hidden evaluator gold independently marks unsatisfied.
+- **M1 unsolicited REFUTED ambiguity** -> absent/non-required verification is diagnostic only and cannot block or promote candidate eligibility.
+
+These repairs must receive fresh exact-head independent rereview before implementation planning.
+
 ## 1. Objective
 
 R5 adds a typed support/verification contract to Benchmark V1 that can distinguish unsupportedness, source-backed support, source-free deterministic derivation, empirical/formal/model/heuristic support, and exact-target verification outcomes without collapsing any of those into truth.
