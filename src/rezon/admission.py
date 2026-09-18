@@ -1,14 +1,26 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from .episode import Episode, EpisodeInvariantError
 from .epistemics import PropositionKind, source_ref_version_bindings
 from .nodes import ExecutionResult, NodeDescriptor
+from .provenance import (
+    canonical_episode_snapshot_digest,
+    canonical_output_digest,
+    canonical_producer_execution_id,
+)
 
 
 class AdmissionError(ValueError):
     pass
+
+
+@dataclass(frozen=True)
+class AdmissionReceipt:
+    canonical_episode_snapshot_digest: str
+    canonical_output_digest: str | None
+    canonical_producer_execution_id: str | None
 
 
 def _prevalidate_episode_mutation(episode: Episode, result: ExecutionResult) -> None:
@@ -54,17 +66,37 @@ def admit_execution_result(
     result: ExecutionResult,
     *,
     expected_execution_id: str | None = None,
-    canonical_producer_execution_id: str | None = None,
+    expected_episode_snapshot_digest: str | None = None,
     allowed_source_refs: tuple[str, ...] | None = None,
     allowed_source_versions: tuple[str, ...] | None = None,
     allowed_source_bindings: tuple[tuple[str, str], ...] | None = None,
-) -> None:
+) -> AdmissionReceipt:
     if result.node_id != descriptor.node_id:
         raise AdmissionError("execution result node does not match descriptor")
     if expected_execution_id is not None and result.execution_id != expected_execution_id:
         raise AdmissionError("execution result identity does not match runner-issued execution")
     if result.failures:
         raise AdmissionError("failed execution results cannot mutate canonical episode state")
+
+    snapshot_digest = canonical_episode_snapshot_digest(episode.snapshot())
+    if (
+        expected_episode_snapshot_digest is not None
+        and snapshot_digest != expected_episode_snapshot_digest
+    ):
+        raise AdmissionError(
+            "canonical episode state changed after execution view was captured"
+        )
+
+    output_digest = canonical_output_digest(result)
+    derived_producer_execution_id = (
+        canonical_producer_execution_id(
+            descriptor.node_id,
+            snapshot_digest,
+            output_digest,
+        )
+        if output_digest is not None
+        else None
+    )
 
     required_execution_id = expected_execution_id or result.execution_id
     permitted = set(descriptor.permitted_output_kinds)
@@ -174,22 +206,19 @@ def admit_execution_result(
                     f"in governed execution view: {ungoverned_bindings}"
                 )
 
-    admitted_producer_execution_id = (
-        canonical_producer_execution_id or required_execution_id
-    )
     admitted_result = replace(
         result,
         emitted_propositions=tuple(
             replace(
                 proposition,
-                producer_execution_id=admitted_producer_execution_id,
+                producer_execution_id=derived_producer_execution_id,
             )
             for proposition in result.emitted_propositions
         ),
         emitted_relations=tuple(
             replace(
                 relation,
-                producer_execution_id=admitted_producer_execution_id,
+                producer_execution_id=derived_producer_execution_id,
             )
             for relation in result.emitted_relations
         ),
@@ -203,3 +232,9 @@ def admit_execution_result(
             episode.add_relation(relation)
     except EpisodeInvariantError as exc:
         raise AdmissionError(str(exc)) from exc
+
+    return AdmissionReceipt(
+        canonical_episode_snapshot_digest=snapshot_digest,
+        canonical_output_digest=output_digest,
+        canonical_producer_execution_id=derived_producer_execution_id,
+    )

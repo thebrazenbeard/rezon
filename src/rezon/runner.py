@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
-from hashlib import sha256
-import json
+from dataclasses import dataclass, replace
 from time import perf_counter
 from uuid import uuid4
 
@@ -11,6 +9,10 @@ from .envelopes import AuthorityVerificationPolicy, TaskEnvelope
 from .episode import Episode
 from .epistemics import PropositionKind, source_ref_version_bindings
 from .nodes import NodeDescriptor, VerificationStatus
+from .provenance import (
+    canonical_episode_snapshot_digest,
+    canonical_output_digest,
+)
 from .receipts import (
     EffectState,
     FailureState,
@@ -83,55 +85,6 @@ def _view_source_bindings(view) -> tuple[tuple[str, str], ...]:
             if binding not in bindings:
                 bindings.append(binding)
     return tuple(bindings)
-
-
-def _canonical_episode_snapshot_digest(snapshot) -> str:
-    payload = json.dumps(
-        asdict(snapshot),
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    )
-    return sha256(payload.encode("utf-8")).hexdigest()
-
-
-def _canonical_output_digest(result) -> str | None:
-    if not result.emitted_propositions and not result.emitted_relations:
-        return None
-
-    payload = {
-        "emitted_propositions": [
-            asdict(replace(proposition, producer_execution_id=None))
-            for proposition in result.emitted_propositions
-        ],
-        "emitted_relations": [
-            asdict(replace(relation, producer_execution_id=None))
-            for relation in result.emitted_relations
-        ],
-    }
-    encoded = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    )
-    return sha256(encoded.encode("utf-8")).hexdigest()
-
-
-def _canonical_producer_execution_id(
-    node_id: str,
-    episode_snapshot_digest: str,
-    task_specification_digest: str | None,
-    output_digest: str,
-) -> str:
-    payload = "\x1f".join((
-        node_id,
-        episode_snapshot_digest,
-        task_specification_digest or "no-task-spec",
-        output_digest,
-    ))
-    digest = sha256(payload.encode("utf-8")).hexdigest()
-    return f"canonical:exec:{node_id}:{digest}"
 
 
 def _view_potentially_consumed_evidence_refs(view) -> tuple[str, ...]:
@@ -319,7 +272,7 @@ class EpisodeRunner:
                     f"{runner_node.descriptor.node_id}"
                 )
             execution_snapshot = episode.snapshot()
-            canonical_episode_snapshot_digest = _canonical_episode_snapshot_digest(
+            canonical_snapshot_digest = canonical_episode_snapshot_digest(
                 execution_snapshot
             )
             audit_view = build_execution_view(
@@ -340,7 +293,7 @@ class EpisodeRunner:
                 if runner_node.descriptor.independence_required
                 else audit_view.episode_version
             )
-            canonical_output_digest = None
+            attempted_output_digest = None
             canonical_producer_execution_id = None
             executor_view = replace(
                 audit_view,
@@ -370,7 +323,7 @@ class EpisodeRunner:
                     execution_id,
                     runner_node,
                     audit_view,
-                    canonical_episode_snapshot_digest,
+                    canonical_snapshot_digest,
                     FailureState.CONTRACT_VIOLATION,
                 )
                 completed.append(runner_node.descriptor.node_id)
@@ -388,7 +341,7 @@ class EpisodeRunner:
                     execution_id,
                     runner_node,
                     audit_view,
-                    canonical_episode_snapshot_digest,
+                    canonical_snapshot_digest,
                     FailureState.CONTRACT_VIOLATION,
                 )
                 completed.append(runner_node.descriptor.node_id)
@@ -410,7 +363,7 @@ class EpisodeRunner:
                         execution_id,
                         runner_node,
                         audit_view,
-                        canonical_episode_snapshot_digest,
+                        canonical_snapshot_digest,
                         FailureState.CONTRACT_VIOLATION,
                     )
                     break
@@ -456,7 +409,7 @@ class EpisodeRunner:
                         execution_id,
                         runner_node,
                         audit_view,
-                        canonical_episode_snapshot_digest,
+                        canonical_snapshot_digest,
                         FailureState.CONTRACT_VIOLATION,
                     )
                     break
@@ -492,7 +445,7 @@ class EpisodeRunner:
                     executor_task_specification_digest=executor_task_specification_digest,
                     executor_episode_version=executor_episode_version,
                     canonical_producer_execution_id=None,
-                    canonical_episode_snapshot_digest=canonical_episode_snapshot_digest,
+                    canonical_episode_snapshot_digest=canonical_snapshot_digest,
                     canonical_output_digest=None,
                     source_refs=input_source_refs,
                     source_versions=input_source_versions,
@@ -506,17 +459,7 @@ class EpisodeRunner:
                 continue
             duration = perf_counter() - started
 
-            canonical_output_digest = _canonical_output_digest(result)
-            candidate_canonical_producer_execution_id = (
-                _canonical_producer_execution_id(
-                    runner_node.descriptor.node_id,
-                    canonical_episode_snapshot_digest,
-                    executor_task_specification_digest,
-                    canonical_output_digest,
-                )
-                if canonical_output_digest is not None
-                else None
-            )
+            attempted_output_digest = canonical_output_digest(result)
 
             reported_source_refs = _dedupe(list(result.source_refs))
             reported_source_versions = _dedupe(list(result.source_versions))
@@ -568,22 +511,21 @@ class EpisodeRunner:
 
             if not result.failures and verification_precondition_ok:
                 try:
-                    admit_execution_result(
+                    admission_receipt = admit_execution_result(
                         episode,
                         runner_node.descriptor,
                         result,
                         expected_execution_id=execution_id,
-                        canonical_producer_execution_id=(
-                            candidate_canonical_producer_execution_id
-                        ),
+                        expected_episode_snapshot_digest=canonical_snapshot_digest,
                         allowed_source_refs=governed_refs,
                         allowed_source_versions=input_source_versions,
                         allowed_source_bindings=input_source_bindings,
                     )
                     admitted_ids = tuple(p.proposition_id for p in result.emitted_propositions)
                     admission_ok = True
+                    attempted_output_digest = admission_receipt.canonical_output_digest
                     canonical_producer_execution_id = (
-                        candidate_canonical_producer_execution_id
+                        admission_receipt.canonical_producer_execution_id
                     )
                 except AdmissionError:
                     add_failure(FailureState.CONTRACT_VIOLATION)
@@ -607,8 +549,8 @@ class EpisodeRunner:
                 executor_task_specification_digest=executor_task_specification_digest,
                 executor_episode_version=executor_episode_version,
                 canonical_producer_execution_id=canonical_producer_execution_id,
-                canonical_episode_snapshot_digest=canonical_episode_snapshot_digest,
-                canonical_output_digest=canonical_output_digest,
+                canonical_episode_snapshot_digest=canonical_snapshot_digest,
+                canonical_output_digest=attempted_output_digest,
                 source_refs=input_source_refs,
                 source_versions=input_source_versions,
                 reported_source_refs=reported_source_refs,

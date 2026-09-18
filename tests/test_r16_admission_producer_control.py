@@ -1,9 +1,10 @@
 import pytest
 
-from rezon.admission import admit_execution_result
+from rezon.admission import AdmissionError, admit_execution_result
 from rezon.episode import Episode
 from rezon.epistemics import Proposition, PropositionKind
 from rezon.nodes import ExecutionResult, NodeDescriptor
+from rezon.provenance import canonical_episode_snapshot_digest
 
 
 def _result(episode_id: str, attempt_id: str):
@@ -67,3 +68,35 @@ def test_admission_returns_and_persists_derived_canonical_producer_identity():
     assert producer_a == producer_b
     assert producer_a not in {"attempt-a", "attempt-b"}
     assert producer_a.startswith("canonical:exec:generator:")
+
+
+def test_admission_rejects_stale_preexecution_snapshot_binding():
+    episode = Episode("admission-r16-stale")
+    descriptor = NodeDescriptor(
+        "generator",
+        (PropositionKind.HYPOTHESIS,),
+    )
+    captured_digest = canonical_episode_snapshot_digest(episode.snapshot())
+
+    episode.add_proposition(
+        Proposition(
+            proposition_id="new-input",
+            episode_id=episode.episode_id,
+            kind=PropositionKind.OBSERVATION,
+            content="state changed after view capture",
+        )
+    )
+
+    with pytest.raises(AdmissionError, match="canonical episode state changed"):
+        admit_execution_result(
+            episode,
+            descriptor,
+            _result(episode.episode_id, "attempt-stale"),
+            expected_execution_id="attempt-stale",
+            expected_episode_snapshot_digest=captured_digest,
+        )
+
+    assert tuple(
+        proposition.proposition_id
+        for proposition in episode.snapshot().current_propositions
+    ) == ("new-input",)
