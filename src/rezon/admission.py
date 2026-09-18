@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from .episode import Episode, EpisodeInvariantError
 from .epistemics import PropositionKind, source_ref_version_bindings
 from .nodes import ExecutionResult, NodeDescriptor
@@ -52,6 +54,7 @@ def admit_execution_result(
     result: ExecutionResult,
     *,
     expected_execution_id: str | None = None,
+    canonical_producer_execution_id: str | None = None,
     allowed_source_refs: tuple[str, ...] | None = None,
     allowed_source_versions: tuple[str, ...] | None = None,
     allowed_source_bindings: tuple[tuple[str, str], ...] | None = None,
@@ -171,11 +174,32 @@ def admit_execution_result(
                     f"in governed execution view: {ungoverned_bindings}"
                 )
 
-    _prevalidate_episode_mutation(episode, result)
+    admitted_producer_execution_id = (
+        canonical_producer_execution_id or required_execution_id
+    )
+    admitted_result = replace(
+        result,
+        emitted_propositions=tuple(
+            replace(
+                proposition,
+                producer_execution_id=admitted_producer_execution_id,
+            )
+            for proposition in result.emitted_propositions
+        ),
+        emitted_relations=tuple(
+            replace(
+                relation,
+                producer_execution_id=admitted_producer_execution_id,
+            )
+            for relation in result.emitted_relations
+        ),
+    )
+
+    _prevalidate_episode_mutation(episode, admitted_result)
     try:
-        for proposition in result.emitted_propositions:
+        for proposition in admitted_result.emitted_propositions:
             episode.add_proposition(proposition)
-        for relation in result.emitted_relations:
+        for relation in admitted_result.emitted_relations:
             episode.add_relation(relation)
     except EpisodeInvariantError as exc:
         raise AdmissionError(str(exc)) from exc

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from hashlib import sha256
 from time import perf_counter
 from uuid import uuid4
 
@@ -81,6 +82,20 @@ def _view_source_bindings(view) -> tuple[tuple[str, str], ...]:
             if binding not in bindings:
                 bindings.append(binding)
     return tuple(bindings)
+
+
+def _canonical_producer_execution_id(
+    node_id: str,
+    episode_version: str,
+    task_specification_digest: str | None,
+) -> str:
+    payload = "\x1f".join((
+        node_id,
+        episode_version,
+        task_specification_digest or "no-task-spec",
+    ))
+    digest = sha256(payload.encode("utf-8")).hexdigest()
+    return f"canonical:exec:{node_id}:{digest}"
 
 
 def _view_potentially_consumed_evidence_refs(view) -> tuple[str, ...]:
@@ -186,6 +201,11 @@ class EpisodeRunner:
                 if runner_node.descriptor.independence_required
                 else audit_view.episode_version
             )
+            canonical_producer_execution_id = _canonical_producer_execution_id(
+                runner_node.descriptor.node_id,
+                audit_view.episode_version,
+                task_specification_digest,
+            )
             records.append(TraceRecord(
                 execution_id=execution_id,
                 node_id=runner_node.descriptor.node_id,
@@ -199,6 +219,7 @@ class EpisodeRunner:
                 task_envelope_digest=task_digest,
                 executor_task_specification_digest=task_specification_digest,
                 executor_episode_version=executor_episode_version,
+                canonical_producer_execution_id=canonical_producer_execution_id,
                 duration_seconds=0.0,
                 failures=(failure,),
             ))
@@ -280,6 +301,11 @@ class EpisodeRunner:
                 "independent@0"
                 if runner_node.descriptor.independence_required
                 else audit_view.episode_version
+            )
+            canonical_producer_execution_id = _canonical_producer_execution_id(
+                runner_node.descriptor.node_id,
+                audit_view.episode_version,
+                executor_task_specification_digest,
             )
             executor_view = replace(
                 audit_view,
@@ -426,6 +452,7 @@ class EpisodeRunner:
                     task_envelope_digest=task_digest,
                     executor_task_specification_digest=executor_task_specification_digest,
                     executor_episode_version=executor_episode_version,
+                    canonical_producer_execution_id=canonical_producer_execution_id,
                     source_refs=input_source_refs,
                     source_versions=input_source_versions,
                     duration_seconds=duration,
@@ -493,6 +520,7 @@ class EpisodeRunner:
                         runner_node.descriptor,
                         result,
                         expected_execution_id=execution_id,
+                        canonical_producer_execution_id=canonical_producer_execution_id,
                         allowed_source_refs=governed_refs,
                         allowed_source_versions=input_source_versions,
                         allowed_source_bindings=input_source_bindings,
@@ -520,6 +548,7 @@ class EpisodeRunner:
                 task_envelope_digest=task_digest,
                 executor_task_specification_digest=executor_task_specification_digest,
                 executor_episode_version=executor_episode_version,
+                canonical_producer_execution_id=canonical_producer_execution_id,
                 source_refs=input_source_refs,
                 source_versions=input_source_versions,
                 reported_source_refs=reported_source_refs,

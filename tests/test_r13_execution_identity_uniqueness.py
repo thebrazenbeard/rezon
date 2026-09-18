@@ -105,12 +105,18 @@ def test_distinct_strong_independent_runs_get_distinct_opaque_execution_ids():
         assert envelope.task_id not in execution_id
         assert "opaque-r13@" not in execution_id
 
+    first_producer_id = first.trace.records[0].canonical_producer_execution_id
+    second_producer_id = second.trace.records[0].canonical_producer_execution_id
+    assert first_producer_id != second_producer_id
+    assert first_producer_id != first_id
+    assert second_producer_id != second_id
+
     current = {
         proposition.proposition_id: proposition.producer_execution_id
         for proposition in episode.snapshot().current_propositions
     }
-    assert current["h-r13-1"] == first_id
-    assert current["h-r13-2"] == second_id
+    assert current["h-r13-1"] == first_producer_id
+    assert current["h-r13-2"] == second_producer_id
 
 
 def test_strong_independent_execution_id_is_not_task_spec_digest_reuse():
