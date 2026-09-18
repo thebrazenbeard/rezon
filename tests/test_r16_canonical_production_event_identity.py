@@ -242,7 +242,7 @@ def _relation_node(executor):
     return RunnerNode(
         descriptor=NodeDescriptor(
             "relation_node",
-            (),
+            (PropositionKind.HYPOTHESIS,),
             accepted_input_kinds=(PropositionKind.OBSERVATION,),
             independence_required=True,
             permitted_relation_types=("supports",),
