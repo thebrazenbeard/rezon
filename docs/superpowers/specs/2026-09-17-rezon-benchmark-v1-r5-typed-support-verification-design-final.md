@@ -563,22 +563,28 @@ One exact implementation subject must prove:
 4. every answering candidate has exactly one claim/support;
 5. explicit UNKNOWN/disallowed kind represents semantic unsupportedness;
 6. version-aware source governance uses typed support refs in V1.1;
-7. source-backed and source-free clean controls pass;
-8. model judgment/heuristic/unknown cannot satisfy stronger policy;
-9. verification truth table enforced structurally;
-10. wrong-target valid verification reaches strategy and blocks only affected candidate;
-11. support/answer verification scopes never substitute;
-12. legacy strings cannot satisfy typed policy;
-13. one bad candidate cannot globally poison a separately verified candidate;
-14. no mandatory-verification survivor -> FAIL_CLOSED;
-15. evaluator semantic scoring shares no production satisfaction helpers;
-16. invalid-inference case is caught even when typed support passes;
-17. new guards are independently ablatable;
-18. order permutations preserve outcomes;
-19. hidden gold absent from StrategyInput/digest;
-20. always-answer/always-abstain controls reported;
-21. clean checkout passes full tests, compile, V1.0 replay, V1.1 replay, diff-check;
-22. independent hostile review attacks capability laundering, source-governance bypass, target confusion, oracle coupling, inference gaps, false abstention, and version boundaries.
+7. applicable verification-source refs resolve and cannot satisfy/refute through stale, retrieved-only, or unknown currentness/admission state;
+8. source-required verification kinds cannot omit their source refs;
+9. source-backed and source-free clean controls pass;
+10. model judgment/heuristic/unknown cannot satisfy stronger policy;
+11. verification truth table enforced structurally;
+12. verifier execution is distinct from the target candidate execution for every attempted verification;
+13. duplicate `(target_type, target_id, kind)` receipts are structural errors, so VERIFIED/REFUTED conflicts cannot order-resolve;
+14. wrong-target valid verification reaches strategy and blocks only the affected candidate when the required exact target remains unsatisfied;
+15. support/answer verification scopes never substitute;
+16. unsolicited or non-required REFUTED receipts cannot block an otherwise eligible candidate;
+17. a structurally valid exact-target VERIFIED receipt can still be rejected by independent source-governance evidence and hidden evaluator gold;
+18. legacy strings cannot satisfy typed policy;
+19. one bad candidate cannot globally poison a separately verified candidate;
+20. no mandatory-verification survivor -> FAIL_CLOSED;
+21. evaluator semantic scoring shares no production satisfaction helpers;
+22. false-VERIFIED and invalid-inference cases are caught without importing production satisfaction helpers into evaluator scoring;
+23. new guards are independently ablatable;
+24. order permutations preserve outcomes;
+25. hidden gold absent from StrategyInput/digest;
+26. always-answer/always-abstain controls reported;
+27. clean checkout passes full tests, compile, V1.0 replay, V1.1 replay, diff-check;
+28. independent hostile review attacks capability laundering, support/verification source-governance bypass, circular verification, receipt conflict handling, target confusion, oracle coupling, unsolicited-refutation DoS, inference gaps, false abstention, and version boundaries.
 
 ## 26. Hostile roles for One
 
@@ -586,6 +592,11 @@ One exact implementation subject must prove:
 - **Source-Governance Bypass Adversary** — exploit differences between legacy candidate refs and typed support refs.
 - **Claim Scope Attacker** — support theft, claim smuggling, ownership mismatch.
 - **Verification Target Confuser** — support/answer substitution, wrong-target receipts, receipt reuse, candidate-local DoS.
+- **Verification Source Launderer** — stale/retrieved-only/dangling verification provenance behind a positive receipt.
+- **Circular Verifier** — candidate self-verification and verifier/target execution aliasing.
+- **Receipt Conflict Injector** — VERIFIED/REFUTED collisions for one target/kind tuple.
+- **Receipt Label Oracle Attacker** — exact-target VERIFIED labels that hidden evaluator gold says are unsatisfied.
+- **Unsolicited Refutation Attacker** — non-required REFUTED receipts used to try candidate-local denial of service.
 - **Oracle Coupling Auditor** — find shared semantic helpers between evaluator and strategy.
 - **Inference Gap Adversary** — valid typed support that does not justify the answer.
 - **Reject-Everything Prosecutor** — compare to always-abstain/fail-closed and clean controls.
@@ -596,7 +607,7 @@ One exact implementation subject must prove:
 
 Chosen final design:
 
-**trusted execution profile -> one answer claim -> one typed support record -> version-aware source governance -> optional exact-target receipts -> mandatory verification requirement when present -> candidate-local filtering -> independent evaluator gold**.
+**trusted execution profile -> one answer claim -> one typed support record -> version-aware support-source governance -> exact-target receipts with governed verification provenance + distinct verifier execution + unique target/kind tuple -> mandatory verification requirement when present -> requirement-scoped refutation -> candidate-local filtering -> independent evaluator gold**.
 
 Deferred intentionally:
 
