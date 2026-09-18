@@ -239,6 +239,25 @@ SCHEMA_VALIDATION
 
 Only `VERIFIED` is positive.
 
+### Verification independence policy
+
+R5 V1.1 uses one explicit minimum independence policy for **every** verification kind:
+
+```text
+DISTINCT_EXECUTION_REQUIRED
+```
+
+For every attempted verification kind listed above:
+
+- `verifier_execution_id` must differ from the execution that produced the target candidate;
+- missing verifier execution where the status represents an attempt is structural invalidity under the truth table;
+- there are no same-execution exceptions in R5;
+- a different execution ID is only an anti-circularity boundary. It does **not** establish independent model/provider/prompt/context lineage or statistical independence;
+- R5 must not count multiple verifier executions as independent corroboration merely because their execution IDs differ;
+- any future stronger independence requirement needs explicit lineage fields and a separately reviewed policy rather than inference from execution IDs.
+
+This uniform per-kind rule is deliberately stricter than capability-only authorization and deliberately narrower than claiming independence dimensions the V1.1 fixture cannot represent.
+
 ## 11. ReplayVerificationReceipt
 
 ```text
@@ -570,7 +589,7 @@ One exact implementation subject must prove:
 9. source-backed and source-free clean controls pass;
 10. model judgment/heuristic/unknown cannot satisfy stronger policy;
 11. verification truth table enforced structurally;
-12. verifier execution is distinct from the target candidate execution for every attempted verification;
+12. every attempted verification satisfies the explicit `DISTINCT_EXECUTION_REQUIRED` policy, with no same-execution exception and no inference of stronger model/provider independence;
 13. duplicate `(target_type, target_id, kind)` receipts are structural errors, so VERIFIED/REFUTED conflicts cannot order-resolve;
 14. wrong-target valid verification reaches strategy and blocks only the affected candidate when the required exact target remains unsatisfied;
 15. support/answer verification scopes never substitute;
