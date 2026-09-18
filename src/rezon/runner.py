@@ -92,6 +92,21 @@ def _view_potentially_consumed_evidence_refs(view) -> tuple[str, ...]:
     return _dedupe(refs)
 
 
+def _executor_task_envelope(
+    task_envelope: TaskEnvelope | None,
+    *,
+    independence_required: bool,
+) -> TaskEnvelope | None:
+    if task_envelope is None or not independence_required:
+        return task_envelope
+    return TaskEnvelope(
+        task_id=task_envelope.task_id,
+        literal_request=task_envelope.literal_request,
+        subject_refs=task_envelope.subject_refs,
+        constraints=task_envelope.constraints,
+    )
+
+
 def _independence_view_is_blind(view, descriptor: NodeDescriptor) -> bool:
     protected_kinds = set(descriptor.independence_blind_kinds)
     protected_ids = set(descriptor.independence_blind_ids)
@@ -248,10 +263,20 @@ class EpisodeRunner:
                 runner_node.independence,
                 task_envelope,
             )
+            executor_task_envelope = _executor_task_envelope(
+                task_envelope,
+                independence_required=runner_node.descriptor.independence_required,
+            )
+            executor_task_digest = (
+                executor_task_envelope.digest
+                if executor_task_envelope is not None
+                else None
+            )
             executor_view = replace(
                 audit_view,
                 blinded_proposition_ids=(),
                 blinded_relation_ids=(),
+                task_envelope=executor_task_envelope,
             )
 
             visible_refs = {
@@ -380,6 +405,7 @@ class EpisodeRunner:
                     emitted_proposition_ids=(),
                     independence_demonstrated=independence_ok,
                     task_envelope_digest=task_digest,
+                    executor_task_envelope_digest=executor_task_digest,
                     source_refs=input_source_refs,
                     source_versions=input_source_versions,
                     duration_seconds=duration,
@@ -472,6 +498,7 @@ class EpisodeRunner:
                 emitted_proposition_ids=admitted_ids,
                 independence_demonstrated=independence_ok,
                 task_envelope_digest=task_digest,
+                executor_task_envelope_digest=executor_task_digest,
                 source_refs=input_source_refs,
                 source_versions=input_source_versions,
                 reported_source_refs=reported_source_refs,
