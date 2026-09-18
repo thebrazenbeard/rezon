@@ -27,6 +27,7 @@ trusted execution profile
   -> one typed support record
   -> existing source-governance guards over that support's source refs
   -> optional exact-target verification receipts
+  -> verification-source governance + verifier separation
   -> mandatory verification requirement when present
   -> candidate-local filtering
   -> ambiguity-preserving integration
@@ -43,11 +44,16 @@ trusted execution profile
 6. Support kind is not truth and does not imply entailment.
 7. Confidence, votes, model prestige, repetition, or path score are not support.
 8. Source presence is not admission/currentness.
-9. Verification of a support record is not verification of the answer claim.
-10. Unknown states do not promote.
-11. Strategy-visible requirements are task policy, never evaluator gold.
-12. Evaluator scoring does not reuse production support/verification satisfaction logic.
-13. V1.0 bytes, hashes, strategy-input identity, and semantics remain reproducible.
+9. Verification-source refs are provenance and must resolve and pass applicable admission/currentness rules before that receipt can affect candidate eligibility.
+10. An attempted verifier execution must be distinct from the execution that produced the target candidate. R5 has no same-execution exception.
+11. At most one verification receipt may exist for a given `(target_type, target_id, kind)` tuple.
+12. `VERIFIED` is a verifier assertion, not semantic truth. Structural validity, capability, target binding, verifier separation, and source governance are prerequisites; hidden evaluator gold may still mark verification unsatisfied.
+13. Verification of a support record is not verification of the answer claim.
+14. Unknown states do not promote.
+15. Unsolicited or non-required refutations do not gate candidate eligibility in R5.
+16. Strategy-visible requirements are task policy, never evaluator gold.
+17. Evaluator scoring does not reuse production support/verification satisfaction logic.
+18. V1.0 bytes, hashes, strategy-input identity, and semantics remain reproducible.
 
 ## 4. Support vocabulary
 
@@ -97,7 +103,9 @@ Rules:
 - permitted kinds are known/unique;
 - emitted support/verification kind must be permitted by the referenced profile;
 - `DETERMINISTIC_DERIVATION` additionally requires `deterministic = true`;
-- capability means permission to emit, not correctness.
+- capability means permission to emit, not correctness;
+- attempted verifier execution must be different from the execution that produced the target candidate; R5 permits no same-execution verification exception;
+- distinct execution is a minimum anti-circularity rule, not a claim of statistical or model/provider independence.
 
 Future Kernel authority source: source-bound `NodeDescriptor`/runtime configuration, never worker self-description.
 
@@ -194,6 +202,19 @@ Consequences:
 - unrelated stale sources elsewhere in the case do not contaminate a source-free deterministic answer;
 - V1.1 legacy `candidate.source_refs` cannot expand or substitute for typed support provenance.
 
+Verification provenance is governed separately but by the same source-truth boundary.
+
+For every verification receipt:
+
+- each `source_ref` is unique within the receipt and must resolve to a local `ReplaySource`; dangling verification source refs are structural errors;
+- `PROVENANCE_BINDING` and `CURRENTNESS_CHECK` receipts require at least one source ref;
+- other verification kinds may be source-free when the verifier execution itself is the relevant artifact;
+- when a receipt is applicable to a candidate's mandatory verification requirement, its source refs enter `ADMISSION_INTEGRITY` and `PROVENANCE_CURRENTNESS`;
+- an applicable receipt backed by any source that is not explicitly `ADMITTED` and `is_current is True` is not verification-governance-eligible and cannot satisfy or refute the requirement;
+- irrelevant, wrong-target, or non-required receipts do not import their source failures into an unrelated candidate.
+
+This prevents stale, retrieved-only, dangling, or otherwise ungoverned verification provenance from laundering a positive receipt.
+
 ## 10. Verification vocabulary
 
 ```text
@@ -244,6 +265,17 @@ Truth table:
 
 Attempted verifier execution must have a profile that permits the verification kind. Illegal combinations are structural fixture errors.
 
+Additional structural rules:
+
+- `verification_id` values are unique;
+- `target_id` resolves to the declared target type;
+- `source_refs` are unique and resolve locally;
+- there is at most one receipt for each `(target_type, target_id, kind)` tuple; a VERIFIED/REFUTED pair for the same tuple is structurally invalid rather than order-resolved;
+- every attempted verifier execution has a trusted execution profile, permits the verification kind, and is distinct from the target candidate's execution;
+- `PROVENANCE_BINDING` and `CURRENTNESS_CHECK` require at least one source ref.
+
+A structurally valid `VERIFIED` status remains only a positive verifier assertion. It becomes usable by `VERIFICATION_INTEGRITY` only after target binding, verifier separation, capability, and applicable verification-source governance pass.
+
 ## 12. ReplayVerificationRequirement
 
 ```text
@@ -262,11 +294,17 @@ All listed kinds use AND semantics and require exact-target `VERIFIED` receipts.
 
 Support-level verification never satisfies answer-level verification, and vice versa.
 
+If no verification requirement exists, verification receipts are diagnostic only and cannot block or promote candidate eligibility. If a requirement exists, only receipts whose kind is listed in that requirement and whose target exactly matches the candidate's required target are eligibility-relevant.
+
 ## 13. Candidate-local verification semantics
 
 - unsatisfied mandatory verification blocks only the affected candidate;
-- exact-target `REFUTED` blocks that candidate;
-- legal wrong-target receipt is non-satisfying;
+- only exact-target receipts for required verification kinds are eligibility-relevant;
+- an applicable receipt whose verification-source provenance fails admission/currentness is non-satisfying and non-refuting;
+- an exact-target `REFUTED` receipt blocks the candidate only when its kind is required and the receipt is verification-governance-eligible;
+- a legal wrong-target receipt is non-satisfying;
+- a REFUTED receipt is diagnostic only when no verification requirement exists or when its kind is not required; it does not create candidate-local denial of service;
+- conflicting receipts for one target/kind tuple never reach strategy semantics because tuple duplication is structural invalidity;
 - one broken candidate cannot globally poison a separately verified candidate;
 - if at least one candidate survives mandatory verification, integration continues;
 - if answering candidates exist but none survive mandatory verification, final disposition is `FAIL_CLOSED`.
