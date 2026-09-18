@@ -246,7 +246,11 @@ class EpisodeRunner:
                     break
                 continue
 
-            execution_id = f"{task_id}:exec:{len(records) + 1}:{runner_node.descriptor.node_id}"
+            execution_id = (
+                f"independent:exec:{len(records) + 1}:{runner_node.descriptor.node_id}"
+                if runner_node.descriptor.independence_required
+                else f"{task_id}:exec:{len(records) + 1}:{runner_node.descriptor.node_id}"
+            )
             audit_view = build_execution_view(
                 execution_id,
                 episode.snapshot(),
@@ -268,6 +272,11 @@ class EpisodeRunner:
                     None
                     if runner_node.descriptor.independence_required
                     else audit_view.task_envelope
+                ),
+                independence=(
+                    IndependenceMetadata()
+                    if runner_node.descriptor.independence_required
+                    else audit_view.independence
                 ),
             )
 
