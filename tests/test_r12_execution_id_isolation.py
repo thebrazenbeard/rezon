@@ -1,4 +1,7 @@
-﻿from rezon.envelopes import TaskEnvelope
+﻿from types import SimpleNamespace
+
+import rezon.runner as runner_module
+from rezon.envelopes import TaskEnvelope
 from rezon.episode import Episode
 from rezon.epistemics import Proposition, PropositionKind
 from rezon.nodes import ExecutionResult, NodeDescriptor, VerificationStatus
@@ -127,11 +130,21 @@ def _run(with_prior_verifier: bool):
     return outcome, emitted.content
 
 
-def test_strong_independence_execution_id_does_not_reveal_prior_execution_count():
+def test_strong_independence_execution_id_does_not_reveal_prior_execution_count(
+    monkeypatch,
+):
+    fixed_hex = "a" * 32
+    monkeypatch.setattr(
+        runner_module,
+        "uuid4",
+        lambda: SimpleNamespace(hex=fixed_hex),
+    )
+
     clean_outcome, clean_execution_id = _run(False)
     prior_outcome, prior_execution_id = _run(True)
 
     assert clean_outcome.receipt.failures == ()
     assert prior_outcome.receipt.failures == ()
     assert clean_execution_id == prior_execution_id
+    assert clean_execution_id == f"independent:exec:echo_hypothesis:{fixed_hex}"
     assert "t-r12-ordinal" not in clean_execution_id

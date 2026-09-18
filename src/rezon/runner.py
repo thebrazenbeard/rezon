@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from time import perf_counter
+from uuid import uuid4
 
 from .admission import AdmissionError, admit_execution_result
 from .envelopes import AuthorityVerificationPolicy, TaskEnvelope
@@ -253,19 +254,9 @@ class EpisodeRunner:
                 continue
 
             if runner_node.descriptor.independence_required:
-                independent_task_specification = (
-                    task_envelope.to_task_specification()
-                    if task_envelope is not None
-                    else None
-                )
-                independent_task_key = (
-                    independent_task_specification.digest
-                    if independent_task_specification is not None
-                    else "no-task-spec"
-                )
                 execution_id = (
                     f"independent:exec:{runner_node.descriptor.node_id}:"
-                    f"{independent_task_key}"
+                    f"{uuid4().hex}"
                 )
             else:
                 execution_id = (

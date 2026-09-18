@@ -14,6 +14,7 @@ on:
       - work/rezon-kernel-v0-r10-task-envelope-projection
       - work/rezon-kernel-v0-r11-task-spec-boundary
       - work/rezon-kernel-v0-r12-episode-version-isolation
+      - work/rezon-kernel-v0-r13-opaque-execution-identity
 
 jobs:
   test:
