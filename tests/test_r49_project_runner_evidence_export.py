@@ -120,6 +120,20 @@ def test_export_rejects_forged_receipt_producer_binding():
         export_run_evidence(forged)
 
 
+def test_export_rejects_forged_receipt_source_versions():
+    outcome = _run("input", "output")
+    forged = RunOutcome(
+        replace(
+            outcome.receipt,
+            source_versions=("forged-source-version",),
+        ),
+        outcome.trace,
+    )
+
+    with pytest.raises(RunEvidenceError, match="source versions"):
+        export_run_evidence(forged)
+
+
 def test_export_rejects_missing_receipt_execution_coverage():
     outcome = _run("input", "output")
     forged = RunOutcome(
