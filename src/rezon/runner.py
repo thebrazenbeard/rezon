@@ -238,8 +238,20 @@ class EpisodeRunner:
             )
             return RunOutcome(receipt, ExecutionTrace())
 
-        task_digest = task_envelope.digest if task_envelope is not None else None
-        if task_envelope is not None and task_envelope.task_id != task_id:
+        governed_task_envelope = (
+            replace(task_envelope)
+            if task_envelope is not None
+            else None
+        )
+        task_digest = (
+            governed_task_envelope.digest
+            if governed_task_envelope is not None
+            else None
+        )
+        if (
+            governed_task_envelope is not None
+            and governed_task_envelope.task_id != task_id
+        ):
             receipt = ResultReceipt(
                 task_id=task_id,
                 episode_version=episode.snapshot().version_ref,
@@ -288,8 +300,14 @@ class EpisodeRunner:
             return RunOutcome(receipt, ExecutionTrace())
 
         effective_budget = self.budget_limit
-        if task_envelope is not None and task_envelope.resource_budget is not None:
-            effective_budget = min(effective_budget, task_envelope.resource_budget)
+        if (
+            governed_task_envelope is not None
+            and governed_task_envelope.resource_budget is not None
+        ):
+            effective_budget = min(
+                effective_budget,
+                governed_task_envelope.resource_budget,
+            )
 
         # Scheduling is an internal governed control. Do not dispatch through
         # the mutable public scheduler attribute, which callers can replace or
@@ -419,7 +437,7 @@ class EpisodeRunner:
                 execution_snapshot,
                 runner_node.visibility,
                 runner_node.independence,
-                task_envelope,
+                governed_task_envelope,
             )
             executor_task_specification = audit_view.task_specification
             executor_task_specification_digest = (
@@ -442,7 +460,11 @@ class EpisodeRunner:
                 task_envelope=(
                     None
                     if runner_node.descriptor.independence_required
-                    else audit_view.task_envelope
+                    else (
+                        replace(governed_task_envelope)
+                        if governed_task_envelope is not None
+                        else None
+                    )
                 ),
                 independence=(
                     IndependenceMetadata()
@@ -493,7 +515,10 @@ class EpisodeRunner:
                 # specification but not auxiliary dynamic context. TaskEnvelope
                 # context_refs are an explicit shared-context channel and are
                 # therefore incompatible with an independence_required run.
-                if task_envelope is not None and task_envelope.context_refs:
+                if (
+                    governed_task_envelope is not None
+                    and governed_task_envelope.context_refs
+                ):
                     add_failure(FailureState.CONTRACT_VIOLATION)
                     unresolved.append(
                         f"independence_context:{runner_node.descriptor.node_id}"
