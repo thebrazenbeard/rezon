@@ -49,6 +49,11 @@ def _validate_receipt_trace_binding(
     if receipt.source_versions != tuple(expected_source_versions):
         raise RunEvidenceError("receipt source versions do not match trace")
 
+    for record in records:
+        for failure in record.failures:
+            if failure not in receipt.failures:
+                raise RunEvidenceError("receipt failures do not cover trace failures")
+
     expected_output_bindings = tuple(
         (record.execution_id, record.canonical_output_digest)
         for record in records

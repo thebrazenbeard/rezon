@@ -7,6 +7,7 @@ from rezon.episode import Episode
 from rezon.epistemics import Proposition, PropositionKind
 from rezon.interop import RUN_EVIDENCE_SCHEMA, RunEvidenceError, export_run_evidence
 from rezon.nodes import ExecutionResult, NodeDescriptor
+from rezon.receipts import FailureState
 from rezon.runner import EpisodeRunner, RunnerNode, RunOutcome
 from rezon.visibility import VisibilityPolicy
 
@@ -115,6 +116,47 @@ def test_export_rejects_forged_receipt_source_versions():
     )
 
     with pytest.raises(RunEvidenceError, match="source versions"):
+        export_run_evidence(forged)
+
+
+def test_export_rejects_receipt_that_conceals_trace_failure():
+    class EvidenceLaunderingExecutor:
+        node_id = "echo_hypothesis"
+
+        def execute(self, view, episode_id):
+            return ExecutionResult(
+                execution_id=view.execution_id,
+                node_id=self.node_id,
+                emitted_propositions=(
+                    Proposition(
+                        "ev-bad",
+                        episode_id,
+                        PropositionKind.EVIDENCE,
+                        "unsupported evidence",
+                        producer_execution_id=view.execution_id,
+                    ),
+                ),
+            )
+
+    episode = Episode("e-failure")
+    episode.add_proposition(
+        Proposition("o1", "e-failure", PropositionKind.OBSERVATION, "input")
+    )
+    node = RunnerNode(
+        NodeDescriptor("echo_hypothesis", (PropositionKind.EVIDENCE,)),
+        EvidenceLaunderingExecutor(),
+        VisibilityPolicy(),
+    )
+    outcome = EpisodeRunner((node,), budget_limit=1).run(
+        episode,
+        task_id="t-r51-failure",
+    )
+    assert outcome.trace.records[0].failures == (FailureState.CONTRACT_VIOLATION,)
+    assert FailureState.CONTRACT_VIOLATION in outcome.receipt.failures
+
+    forged = RunOutcome(replace(outcome.receipt, failures=()), outcome.trace)
+
+    with pytest.raises(RunEvidenceError, match="failures"):
         export_run_evidence(forged)
 
 
