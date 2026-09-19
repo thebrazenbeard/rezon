@@ -46,6 +46,7 @@ on:
       - work/rezon-kernel-v0-r42-frozen-task-envelope
       - work/rezon-kernel-v0-r43-independence-source-version
       - work/rezon-kernel-v0-r44-nonempty-admission-execution-id
+      - work/rezon-kernel-v0-r45-nonempty-source-refs
 
 jobs:
   test:
