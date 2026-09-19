@@ -37,6 +37,18 @@ class AdmissionStatus(str, Enum):
 _TRUSTED_INDEPENDENCE_BASIS_PREFIXES = ("policy:", "receipt:", "review:", "runtime:")
 
 
+def _is_exact_nonempty_str(value) -> bool:
+    return type(value) is str and bool(value)
+
+
+def _is_exact_str_tuple(values, *, require_nonempty: bool = False) -> bool:
+    return bool(
+        type(values) is tuple
+        and (not require_nonempty or values)
+        and all(_is_exact_nonempty_str(value) for value in values)
+    )
+
+
 @dataclass(frozen=True)
 class IndependenceMetadata:
     executor_id: str | None = None
@@ -57,22 +69,40 @@ class IndependenceMetadata:
         itself; independence-required execution also needs a matching external
         IndependenceVerificationPolicy.
         """
-        basis_well_formed = bool(self.independence_basis_refs) and all(
+        if type(self) is not IndependenceMetadata:
+            return False
+        if not all(
+            _is_exact_nonempty_str(value)
+            for value in (
+                self.executor_id,
+                self.model_id,
+                self.provider_id,
+                self.prompt_lineage,
+                self.context_lineage,
+            )
+        ):
+            return False
+        if self.saw_other_answer is not False:
+            return False
+        if not _is_exact_str_tuple(self.common_evidence_refs):
+            return False
+        if not _is_exact_str_tuple(self.consumed_evidence_refs):
+            return False
+        if not _is_exact_str_tuple(
+            self.independence_basis_refs,
+            require_nonempty=True,
+        ):
+            return False
+        if self.common_evidence_refs:
+            return False
+        return all(
             ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES)
             for ref in self.independence_basis_refs
         )
-        return bool(
-            basis_well_formed
-            and self.saw_other_answer is False
-            and not self.common_evidence_refs
-            and self.executor_id
-            and self.model_id
-            and self.provider_id
-            and self.prompt_lineage
-            and self.context_lineage
-        )
 
     def demonstrably_independent_from(self, other: "IndependenceMetadata") -> bool:
+        if type(self) is not IndependenceMetadata or type(other) is not IndependenceMetadata:
+            return False
         if not self.is_demonstrably_independent or not other.is_demonstrably_independent:
             return False
         if self.executor_id == other.executor_id:
@@ -125,11 +155,52 @@ class IndependenceVerificationEvidence:
                 raise ValueError("independence evidence refs must be non-empty")
 
 
+def _is_exact_independence_verification_evidence(
+    evidence: IndependenceVerificationEvidence,
+) -> bool:
+    if type(evidence) is not IndependenceVerificationEvidence:
+        return False
+    if not all(
+        _is_exact_nonempty_str(value)
+        for value in (
+            evidence.basis_ref,
+            evidence.executor_id,
+            evidence.model_id,
+            evidence.provider_id,
+            evidence.prompt_lineage,
+            evidence.context_lineage,
+        )
+    ):
+        return False
+    if not evidence.basis_ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES):
+        return False
+    if not _is_exact_str_tuple(evidence.verification_refs, require_nonempty=True):
+        return False
+    if evidence.saw_other_answer is not False:
+        return False
+    if not _is_exact_str_tuple(evidence.common_evidence_refs):
+        return False
+    if not _is_exact_str_tuple(evidence.consumed_evidence_refs):
+        return False
+    return True
+
+
 @dataclass(frozen=True)
 class IndependenceVerificationPolicy:
     verified_evidence: tuple[IndependenceVerificationEvidence, ...]
 
     def verify(self, metadata: IndependenceMetadata) -> bool:
+        if type(self) is not IndependenceVerificationPolicy:
+            return False
+        if type(metadata) is not IndependenceMetadata:
+            return False
+        if type(self.verified_evidence) is not tuple:
+            return False
+        if any(
+            not _is_exact_independence_verification_evidence(evidence)
+            for evidence in self.verified_evidence
+        ):
+            return False
         if not metadata.is_demonstrably_independent:
             return False
         claimed_basis = set(metadata.independence_basis_refs)
