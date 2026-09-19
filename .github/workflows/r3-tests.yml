@@ -18,6 +18,7 @@ on:
       - work/rezon-kernel-v0-r14-attempt-vs-producer-identity
       - work/rezon-kernel-v0-r15-canonical-state-digest-binding
       - work/rezon-kernel-v0-r16-canonical-production-event-identity
+      - work/rezon-kernel-v0-r17-task-bound-production-identity
 
 jobs:
   test:
