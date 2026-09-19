@@ -110,3 +110,51 @@ def test_direct_admission_cannot_be_neutered_by_shadowed_add_proposition():
         proposition.proposition_id
         for proposition in Episode.snapshot(episode).current_propositions
     }
+
+
+def test_retrieval_admission_cannot_be_neutered_by_shadowed_add_proposition():
+    from rezon.receipts import AdmissionStatus, RetrievalReceipt
+    from rezon.retrieval import (
+        RetrievalAdmissionEvidence,
+        RetrievalAdmissionPolicy,
+        admit_retrieval_as_evidence,
+        digest_retrieved_content,
+    )
+
+    content = "verified retrieval content"
+    episode = Episode("e3")
+    episode.add_proposition = lambda proposition: None
+    receipt = RetrievalReceipt(
+        retrieval_id="ret-r38",
+        query="query",
+        source_id="repo:source",
+        source_version="abc123",
+        method="exact_ref",
+        returned_refs=("source.md#1",),
+        admission_status=AdmissionStatus.ADMITTED,
+    )
+    evidence = RetrievalAdmissionEvidence(
+        source_id="repo:source",
+        source_version="abc123",
+        admission_authority_ref="review:admission",
+        verification_refs=("receipt:verified",),
+        currentness_ref="receipt:current",
+        authoritative_scope="scope/current",
+        content_digest=digest_retrieved_content(content),
+        locator_refs=("source.md#1",),
+    )
+
+    admitted = admit_retrieval_as_evidence(
+        episode,
+        receipt,
+        "ev-r38",
+        content,
+        policy=RetrievalAdmissionPolicy((evidence,)),
+        required_scope="scope/current",
+    )
+
+    assert admitted.proposition_id == "ev-r38"
+    assert "ev-r38" in {
+        proposition.proposition_id
+        for proposition in Episode.snapshot(episode).current_propositions
+    }
