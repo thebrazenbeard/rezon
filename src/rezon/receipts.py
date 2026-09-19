@@ -269,6 +269,7 @@ class ResultReceipt:
     source_versions: tuple[str, ...] = ()
     execution_ids: tuple[str, ...] = ()
     execution_output_digests: tuple[tuple[str, str], ...] = ()
+    execution_producer_ids: tuple[tuple[str, str], ...] = ()
     task_envelope_digest: str | None = None
     claim_disposition_complete: bool = False
 
@@ -303,6 +304,30 @@ class ResultReceipt:
                     "execution output digest binding cannot duplicate execution id"
                 )
             seen_execution_ids.add(execution_id)
+        if type(self.execution_producer_ids) is not tuple:
+            raise ValueError(
+                "execution producer ids must be an exact tuple"
+            )
+        seen_producer_execution_ids: set[str] = set()
+        for binding in self.execution_producer_ids:
+            if (
+                type(binding) is not tuple
+                or len(binding) != 2
+                or any(type(value) is not str or not value for value in binding)
+            ):
+                raise ValueError(
+                    "execution producer ids must contain non-empty exact str pairs"
+                )
+            execution_id, _producer_id = binding
+            if execution_id not in known_execution_ids:
+                raise ValueError(
+                    "execution producer id must bind a receipt execution id"
+                )
+            if execution_id in seen_producer_execution_ids:
+                raise ValueError(
+                    "execution producer binding cannot duplicate execution id"
+                )
+            seen_producer_execution_ids.add(execution_id)
         if self.accepted_claim_ids or self.rejected_claim_ids:
             raise ValueError(
                 "generic ResultReceipt cannot assert accepted/rejected claim disposition; "
