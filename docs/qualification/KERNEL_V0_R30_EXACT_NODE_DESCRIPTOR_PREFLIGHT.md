@@ -1,6 +1,6 @@
 # Rezon Kernel V0 R30 Exact NodeDescriptor Preflight Contract
 
-Status: `SOURCE_CREATED / LOCAL_BUILD_PASS / LOCAL_TEST_PASS / HOSTED_CI_PASS / INDEPENDENT_HOSTILE_REREVIEW_PENDING`
+Status: `SOURCE_REPAIRED / LOCAL_BUILD_PASS / LOCAL_TEST_PASS / HOSTED_CI_PENDING / INDEPENDENT_HOSTILE_REREVIEW_PENDING`
 
 R30 is the bounded successor to failed whole-Kernel R29 exact subject
 `8026c7932ff95bab3029b71f12686717178b818c`.
@@ -140,3 +140,21 @@ Issue #5 learned-routing remains CLOSED.
 4. Pressure the next adjacent runtime boundary only if no independent verdict
    arrives, preserving every failed exact subject.
 5. Do not merge without Patrick's explicit authority.
+
+
+## 2026-09-19 scheduler-to-execution descriptor binding repair
+
+Fresh hostile review of exact predecessor `4f088c0f085df3f05bd3e59e284b4825e0e3e537` found that `EpisodeRunner` accepted an arbitrary sequence-like `nodes` object. A stateful sequence could yield one exact strict `RunnerNode`/`NodeDescriptor` during scheduler iteration and then return a different exact weak `RunnerNode` with the same `node_id` during indexed execution. The runner compared only the ID, so descriptor semantics used for scheduling were not bound to the descriptor later executed.
+
+The frozen local RED demonstrates the ordinary-Python bypass with a strict scheduled descriptor requiring protected authority and a weak same-ID execution descriptor requiring none. Exact predecessor behavior executed the weak node and emitted output with no contract failure.
+
+The repair requires the runner's node set to be an exact immutable tuple of exact `RunnerNode` values whose descriptors satisfy the same exact `NodeDescriptor` contract already used by scheduler/admission. Non-exact/stateful containers now fail before scheduling with `runner:invalid_node_contract`; executor invocation remains zero.
+
+Fresh local successor evidence before publish:
+
+- R30 exact-node regressions: **9/9 PASS**;
+- full suite: **210/210 PASS**;
+- changed-file `py_compile`: PASS;
+- `git diff --check`: PASS.
+
+This closes the reviewed scheduler-to-execution substitution path without widening authority. Hosted CI and fresh independent hostile rereview remain exact-successor gates.

@@ -183,3 +183,51 @@ def test_verification_target_ids_must_be_exact_tuple_before_execution():
         verification_target_ids=["target"],
     )
     _assert_preflight_rejects(descriptor, SpyEmitter())
+
+
+class SwappingNodeSequence:
+    def __init__(self, scheduled_node, execution_node):
+        self.scheduled_node = scheduled_node
+        self.execution_node = execution_node
+
+    def __iter__(self):
+        return iter((self.scheduled_node,))
+
+    def __len__(self):
+        return 1
+
+    def __getitem__(self, index):
+        if index != 0:
+            raise IndexError(index)
+        return self.execution_node
+
+
+def test_runner_rejects_stateful_node_sequence_before_scheduler_execution_binding_can_drift():
+    strict = RunnerNode(
+        NodeDescriptor(
+            "echo_hypothesis",
+            (PropositionKind.HYPOTHESIS,),
+            required_authority=("protected",),
+        ),
+        SpyEmitter(),
+        VisibilityPolicy(),
+    )
+    weak_executor = SpyEmitter()
+    weak = RunnerNode(
+        NodeDescriptor(
+            "echo_hypothesis",
+            (PropositionKind.HYPOTHESIS,),
+            required_authority=(),
+        ),
+        weak_executor,
+        VisibilityPolicy(),
+    )
+    nodes = SwappingNodeSequence(strict, weak)
+    episode = Episode("e1")
+
+    outcome = EpisodeRunner(nodes, budget_limit=1).run(episode, task_id="t-r30-bind")
+
+    assert FailureState.CONTRACT_VIOLATION in outcome.receipt.failures
+    assert "runner:invalid_node_contract" in outcome.receipt.unresolved
+    assert weak_executor.calls == 0
+    assert "h-spy" not in {p.proposition_id for p in episode.snapshot().current_propositions}

@@ -8,7 +8,7 @@ from .admission import AdmissionError, admit_execution_result
 from .envelopes import AuthorityVerificationPolicy, TaskEnvelope
 from .episode import Episode
 from .epistemics import PropositionKind, source_ref_version_bindings
-from .nodes import NodeDescriptor, VerificationStatus
+from .nodes import NodeDescriptor, VerificationStatus, node_descriptor_contract_is_exact
 from .provenance import (
     canonical_episode_snapshot_digest,
     canonical_output_digest,
@@ -147,6 +147,24 @@ class EpisodeRunner:
                 task_id=task_id,
                 episode_version=episode.snapshot().version_ref,
                 unresolved=("task_envelope:mismatched_task_id",),
+                failures=(FailureState.CONTRACT_VIOLATION,),
+                effect_state=EffectState.PLAN,
+                task_envelope_digest=task_digest,
+            )
+            return RunOutcome(receipt, ExecutionTrace())
+
+        if (
+            type(self.nodes) is not tuple
+            or any(
+                type(node) is not RunnerNode
+                or not node_descriptor_contract_is_exact(node.descriptor)
+                for node in self.nodes
+            )
+        ):
+            receipt = ResultReceipt(
+                task_id=task_id,
+                episode_version=episode.snapshot().version_ref,
+                unresolved=("runner:invalid_node_contract",),
                 failures=(FailureState.CONTRACT_VIOLATION,),
                 effect_state=EffectState.PLAN,
                 task_envelope_digest=task_digest,
