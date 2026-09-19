@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from .envelopes import TaskEnvelope, TaskSpecification
-from .epistemics import Hyperrelation, Proposition, PropositionKind
+from .epistemics import Hyperrelation, Participant, Proposition, PropositionKind
 from .receipts import FailureState, IndependenceMetadata
 
 
@@ -124,3 +124,133 @@ class ExecutionResult:
     def __post_init__(self) -> None:
         if self.verification_status is not None and not self.verification_target_ids:
             raise ValueError("verification status requires explicit target IDs")
+
+
+def _exact_str_tuple(values) -> bool:
+    return type(values) is tuple and all(type(value) is str for value in values)
+
+
+def _exact_proposition_contract(proposition) -> bool:
+    if type(proposition) is not Proposition:
+        return False
+    if (
+        type(proposition.proposition_id) is not str
+        or not proposition.proposition_id
+        or type(proposition.episode_id) is not str
+        or not proposition.episode_id
+        or type(proposition.kind) is not PropositionKind
+        or type(proposition.content) is not str
+        or not proposition.content
+    ):
+        return False
+    if not _exact_str_tuple(proposition.source_refs):
+        return False
+    if not _exact_str_tuple(proposition.source_versions):
+        return False
+    if any(not version for version in proposition.source_versions):
+        return False
+    if len(proposition.source_versions) != len(set(proposition.source_versions)):
+        return False
+    if (
+        proposition.producer_execution_id is not None
+        and type(proposition.producer_execution_id) is not str
+    ):
+        return False
+    if proposition.confidence is not None:
+        if type(proposition.confidence) is not float:
+            return False
+        if not 0.0 <= proposition.confidence <= 1.0:
+            return False
+    return True
+
+
+def _exact_relation_contract(relation) -> bool:
+    if type(relation) is not Hyperrelation:
+        return False
+    if (
+        type(relation.relation_id) is not str
+        or not relation.relation_id
+        or type(relation.episode_id) is not str
+        or not relation.episode_id
+        or type(relation.relation_type) is not str
+        or not relation.relation_type
+        or type(relation.participants) is not tuple
+        or not relation.participants
+    ):
+        return False
+    for participant in relation.participants:
+        if type(participant) is not Participant:
+            return False
+        if (
+            type(participant.ref_id) is not str
+            or not participant.ref_id
+            or type(participant.role) is not str
+            or not participant.role
+        ):
+            return False
+    if not _exact_str_tuple(relation.source_refs):
+        return False
+    if not _exact_str_tuple(relation.source_versions):
+        return False
+    if any(not version for version in relation.source_versions):
+        return False
+    if len(relation.source_versions) != len(set(relation.source_versions)):
+        return False
+    if (
+        relation.producer_execution_id is not None
+        and type(relation.producer_execution_id) is not str
+    ):
+        return False
+    return True
+
+
+def execution_result_contract_is_exact(result) -> bool:
+    if type(result) is not ExecutionResult:
+        return False
+    if (
+        type(result.execution_id) is not str
+        or not result.execution_id
+        or type(result.node_id) is not str
+        or not result.node_id
+    ):
+        return False
+    if (
+        type(result.emitted_propositions) is not tuple
+        or any(
+            not _exact_proposition_contract(proposition)
+            for proposition in result.emitted_propositions
+        )
+    ):
+        return False
+    if (
+        type(result.emitted_relations) is not tuple
+        or any(
+            not _exact_relation_contract(relation)
+            for relation in result.emitted_relations
+        )
+    ):
+        return False
+    if (
+        type(result.failures) is not tuple
+        or any(type(failure) is not FailureState for failure in result.failures)
+    ):
+        return False
+    if not _exact_str_tuple(result.source_refs):
+        return False
+    if not _exact_str_tuple(result.source_versions):
+        return False
+    if result.verification_status is not None and type(
+        result.verification_status
+    ) is not VerificationStatus:
+        return False
+    if (
+        type(result.verification_target_ids) is not tuple
+        or any(
+            type(target_id) is not str or not target_id
+            for target_id in result.verification_target_ids
+        )
+    ):
+        return False
+    if result.verification_status is not None and not result.verification_target_ids:
+        return False
+    return True
