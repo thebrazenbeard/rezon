@@ -870,6 +870,14 @@ class EpisodeRunner:
                 for record in records
                 if record.canonical_output_digest is not None
             ),
+            execution_producer_ids=tuple(
+                (
+                    record.execution_id,
+                    record.canonical_producer_execution_id,
+                )
+                for record in records
+                if record.canonical_producer_execution_id is not None
+            ),
             task_envelope_digest=task_digest,
             claim_disposition_complete=False,
         )
