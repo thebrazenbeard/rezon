@@ -1,4 +1,4 @@
-import pytest
+﻿import pytest
 
 from rezon.admission import AdmissionError, admit_execution_result
 from rezon.envelopes import TaskEnvelope, TaskSpecification
@@ -40,6 +40,9 @@ class EvilStr(str):
 
     def __hash__(self):
         return hash(self.target)
+
+    def __reduce_ex__(self, protocol):
+        return (EvilStr, (str(self), self.target))
 
 
 class Reader:
@@ -206,3 +209,4 @@ def test_exact_task_specification_fields_are_required_at_direct_admission():
             expected_execution_id="attempt",
             task_specification=malformed,
         )
+
