@@ -119,11 +119,22 @@ def test_export_rejects_forged_receipt_source_versions():
         export_run_evidence(forged)
 
 
-class InvalidResultExecutor:
-    node_id = "invalid_result"
+class EvidenceLaunderingExecutor:
+    node_id = "echo_hypothesis"
 
     def execute(self, view, episode_id):
-        return object()
+        proposition = Proposition(
+            "ev-bad",
+            episode_id,
+            PropositionKind.EVIDENCE,
+            "unsupported evidence",
+            producer_execution_id=view.execution_id,
+        )
+        return ExecutionResult(
+            view.execution_id,
+            self.node_id,
+            (proposition,),
+        )
 
 
 def _failed_run():
@@ -138,10 +149,10 @@ def _failed_run():
     )
     node = RunnerNode(
         NodeDescriptor(
-            "invalid_result",
-            (PropositionKind.HYPOTHESIS,),
+            "echo_hypothesis",
+            (PropositionKind.EVIDENCE,),
         ),
-        InvalidResultExecutor(),
+        EvidenceLaunderingExecutor(),
         VisibilityPolicy(),
     )
     return EpisodeRunner((node,), budget_limit=1).run(
