@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from functools import wraps
 
-from .envelopes import TaskSpecification
+from .envelopes import TaskSpecification, task_specification_contract_is_exact
 from .episode import Episode, EpisodeInvariantError
 from .epistemics import Hyperrelation, Participant, Proposition, PropositionKind, source_ref_version_bindings
 from .nodes import ExecutionResult, NodeDescriptor, node_descriptor_contract_is_exact
@@ -222,9 +222,11 @@ def admit_execution_result(
 
     if (
         task_specification is not None
-        and type(task_specification) is not TaskSpecification
+        and not task_specification_contract_is_exact(task_specification)
     ):
-        raise AdmissionError("task specification must be exact TaskSpecification")
+        raise AdmissionError(
+            "task specification must satisfy exact TaskSpecification contract"
+        )
 
     task_specification_digest = (
         task_specification.digest if task_specification is not None else None
