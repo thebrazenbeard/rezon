@@ -40,6 +40,7 @@ on:
       - work/rezon-kernel-v0-r36-frozen-runner-node-set
       - work/rezon-kernel-v0-r37-executor-episode-rollback
       - work/rezon-kernel-v0-r38-exact-execution-result-boundary
+      - work/rezon-kernel-v0-r39-exact-runner-control-subobjects
 
 jobs:
   test:
