@@ -119,6 +119,7 @@ def test_independence_rejects_distinct_evidence_refs_with_same_source_version():
     assert "independence:verifier-b" in outcome.receipt.unresolved
     assert tuple(record.independence_demonstrated for record in outcome.trace.records) == (
         True,
+        False,
     )
     assert "tb" not in {
         proposition.proposition_id
