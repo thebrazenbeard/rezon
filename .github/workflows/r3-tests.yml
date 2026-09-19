@@ -22,6 +22,7 @@ on:
       - work/rezon-kernel-v0-r18-mandatory-state-binding
       - work/rezon-kernel-v0-r19-atomic-admission
       - work/rezon-kernel-v0-r20-transaction-rollback
+      - work/rezon-kernel-v0-r21-nonnullable-state-binding
 
 jobs:
   test:
