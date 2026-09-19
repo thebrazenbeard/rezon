@@ -43,11 +43,13 @@ def canonical_output_digest(result: ExecutionResult) -> str | None:
 def canonical_producer_execution_id(
     node_id: str,
     episode_snapshot_digest: str,
+    task_specification_digest: str | None,
     output_digest: str,
 ) -> str:
     payload = "\x1f".join((
         node_id,
         episode_snapshot_digest,
+        task_specification_digest or "no-task-spec",
         output_digest,
     ))
     digest = sha256(payload.encode("utf-8")).hexdigest()

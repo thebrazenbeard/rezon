@@ -517,6 +517,7 @@ class EpisodeRunner:
                         result,
                         expected_execution_id=execution_id,
                         expected_episode_snapshot_digest=canonical_snapshot_digest,
+                        task_specification=executor_task_specification,
                         allowed_source_refs=governed_refs,
                         allowed_source_versions=input_source_versions,
                         allowed_source_bindings=input_source_bindings,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
+from .envelopes import TaskSpecification
 from .episode import Episode, EpisodeInvariantError
 from .epistemics import PropositionKind, source_ref_version_bindings
 from .nodes import ExecutionResult, NodeDescriptor
@@ -19,6 +20,7 @@ class AdmissionError(ValueError):
 @dataclass(frozen=True)
 class AdmissionReceipt:
     canonical_episode_snapshot_digest: str
+    task_specification_digest: str | None
     canonical_output_digest: str | None
     canonical_producer_execution_id: str | None
 
@@ -67,6 +69,7 @@ def admit_execution_result(
     *,
     expected_execution_id: str | None = None,
     expected_episode_snapshot_digest: str | None = None,
+    task_specification: TaskSpecification | None = None,
     allowed_source_refs: tuple[str, ...] | None = None,
     allowed_source_versions: tuple[str, ...] | None = None,
     allowed_source_bindings: tuple[tuple[str, str], ...] | None = None,
@@ -87,11 +90,15 @@ def admit_execution_result(
             "canonical episode state changed after execution view was captured"
         )
 
+    task_specification_digest = (
+        task_specification.digest if task_specification is not None else None
+    )
     output_digest = canonical_output_digest(result)
     derived_producer_execution_id = (
         canonical_producer_execution_id(
             descriptor.node_id,
             snapshot_digest,
+            task_specification_digest,
             output_digest,
         )
         if output_digest is not None
@@ -235,6 +242,7 @@ def admit_execution_result(
 
     return AdmissionReceipt(
         canonical_episode_snapshot_digest=snapshot_digest,
+        task_specification_digest=task_specification_digest,
         canonical_output_digest=output_digest,
         canonical_producer_execution_id=derived_producer_execution_id,
     )
