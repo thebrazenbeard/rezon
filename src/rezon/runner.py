@@ -192,6 +192,11 @@ class EpisodeRunner:
         if task_envelope is not None and task_envelope.resource_budget is not None:
             effective_budget = min(effective_budget, task_envelope.resource_budget)
 
+        # Scheduling is an internal governed control. Do not dispatch through
+        # the mutable public scheduler attribute, which callers can replace or
+        # shadow between construction and execution.
+        governed_scheduler = DeterministicScheduler()
+
         completed: list[str] = []
         failures: list[FailureState] = []
         unresolved: list[str] = []
@@ -247,7 +252,7 @@ class EpisodeRunner:
             ))
 
         while True:
-            decision = self.scheduler.next(
+            decision = governed_scheduler.next(
                 episode.snapshot(),
                 tuple(node.descriptor for node in self.nodes),
                 tuple(completed),
