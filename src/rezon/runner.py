@@ -518,8 +518,6 @@ class EpisodeRunner:
                     break
 
             executor = runner_node.executor
-            if decision.target_id is not None and hasattr(executor, "target_hypothesis_id"):
-                executor = type(executor)(decision.target_id)
 
             input_source_refs = _view_source_refs(audit_view)
             input_source_versions = _view_source_versions(audit_view)
@@ -530,7 +528,16 @@ class EpisodeRunner:
             started = perf_counter()
             try:
                 with episode.atomic_mutation():
-                    result = executor.execute(executor_view, episode.episode_id)
+                    active_executor = executor
+                    if (
+                        decision.target_id is not None
+                        and hasattr(active_executor, "target_hypothesis_id")
+                    ):
+                        active_executor = type(active_executor)(decision.target_id)
+                    result = active_executor.execute(
+                        executor_view,
+                        episode.episode_id,
+                    )
                     if not execution_result_contract_is_exact(result):
                         raise _InvalidExecutionResultError(
                             "executor returned an invalid ExecutionResult contract"
