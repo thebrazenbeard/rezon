@@ -2,6 +2,7 @@ import pytest
 
 from rezon.episode import Episode, EpisodeInvariantError
 from rezon.epistemics import Hyperrelation, Participant, Proposition, PropositionKind
+from rezon.nodes import ExecutionResult, execution_result_contract_is_exact
 
 
 def test_episode_rejects_empty_proposition_producer_execution_id() -> None:
@@ -38,3 +39,21 @@ def test_episode_rejects_empty_relation_producer_execution_id() -> None:
         episode.add_relation(relation)
 
     assert episode.snapshot() == before
+
+
+def test_exact_execution_result_rejects_empty_nested_producer_identity() -> None:
+    result = ExecutionResult(
+        "attempt-r46",
+        "generator",
+        emitted_propositions=(
+            Proposition(
+                "p-r46-output",
+                "e1",
+                PropositionKind.HYPOTHESIS,
+                "candidate",
+                producer_execution_id="",
+            ),
+        ),
+    )
+
+    assert execution_result_contract_is_exact(result) is False
