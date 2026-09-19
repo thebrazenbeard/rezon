@@ -45,6 +45,10 @@ class RunOutcome:
     trace: ExecutionTrace
 
 
+class _ExecutorEpisodeMutationError(RuntimeError):
+    pass
+
+
 def _dedupe(items: tuple[str, ...] | list[str]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(items))
 
@@ -510,7 +514,45 @@ class EpisodeRunner:
 
             started = perf_counter()
             try:
-                result = executor.execute(executor_view, episode.episode_id)
+                with episode.atomic_mutation():
+                    result = executor.execute(executor_view, episode.episode_id)
+                    if (
+                        canonical_episode_snapshot_digest(episode.snapshot())
+                        != canonical_snapshot_digest
+                    ):
+                        raise _ExecutorEpisodeMutationError(
+                            "executor mutated canonical episode during execution"
+                        )
+            except _ExecutorEpisodeMutationError:
+                duration = perf_counter() - started
+                add_failure(FailureState.CONTRACT_VIOLATION)
+                unresolved.append(f"executor_episode_mutation:{execution_id}")
+                records.append(TraceRecord(
+                    execution_id=execution_id,
+                    node_id=runner_node.descriptor.node_id,
+                    episode_version=audit_view.episode_version,
+                    visible_proposition_ids=tuple(p.proposition_id for p in audit_view.propositions),
+                    blinded_proposition_ids=audit_view.blinded_proposition_ids,
+                    visible_relation_ids=tuple(r.relation_id for r in audit_view.relations),
+                    blinded_relation_ids=audit_view.blinded_relation_ids,
+                    emitted_proposition_ids=(),
+                    independence_demonstrated=independence_ok,
+                    task_envelope_digest=task_digest,
+                    executor_task_specification_digest=executor_task_specification_digest,
+                    executor_episode_version=executor_episode_version,
+                    canonical_producer_execution_id=None,
+                    canonical_episode_snapshot_digest=canonical_snapshot_digest,
+                    canonical_output_digest=None,
+                    source_refs=input_source_refs,
+                    source_versions=input_source_versions,
+                    duration_seconds=duration,
+                    failures=(FailureState.CONTRACT_VIOLATION,),
+                ))
+                completed.append(runner_node.descriptor.node_id)
+                used += 1
+                if runner_node.descriptor.mandatory_verification:
+                    break
+                continue
             except Exception:
                 duration = perf_counter() - started
                 add_failure(FailureState.ATTEMPTED_UNKNOWN)
