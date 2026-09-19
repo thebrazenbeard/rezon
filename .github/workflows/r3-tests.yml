@@ -33,6 +33,7 @@ on:
       - work/rezon-kernel-v0-r29-exact-independence-contract
       - work/rezon-kernel-v0-r30-exact-node-descriptor-preflight
       - work/rezon-kernel-v0-r31-exact-task-envelope-contract
+      - work/rezon-kernel-v0-r32-exact-scheduler-binding
 
 jobs:
   test:
