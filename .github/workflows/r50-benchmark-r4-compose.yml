@@ -1,0 +1,54 @@
+name: Rezon R50 + Benchmark R4 no-commit composition
+
+on:
+  push:
+    branches:
+      - "qualification/r50-benchmark-r4-compose-20260919"
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compose exact subjects without commit
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "0dc9545b404cccc5eb838a77a4d412c1ff99d15d" HEAD
+          changed="$(git diff --name-only "0dc9545b404cccc5eb838a77a4d412c1ff99d15d"..HEAD)"
+          test "${changed}" = ".github/workflows/r50-benchmark-r4-compose.yml"
+          git cat-file -e "0dc9545b404cccc5eb838a77a4d412c1ff99d15d^{commit}"
+          git cat-file -e "d7373867d3813d32032cb30463e54a6ddf573025^{commit}"
+          git checkout --detach "0dc9545b404cccc5eb838a77a4d412c1ff99d15d"
+          git config user.name "Rezon Qualification Runner"
+          git config user.email "rezon-qualification@invalid.local"
+          git merge --no-commit --no-ff "d7373867d3813d32032cb30463e54a6ddf573025"
+          test "$(git rev-parse MERGE_HEAD)" = "d7373867d3813d32032cb30463e54a6ddf573025"
+      - name: Install composed tree
+        run: python -m pip install -e . pytest
+      - name: Compile composed tree
+        run: python -m compileall -q src tests scripts
+      - name: Full composed suite
+        run: pytest -q
+      - name: Benchmark replay
+        run: PYTHONPATH=src python scripts/run_benchmark_v1.py
+      - name: Staged merge diff integrity
+        run: git diff --cached --check
+      - name: Composition subjects
+        run: |
+          echo "R50=0dc9545b404cccc5eb838a77a4d412c1ff99d15d"
+          echo "BENCHMARK_R4=d7373867d3813d32032cb30463e54a6ddf573025"
+          echo "MERGE_HEAD=$(git rev-parse MERGE_HEAD)"
+      - name: Abort ephemeral merge
+        if: always()
+        run: |
+          if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+            git merge --abort
+          fi
