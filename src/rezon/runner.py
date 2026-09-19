@@ -369,15 +369,25 @@ class EpisodeRunner:
                     break
 
                 independence = runner_node.independence
-                claim_complete = independence.is_demonstrably_independent
+                policy = runner_node.independence_policy
+                exact_independence_metadata = (
+                    type(independence) is IndependenceMetadata
+                )
+                exact_independence_policy = (
+                    type(policy) is IndependenceVerificationPolicy
+                )
+                claim_complete = bool(
+                    exact_independence_metadata
+                    and independence.is_demonstrably_independent
+                )
                 if not claim_complete:
                     add_failure(FailureState.CONTRACT_VIOLATION)
                     unresolved.append(f"independence:{runner_node.descriptor.node_id}")
                     break
 
                 policy_verified = bool(
-                    runner_node.independence_policy
-                    and runner_node.independence_policy.verify(independence)
+                    exact_independence_policy
+                    and policy.verify(independence)
                 )
                 potentially_consumed_evidence = _view_potentially_consumed_evidence_refs(
                     audit_view
