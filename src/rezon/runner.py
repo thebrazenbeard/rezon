@@ -190,12 +190,13 @@ class EpisodeRunner:
             )
             return RunOutcome(receipt, ExecutionTrace())
 
+        candidate_nodes = self.nodes
         if (
-            type(self.nodes) is not tuple
+            type(candidate_nodes) is not tuple
             or any(
                 type(node) is not RunnerNode
                 or not node_descriptor_contract_is_exact(node.descriptor)
-                for node in self.nodes
+                for node in candidate_nodes
             )
         ):
             receipt = ResultReceipt(
@@ -207,6 +208,8 @@ class EpisodeRunner:
                 task_envelope_digest=task_digest,
             )
             return RunOutcome(receipt, ExecutionTrace())
+
+        governed_nodes = candidate_nodes
 
         if type(self.budget_limit) is not int or self.budget_limit < 0:
             receipt = ResultReceipt(
@@ -285,7 +288,7 @@ class EpisodeRunner:
         while True:
             decision = governed_scheduler.next(
                 episode.snapshot(),
-                tuple(node.descriptor for node in self.nodes),
+                tuple(node.descriptor for node in governed_nodes),
                 tuple(completed),
                 Budget(effective_budget, used),
             )
@@ -299,12 +302,12 @@ class EpisodeRunner:
             if (
                 decision.node_index is None
                 or decision.node_index < 0
-                or decision.node_index >= len(self.nodes)
+                or decision.node_index >= len(governed_nodes)
             ):
                 add_failure(FailureState.CONTRACT_VIOLATION)
                 unresolved.append("scheduler:invalid_node_identity")
                 break
-            runner_node = self.nodes[decision.node_index]
+            runner_node = governed_nodes[decision.node_index]
             if runner_node.descriptor.node_id != decision.node_id:
                 add_failure(FailureState.CONTRACT_VIOLATION)
                 unresolved.append("scheduler:descriptor_identity_mismatch")
