@@ -5,8 +5,9 @@ from functools import wraps
 
 from .envelopes import TaskSpecification
 from .episode import Episode, EpisodeInvariantError
-from .epistemics import PropositionKind, source_ref_version_bindings
+from .epistemics import Hyperrelation, Participant, Proposition, PropositionKind, source_ref_version_bindings
 from .nodes import ExecutionResult, NodeDescriptor
+from .receipts import FailureState
 from .provenance import (
     canonical_episode_snapshot_digest,
     canonical_output_digest,
@@ -16,6 +17,109 @@ from .provenance import (
 
 class AdmissionError(ValueError):
     pass
+
+
+def _require_exact_str_tuple(values, label: str) -> None:
+    if type(values) is not tuple or any(type(value) is not str for value in values):
+        raise AdmissionError(f"{label} must be a tuple of exact str values")
+
+
+def _validate_admission_contract(
+    episode: Episode,
+    descriptor: NodeDescriptor,
+    result: ExecutionResult,
+    allowed_source_refs: tuple[str, ...] | None,
+    allowed_source_versions: tuple[str, ...] | None,
+    allowed_source_bindings: tuple[tuple[str, str], ...] | None,
+) -> None:
+    if type(episode) is not Episode:
+        raise AdmissionError("episode must be exact Episode")
+    if type(descriptor) is not NodeDescriptor:
+        raise AdmissionError("descriptor must be exact NodeDescriptor")
+    if type(result) is not ExecutionResult:
+        raise AdmissionError("execution result must be exact ExecutionResult")
+
+    if (
+        type(descriptor.permitted_output_kinds) is not tuple
+        or any(type(kind) is not PropositionKind for kind in descriptor.permitted_output_kinds)
+    ):
+        raise AdmissionError("permitted output kinds must be exact PropositionKind values")
+    _require_exact_str_tuple(
+        descriptor.permitted_relation_types,
+        "permitted relation types",
+    )
+
+    if type(result.failures) is not tuple or any(
+        type(failure) is not FailureState for failure in result.failures
+    ):
+        raise AdmissionError("execution failures must be exact FailureState values")
+    if type(result.emitted_propositions) is not tuple:
+        raise AdmissionError("emitted propositions must be an exact tuple")
+    if type(result.emitted_relations) is not tuple:
+        raise AdmissionError("emitted relations must be an exact tuple")
+
+    for proposition in result.emitted_propositions:
+        if type(proposition) is not Proposition:
+            raise AdmissionError("emitted proposition must be exact Proposition")
+        if (
+            type(proposition.proposition_id) is not str
+            or type(proposition.episode_id) is not str
+            or type(proposition.content) is not str
+        ):
+            raise AdmissionError("proposition identity/content fields must be exact str")
+        if type(proposition.kind) is not PropositionKind:
+            raise AdmissionError("proposition kind must be exact PropositionKind")
+        if (
+            proposition.producer_execution_id is not None
+            and type(proposition.producer_execution_id) is not str
+        ):
+            raise AdmissionError("proposition producer identity must be exact str")
+        _require_exact_str_tuple(proposition.source_refs, "proposition source refs")
+        _require_exact_str_tuple(
+            proposition.source_versions,
+            "proposition source versions",
+        )
+
+    for relation in result.emitted_relations:
+        if type(relation) is not Hyperrelation:
+            raise AdmissionError("emitted relation must be exact Hyperrelation")
+        if (
+            type(relation.relation_id) is not str
+            or type(relation.episode_id) is not str
+            or type(relation.relation_type) is not str
+        ):
+            raise AdmissionError("relation identity/type fields must be exact str")
+        if (
+            relation.producer_execution_id is not None
+            and type(relation.producer_execution_id) is not str
+        ):
+            raise AdmissionError("relation producer identity must be exact str")
+        _require_exact_str_tuple(relation.source_refs, "relation source refs")
+        _require_exact_str_tuple(relation.source_versions, "relation source versions")
+        if type(relation.participants) is not tuple:
+            raise AdmissionError("relation participants must be an exact tuple")
+        for participant in relation.participants:
+            if type(participant) is not Participant:
+                raise AdmissionError("relation participant must be exact Participant")
+            if type(participant.ref_id) is not str or type(participant.role) is not str:
+                raise AdmissionError("participant identity/role fields must be exact str")
+
+    if allowed_source_refs is not None:
+        _require_exact_str_tuple(allowed_source_refs, "allowed source refs")
+    if allowed_source_versions is not None:
+        _require_exact_str_tuple(allowed_source_versions, "allowed source versions")
+    if allowed_source_bindings is not None:
+        if type(allowed_source_bindings) is not tuple:
+            raise AdmissionError("allowed source bindings must be an exact tuple")
+        for binding in allowed_source_bindings:
+            if (
+                type(binding) is not tuple
+                or len(binding) != 2
+                or any(type(value) is not str for value in binding)
+            ):
+                raise AdmissionError(
+                    "allowed source bindings must contain exact str pairs"
+                )
 
 
 def _atomic_episode_mutation(method):
@@ -85,6 +189,15 @@ def admit_execution_result(
     allowed_source_versions: tuple[str, ...] | None = None,
     allowed_source_bindings: tuple[tuple[str, str], ...] | None = None,
 ) -> AdmissionReceipt:
+    _validate_admission_contract(
+        episode,
+        descriptor,
+        result,
+        allowed_source_refs,
+        allowed_source_versions,
+        allowed_source_bindings,
+    )
+
     if type(descriptor.node_id) is not str or type(result.node_id) is not str:
         raise AdmissionError("node identity must use exact str values")
     if result.node_id != descriptor.node_id:
