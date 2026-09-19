@@ -34,6 +34,7 @@ on:
       - work/rezon-kernel-v0-r30-exact-node-descriptor-preflight
       - work/rezon-kernel-v0-r31-exact-task-envelope-contract
       - work/rezon-kernel-v0-r32-exact-scheduler-binding
+      - work/rezon-kernel-v0-r33-exact-runner-budget-contract
 
 jobs:
   test:
