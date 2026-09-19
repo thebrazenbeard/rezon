@@ -161,6 +161,15 @@ def _view_potentially_consumed_evidence_refs(view) -> tuple[str, ...]:
     return _dedupe(refs)
 
 
+def _view_potentially_consumed_evidence_versions(view) -> tuple[str, ...]:
+    versions: list[str] = []
+    for proposition in view.propositions:
+        if proposition.kind is not PropositionKind.EVIDENCE:
+            continue
+        versions.extend(proposition.source_versions)
+    return _dedupe(versions)
+
+
 def _independence_view_is_blind(view, descriptor: NodeDescriptor) -> bool:
     protected_kinds = set(descriptor.independence_blind_kinds)
     protected_ids = set(descriptor.independence_blind_ids)
@@ -319,6 +328,7 @@ class EpisodeRunner:
         unresolved: list[str] = []
         records: list[TraceRecord] = []
         prior_independent: list[IndependenceMetadata] = []
+        prior_independent_source_versions: list[tuple[str, ...]] = []
         receipt_source_versions: list[str] = []
         used = 0
 
@@ -562,9 +572,23 @@ class EpisodeRunner:
                     and set(independence.consumed_evidence_refs)
                     == set(potentially_consumed_evidence)
                 )
-                pairwise_ok = all(
+                pairwise_metadata_ok = all(
                     independence.demonstrably_independent_from(previous)
                     for previous in prior_independent
+                )
+                potentially_consumed_evidence_versions = (
+                    _view_potentially_consumed_evidence_versions(audit_view)
+                )
+                pairwise_source_versions_ok = all(
+                    not (
+                        set(potentially_consumed_evidence_versions)
+                        & set(previous_versions)
+                    )
+                    for previous_versions in prior_independent_source_versions
+                )
+                pairwise_ok = (
+                    pairwise_metadata_ok
+                    and pairwise_source_versions_ok
                 )
                 candidate_blind = _independence_view_is_blind(
                     audit_view,
@@ -814,6 +838,9 @@ class EpisodeRunner:
             ))
             if runner_node.descriptor.independence_required and admission_ok:
                 prior_independent.append(runner_node.independence)
+                prior_independent_source_versions.append(
+                    _view_potentially_consumed_evidence_versions(audit_view)
+                )
             completed.append(runner_node.descriptor.node_id)
             used += 1
 
