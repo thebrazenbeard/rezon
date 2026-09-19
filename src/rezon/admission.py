@@ -76,14 +76,9 @@ def _validate_admission_contract(
             raise AdmissionError("proposition kind must be exact PropositionKind")
         if (
             proposition.producer_execution_id is not None
-            and (
-                type(proposition.producer_execution_id) is not str
-                or not proposition.producer_execution_id
-            )
+            and type(proposition.producer_execution_id) is not str
         ):
-            raise AdmissionError(
-                "proposition producer identity must be a non-empty exact str"
-            )
+            raise AdmissionError("proposition producer identity must be exact str")
         _require_exact_str_tuple(proposition.source_refs, "proposition source refs")
         _require_exact_str_tuple(
             proposition.source_versions,
@@ -101,14 +96,9 @@ def _validate_admission_contract(
             raise AdmissionError("relation identity/type fields must be exact str")
         if (
             relation.producer_execution_id is not None
-            and (
-                type(relation.producer_execution_id) is not str
-                or not relation.producer_execution_id
-            )
+            and type(relation.producer_execution_id) is not str
         ):
-            raise AdmissionError(
-                "relation producer identity must be a non-empty exact str"
-            )
+            raise AdmissionError("relation producer identity must be exact str")
         _require_exact_str_tuple(relation.source_refs, "relation source refs")
         _require_exact_str_tuple(relation.source_versions, "relation source versions")
         if type(relation.participants) is not tuple:
