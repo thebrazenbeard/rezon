@@ -93,10 +93,7 @@ def admit_execution_result(
         raise AdmissionError("failed execution results cannot mutate canonical episode state")
 
     snapshot_digest = canonical_episode_snapshot_digest(episode.snapshot())
-    if (
-        expected_episode_snapshot_digest is not None
-        and snapshot_digest != expected_episode_snapshot_digest
-    ):
+    if snapshot_digest != expected_episode_snapshot_digest:
         raise AdmissionError(
             "canonical episode state changed after execution view was captured"
         )
