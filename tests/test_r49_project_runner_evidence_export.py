@@ -7,6 +7,7 @@ from rezon.episode import Episode
 from rezon.epistemics import Proposition, PropositionKind
 from rezon.interop import RUN_EVIDENCE_SCHEMA, RunEvidenceError, export_run_evidence
 from rezon.nodes import ExecutionResult, NodeDescriptor
+from rezon.receipts import FailureState
 from rezon.runner import EpisodeRunner, RunnerNode, RunOutcome
 from rezon.visibility import VisibilityPolicy
 
@@ -115,6 +116,39 @@ def test_export_rejects_forged_receipt_source_versions():
     )
 
     with pytest.raises(RunEvidenceError, match="source versions"):
+        export_run_evidence(forged)
+
+
+def test_export_rejects_receipt_that_conceals_trace_failure():
+    class InvalidResultExecutor:
+        node_id = "echo_hypothesis"
+
+        def execute(self, view, episode_id):
+            return object()
+
+    episode = Episode("e1")
+    episode.add_proposition(
+        Proposition("o1", "e1", PropositionKind.OBSERVATION, "input")
+    )
+    node = RunnerNode(
+        NodeDescriptor("echo_hypothesis", (PropositionKind.HYPOTHESIS,)),
+        InvalidResultExecutor(),
+        VisibilityPolicy(),
+    )
+    outcome = EpisodeRunner((node,), budget_limit=1).run(
+        episode,
+        task_id="t-r51-failure-binding",
+    )
+
+    assert outcome.receipt.failures == (FailureState.CONTRACT_VIOLATION,)
+    assert outcome.trace.records[0].failures == (FailureState.CONTRACT_VIOLATION,)
+
+    forged = RunOutcome(
+        replace(outcome.receipt, failures=()),
+        outcome.trace,
+    )
+
+    with pytest.raises(RunEvidenceError, match="failure"):
         export_run_evidence(forged)
 
 
