@@ -21,6 +21,7 @@ on:
       - work/rezon-kernel-v0-r17-task-bound-production-identity
       - work/rezon-kernel-v0-r18-mandatory-state-binding
       - work/rezon-kernel-v0-r19-atomic-admission
+      - work/rezon-kernel-v0-r20-transaction-rollback
 
 jobs:
   test:
