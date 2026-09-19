@@ -28,6 +28,8 @@ jobs:
           git cat-file -e "e5af543b6306ee41c88b9b5419ca6653f787be24^{commit}"
           git cat-file -e "d7373867d3813d32032cb30463e54a6ddf573025^{commit}"
           git checkout --detach "e5af543b6306ee41c88b9b5419ca6653f787be24"
+          git config user.name "Rezon Qualification Runner"
+          git config user.email "rezon-qualification@invalid.local"
           git merge --no-commit --no-ff "d7373867d3813d32032cb30463e54a6ddf573025"
           test "$(git rev-parse MERGE_HEAD)" = "d7373867d3813d32032cb30463e54a6ddf573025"
       - name: Install composed tree
