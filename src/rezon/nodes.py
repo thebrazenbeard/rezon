@@ -47,6 +47,55 @@ class NodeDescriptor:
             raise ValueError("independence blind IDs must be non-empty")
 
 
+def node_descriptor_contract_is_exact(descriptor: NodeDescriptor) -> bool:
+    if type(descriptor) is not NodeDescriptor:
+        return False
+    if type(descriptor.node_id) is not str or not descriptor.node_id:
+        return False
+    if (
+        type(descriptor.permitted_output_kinds) is not tuple
+        or any(
+            type(kind) is not PropositionKind
+            for kind in descriptor.permitted_output_kinds
+        )
+    ):
+        return False
+    if (
+        type(descriptor.accepted_input_kinds) is not tuple
+        or any(
+            type(kind) is not PropositionKind
+            for kind in descriptor.accepted_input_kinds
+        )
+    ):
+        return False
+    if type(descriptor.mandatory_verification) is not bool:
+        return False
+    if type(descriptor.independence_required) is not bool:
+        return False
+    for values in (
+        descriptor.required_authority,
+        descriptor.permitted_relation_types,
+        descriptor.verification_target_ids,
+        descriptor.independence_blind_ids,
+    ):
+        if (
+            type(values) is not tuple
+            or any(type(value) is not str or not value for value in values)
+        ):
+            return False
+    if (
+        type(descriptor.independence_blind_kinds) is not tuple
+        or any(
+            type(kind) is not PropositionKind
+            for kind in descriptor.independence_blind_kinds
+        )
+    ):
+        return False
+    if descriptor.mandatory_verification and not descriptor.verification_target_ids:
+        return False
+    return True
+
+
 @dataclass(frozen=True)
 class ExecutionView:
     execution_id: str
