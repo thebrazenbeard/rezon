@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from .admission import AdmissionError, admit_execution_result
 from .envelopes import (
+    AuthorityVerificationEvidence,
     AuthorityVerificationPolicy,
     TaskEnvelope,
     task_envelope_contract_is_exact,
@@ -26,6 +27,7 @@ from .receipts import (
     EffectState,
     FailureState,
     IndependenceMetadata,
+    IndependenceVerificationEvidence,
     IndependenceVerificationPolicy,
     ResultReceipt,
 )
@@ -60,6 +62,47 @@ class _ExecutorEpisodeMutationError(RuntimeError):
 
 class _InvalidExecutionResultError(RuntimeError):
     pass
+
+
+def _freeze_independence_policy(policy):
+    if type(policy) is not IndependenceVerificationPolicy:
+        return policy
+    evidence_values = policy.verified_evidence
+    if type(evidence_values) is not tuple:
+        return replace(policy)
+    frozen_evidence = tuple(
+        replace(evidence)
+        if type(evidence) is IndependenceVerificationEvidence
+        else evidence
+        for evidence in evidence_values
+    )
+    return IndependenceVerificationPolicy(frozen_evidence)
+
+
+def _freeze_authority_policy(policy):
+    if type(policy) is not AuthorityVerificationPolicy:
+        return policy
+    evidence_values = policy.verified_evidence
+    if type(evidence_values) is not tuple:
+        return replace(policy)
+    frozen_evidence = tuple(
+        replace(evidence)
+        if type(evidence) is AuthorityVerificationEvidence
+        else evidence
+        for evidence in evidence_values
+    )
+    return AuthorityVerificationPolicy(frozen_evidence)
+
+
+def _freeze_runner_node(node: RunnerNode) -> RunnerNode:
+    return RunnerNode(
+        descriptor=replace(node.descriptor),
+        executor=node.executor,
+        visibility=replace(node.visibility),
+        independence=replace(node.independence),
+        independence_policy=_freeze_independence_policy(node.independence_policy),
+        authority_policy=_freeze_authority_policy(node.authority_policy),
+    )
 
 
 def _dedupe(items: tuple[str, ...] | list[str]) -> tuple[str, ...]:
@@ -228,7 +271,10 @@ class EpisodeRunner:
             )
             return RunOutcome(receipt, ExecutionTrace())
 
-        governed_nodes = candidate_nodes
+        governed_nodes = tuple(
+            _freeze_runner_node(node)
+            for node in candidate_nodes
+        )
 
         if type(self.budget_limit) is not int or self.budget_limit < 0:
             receipt = ResultReceipt(
