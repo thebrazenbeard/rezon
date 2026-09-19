@@ -156,7 +156,10 @@ def _exact_proposition_contract(proposition) -> bool:
         return False
     if (
         proposition.producer_execution_id is not None
-        and type(proposition.producer_execution_id) is not str
+        and (
+            type(proposition.producer_execution_id) is not str
+            or not proposition.producer_execution_id
+        )
     ):
         return False
     if proposition.confidence is not None:
@@ -201,7 +204,10 @@ def _exact_relation_contract(relation) -> bool:
         return False
     if (
         relation.producer_execution_id is not None
-        and type(relation.producer_execution_id) is not str
+        and (
+            type(relation.producer_execution_id) is not str
+            or not relation.producer_execution_id
+        )
     ):
         return False
     return True
