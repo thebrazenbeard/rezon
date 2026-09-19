@@ -31,6 +31,7 @@ on:
       - work/rezon-kernel-v0-r27-exact-retrieval-admission
       - work/rezon-kernel-v0-r28-unambiguous-source-version-binding
       - work/rezon-kernel-v0-r29-exact-independence-contract
+      - work/rezon-kernel-v0-r30-exact-node-descriptor-preflight
 
 jobs:
   test:
