@@ -29,6 +29,7 @@ on:
       - work/rezon-kernel-v0-r25-exact-admission-contract
       - work/rezon-kernel-v0-r26-exact-episode-boundary
       - work/rezon-kernel-v0-r27-exact-retrieval-admission
+      - work/rezon-kernel-v0-r28-unambiguous-source-version-binding
 
 jobs:
   test:
