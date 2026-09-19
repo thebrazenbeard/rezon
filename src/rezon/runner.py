@@ -31,7 +31,11 @@ from .receipts import (
 )
 from .scheduler import Budget, DeterministicScheduler, ScheduleAction
 from .trace import ExecutionTrace, TraceRecord
-from .visibility import VisibilityPolicy, build_execution_view
+from .visibility import (
+    VisibilityPolicy,
+    build_execution_view,
+    visibility_policy_contract_is_exact,
+)
 
 
 @dataclass(frozen=True)
@@ -209,6 +213,8 @@ class EpisodeRunner:
             or any(
                 type(node) is not RunnerNode
                 or not node_descriptor_contract_is_exact(node.descriptor)
+                or not visibility_policy_contract_is_exact(node.visibility)
+                or type(node.independence) is not IndependenceMetadata
                 for node in candidate_nodes
             )
         ):
