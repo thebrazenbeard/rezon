@@ -202,10 +202,20 @@ def admit_execution_result(
         raise AdmissionError("node identity must use exact str values")
     if result.node_id != descriptor.node_id:
         raise AdmissionError("execution result node does not match descriptor")
-    if type(result.execution_id) is not str:
-        raise AdmissionError("execution result identity must be exact str")
-    if expected_execution_id is not None and type(expected_execution_id) is not str:
-        raise AdmissionError("expected execution identity must be exact str")
+    if type(result.execution_id) is not str or not result.execution_id:
+        raise AdmissionError(
+            "execution result identity must be a non-empty exact str"
+        )
+    if (
+        expected_execution_id is not None
+        and (
+            type(expected_execution_id) is not str
+            or not expected_execution_id
+        )
+    ):
+        raise AdmissionError(
+            "expected execution identity must be a non-empty exact str"
+        )
     if expected_execution_id is not None and result.execution_id != expected_execution_id:
         raise AdmissionError("execution result identity does not match runner-issued execution")
     if result.failures:
