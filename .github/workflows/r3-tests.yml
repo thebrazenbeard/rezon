@@ -51,6 +51,7 @@ on:
       - work/rezon-kernel-v0-r47-receipt-producer-binding
       - work/rezon-kernel-v0-r48-combined-producer-receipt
       - work/rezon-kernel-v0-r49-project-runner-evidence-export
+      - work/rezon-kernel-v0-r50-receipt-trace-source-version-binding
 
 jobs:
   test:
