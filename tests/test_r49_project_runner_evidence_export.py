@@ -152,6 +152,19 @@ def test_export_rejects_receipt_that_conceals_trace_failure():
         export_run_evidence(forged)
 
 
+def test_export_allows_receipt_only_failure_without_trace_failure():
+    outcome = _run("input", "output")
+    augmented = RunOutcome(
+        replace(outcome.receipt, failures=(FailureState.UNAVAILABLE,)),
+        outcome.trace,
+    )
+
+    evidence = export_run_evidence(augmented)
+
+    assert evidence["receipt"]["failures"] == [FailureState.UNAVAILABLE.value]
+    assert evidence["executions"][0]["failures"] == []
+
+
 def test_export_rejects_forged_receipt_output_binding():
     outcome = _run("input", "real-output")
     execution_id = outcome.receipt.execution_ids[0]

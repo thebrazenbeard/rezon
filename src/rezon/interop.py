@@ -4,7 +4,7 @@ from hashlib import sha256
 import json
 
 from .provenance import canonical_producer_execution_id
-from .receipts import EffectState, ResultReceipt
+from .receipts import EffectState, FailureState, ResultReceipt
 from .runner import RunOutcome
 from .trace import ExecutionTrace, TraceRecord
 
@@ -48,6 +48,17 @@ def _validate_receipt_trace_binding(
                 expected_source_versions.append(source_version)
     if receipt.source_versions != tuple(expected_source_versions):
         raise RunEvidenceError("receipt source versions do not match trace")
+
+    trace_failures: list[FailureState] = []
+    for record in records:
+        for failure in record.failures:
+            if failure not in trace_failures:
+                trace_failures.append(failure)
+    missing_trace_failures = [
+        failure for failure in trace_failures if failure not in receipt.failures
+    ]
+    if missing_trace_failures:
+        raise RunEvidenceError("receipt failure summary does not cover trace failures")
 
     expected_output_bindings = tuple(
         (record.execution_id, record.canonical_output_digest)
