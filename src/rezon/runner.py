@@ -145,6 +145,16 @@ class EpisodeRunner:
         *,
         task_envelope: TaskEnvelope | None = None,
     ) -> RunOutcome:
+        if type(task_id) is not str or not task_id:
+            receipt = ResultReceipt(
+                task_id="invalid_task",
+                episode_version="preflight@0",
+                unresolved=("runner:invalid_task_id_contract",),
+                failures=(FailureState.CONTRACT_VIOLATION,),
+                effect_state=EffectState.PLAN,
+            )
+            return RunOutcome(receipt, ExecutionTrace())
+
         if type(episode) is not Episode:
             receipt = ResultReceipt(
                 task_id=task_id,
