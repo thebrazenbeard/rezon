@@ -38,7 +38,7 @@ jobs:
       - name: Full composed suite
         run: pytest -q
       - name: Benchmark replay
-        run: PYTHONPATH=src python scripts/run_benchmark_v1.py
+        run: PYTHONPATH=src python scripts/run_benchmark_v1.py tests/fixtures/benchmark_v1.json tests/fixtures/benchmark_v1_clean_controls.json --seed 20260916 --code-version "R50+R4"
       - name: Staged merge diff integrity
         run: git diff --cached --check
       - name: Composition subjects
