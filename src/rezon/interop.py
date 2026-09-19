@@ -41,6 +41,14 @@ def _validate_receipt_trace_binding(
     if receipt.execution_ids != expected_execution_ids:
         raise RunEvidenceError("receipt execution ids do not match trace")
 
+    expected_source_versions: list[str] = []
+    for record in records:
+        for source_version in record.source_versions:
+            if source_version not in expected_source_versions:
+                expected_source_versions.append(source_version)
+    if receipt.source_versions != tuple(expected_source_versions):
+        raise RunEvidenceError("receipt source versions do not match trace")
+
     expected_output_bindings = tuple(
         (record.execution_id, record.canonical_output_digest)
         for record in records

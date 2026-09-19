@@ -33,7 +33,7 @@ class Echo:
         )
 
 
-def _run(input_content, output_content):
+def _run(input_content, output_content, *, source_versions=()):
     episode = Episode("e1")
     episode.add_proposition(
         Proposition(
@@ -41,6 +41,7 @@ def _run(input_content, output_content):
             "e1",
             PropositionKind.OBSERVATION,
             input_content,
+            source_versions=source_versions,
         )
     )
     node = RunnerNode(
@@ -88,6 +89,33 @@ def test_export_digest_changes_for_different_canonical_input():
     assert left["receipt"]["execution_output_digests"] == right["receipt"]["execution_output_digests"]
     assert left["receipt"]["execution_producer_ids"] != right["receipt"]["execution_producer_ids"]
     assert left["evidence_digest"] != right["evidence_digest"]
+
+
+def test_export_binds_receipt_source_versions_to_trace_ordered_dedupe():
+    outcome = _run(
+        "input",
+        "output",
+        source_versions=("source:A@v1", "source:B@v2"),
+    )
+
+    evidence = export_run_evidence(outcome)
+
+    assert evidence["receipt"]["source_versions"] == ["source:A@v1", "source:B@v2"]
+    assert evidence["executions"][0]["source_versions"] == ["source:A@v1", "source:B@v2"]
+
+
+def test_export_rejects_forged_receipt_source_versions():
+    outcome = _run("input", "output", source_versions=("source:A@v1",))
+    forged = RunOutcome(
+        replace(
+            outcome.receipt,
+            source_versions=("source:FORGED@v9",),
+        ),
+        outcome.trace,
+    )
+
+    with pytest.raises(RunEvidenceError, match="source versions"):
+        export_run_evidence(forged)
 
 
 def test_export_rejects_forged_receipt_output_binding():
