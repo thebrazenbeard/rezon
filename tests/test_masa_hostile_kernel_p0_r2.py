@@ -6,6 +6,7 @@ from rezon.episode import Episode, EpisodeInvariantError
 from rezon.epistemics import Hyperrelation, Participant, Proposition, PropositionKind
 from rezon.executors import EchoHypothesisExecutor
 from rezon.nodes import ExecutionResult, NodeDescriptor
+from rezon.provenance import canonical_episode_snapshot_digest
 from rezon.receipts import (
     AdmissionStatus,
     EffectState,
@@ -96,7 +97,13 @@ def test_failed_execution_result_cannot_mutate_canonical_episode_state():
         failures=(FailureState.CONTRACT_VIOLATION,),
     )
     with pytest.raises(AdmissionError):
-        admit_execution_result(ep, descriptor, result, expected_execution_id="x1")
+        admit_execution_result(
+            ep,
+            descriptor,
+            result,
+            expected_episode_snapshot_digest=canonical_episode_snapshot_digest(ep.snapshot()),
+            expected_execution_id="x1",
+        )
     assert ep.snapshot().current_propositions == ()
 
 
@@ -166,7 +173,13 @@ def test_worker_output_requires_exact_producer_execution_provenance():
         ),
     )
     with pytest.raises(AdmissionError):
-        admit_execution_result(ep, descriptor, result, expected_execution_id="x1")
+        admit_execution_result(
+            ep,
+            descriptor,
+            result,
+            expected_episode_snapshot_digest=canonical_episode_snapshot_digest(ep.snapshot()),
+            expected_execution_id="x1",
+        )
 
 
 def test_node_accepted_input_kinds_are_enforced_at_runtime():

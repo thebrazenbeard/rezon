@@ -5,6 +5,7 @@ from rezon.episode import Episode
 from rezon.epistemics import Hyperrelation, Participant, Proposition, PropositionKind
 from rezon.executors import EchoHypothesisExecutor
 from rezon.nodes import ExecutionResult, NodeDescriptor
+from rezon.provenance import canonical_episode_snapshot_digest
 from rezon.receipts import (
     AdmissionStatus,
     EffectState,
@@ -117,7 +118,12 @@ def test_model_output_cannot_be_admitted_as_evidence_without_external_support():
         ),
     )
     with pytest.raises(AdmissionError):
-        admit_execution_result(ep, descriptor, result)
+        admit_execution_result(
+            ep,
+            descriptor,
+            result,
+            expected_episode_snapshot_digest=canonical_episode_snapshot_digest(ep.snapshot()),
+        )
 
 
 def test_retrieval_receipt_cannot_self_promote_unverified_material_to_evidence():

@@ -36,6 +36,9 @@ def test_direct_caller_cannot_choose_canonical_producer_identity():
             episode,
             descriptor,
             result,
+            expected_episode_snapshot_digest=canonical_episode_snapshot_digest(
+                episode.snapshot()
+            ),
             expected_execution_id="attempt-r16",
             canonical_producer_execution_id="caller-chosen-producer",
         )
@@ -55,6 +58,9 @@ def test_admission_returns_and_persists_derived_canonical_producer_identity():
             episode,
             descriptor,
             _result(episode.episode_id, attempt_id),
+            expected_episode_snapshot_digest=canonical_episode_snapshot_digest(
+                episode.snapshot()
+            ),
             expected_execution_id=attempt_id,
         )
         proposition = episode.snapshot().current_propositions[0]

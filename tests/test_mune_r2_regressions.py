@@ -5,6 +5,7 @@ from rezon.episode import Episode, EpisodeInvariantError
 from rezon.epistemics import Hyperrelation, Participant, Proposition, PropositionKind
 from rezon.executors import ContradictionScannerExecutor
 from rezon.nodes import ExecutionResult, NodeDescriptor
+from rezon.provenance import canonical_episode_snapshot_digest
 from rezon.receipts import FailureState, IndependenceMetadata
 from rezon.runner import EpisodeRunner, RunnerNode
 from rezon.visibility import VisibilityPolicy
@@ -73,7 +74,13 @@ def test_admission_rejects_relation_to_inactive_dependency():
         ),
     )
     with pytest.raises(AdmissionError):
-        admit_execution_result(ep, descriptor, result, expected_execution_id="x1")
+        admit_execution_result(
+            ep,
+            descriptor,
+            result,
+            expected_episode_snapshot_digest=canonical_episode_snapshot_digest(ep.snapshot()),
+            expected_execution_id="x1",
+        )
 
 
 def test_scheduled_contradiction_cannot_disappear_behind_visibility():

@@ -4,6 +4,7 @@ from rezon.admission import AdmissionError, admit_execution_result
 from rezon.episode import Episode
 from rezon.epistemics import Hyperrelation, Participant, Proposition, PropositionKind
 from rezon.nodes import ExecutionResult, NodeDescriptor, VerificationStatus
+from rezon.provenance import canonical_episode_snapshot_digest
 from rezon.receipts import FailureState
 from rezon.runner import EpisodeRunner, RunnerNode
 from rezon.visibility import VisibilityPolicy, build_execution_view
@@ -84,6 +85,9 @@ def test_relation_emission_requires_explicit_descriptor_capability():
             ep,
             NodeDescriptor("relator", ()),
             result,
+            expected_episode_snapshot_digest=canonical_episode_snapshot_digest(
+                ep.snapshot()
+            ),
             expected_execution_id="x1",
             allowed_source_refs=("p1", "p2"),
         )
@@ -104,6 +108,9 @@ def test_relation_emission_accepts_only_declared_relation_type():
         ep,
         descriptor,
         result,
+        expected_episode_snapshot_digest=canonical_episode_snapshot_digest(
+            ep.snapshot()
+        ),
         expected_execution_id="x1",
         allowed_source_refs=("p1", "p2"),
     )

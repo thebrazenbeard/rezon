@@ -4,6 +4,7 @@ from rezon.admission import AdmissionError, admit_execution_result
 from rezon.episode import Episode, EpisodeInvariantError
 from rezon.epistemics import Hyperrelation, Participant, Proposition, PropositionKind
 from rezon.nodes import ExecutionResult, NodeDescriptor
+from rezon.provenance import canonical_episode_snapshot_digest
 from rezon.receipts import IndependenceMetadata
 from rezon.visibility import VisibilityPolicy, build_execution_view
 
@@ -65,7 +66,12 @@ def test_output_admission_rejects_stronger_kind_than_descriptor_allows():
         emitted_propositions=(_p("evidence-launder", PropositionKind.EVIDENCE, producer="x1"),),
     )
     with pytest.raises(AdmissionError):
-        admit_execution_result(ep, descriptor, result)
+        admit_execution_result(
+            ep,
+            descriptor,
+            result,
+            expected_episode_snapshot_digest=canonical_episode_snapshot_digest(ep.snapshot()),
+        )
     assert not ep.snapshot().current_propositions
 
 
@@ -74,8 +80,18 @@ def test_admitted_duplicate_hypotheses_remain_hypotheses():
     descriptor = NodeDescriptor("generator", (PropositionKind.HYPOTHESIS,))
     r1 = ExecutionResult("x1", "generator", (_p("h1", PropositionKind.HYPOTHESIS, "same", "x1"),))
     r2 = ExecutionResult("x2", "generator", (_p("h2", PropositionKind.HYPOTHESIS, "same", "x2"),))
-    admit_execution_result(ep, descriptor, r1)
-    admit_execution_result(ep, descriptor, r2)
+    admit_execution_result(
+        ep,
+        descriptor,
+        r1,
+        expected_episode_snapshot_digest=canonical_episode_snapshot_digest(ep.snapshot()),
+    )
+    admit_execution_result(
+        ep,
+        descriptor,
+        r2,
+        expected_episode_snapshot_digest=canonical_episode_snapshot_digest(ep.snapshot()),
+    )
     assert [p.kind for p in ep.snapshot().current_propositions] == [
         PropositionKind.HYPOTHESIS,
         PropositionKind.HYPOTHESIS,
@@ -100,6 +116,11 @@ def test_execution_admission_is_atomic_when_late_relation_is_invalid():
     )
     result = ExecutionResult("x1", "generator", (good,), (bad_relation,))
     with pytest.raises(AdmissionError):
-        admit_execution_result(ep, descriptor, result)
+        admit_execution_result(
+            ep,
+            descriptor,
+            result,
+            expected_episode_snapshot_digest=canonical_episode_snapshot_digest(ep.snapshot()),
+        )
     assert ep.snapshot().current_propositions == ()
     assert ep.snapshot().current_relations == ()
