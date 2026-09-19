@@ -20,8 +20,13 @@ class AdmissionError(ValueError):
 
 
 def _require_exact_str_tuple(values, label: str) -> None:
-    if type(values) is not tuple or any(type(value) is not str for value in values):
-        raise AdmissionError(f"{label} must be a tuple of exact str values")
+    if type(values) is not tuple or any(
+        type(value) is not str or not value
+        for value in values
+    ):
+        raise AdmissionError(
+            f"{label} must be a tuple of non-empty exact str values"
+        )
 
 
 def _validate_admission_contract(
