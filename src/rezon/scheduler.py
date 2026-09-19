@@ -5,7 +5,7 @@ from enum import Enum
 
 from .episode import EpisodeSnapshot
 from .epistemics import PropositionKind
-from .nodes import NodeDescriptor
+from .nodes import NodeDescriptor, node_descriptor_contract_is_exact
 from .receipts import FailureState
 
 
@@ -42,6 +42,16 @@ class DeterministicScheduler:
         completed_node_ids: tuple[str, ...],
         budget: Budget,
     ) -> ScheduleDecision:
+        if (
+            type(nodes) is not tuple
+            or any(not node_descriptor_contract_is_exact(node) for node in nodes)
+        ):
+            return ScheduleDecision(
+                ScheduleAction.TERMINATE,
+                reason="invalid_node_descriptor_contract",
+                failure=FailureState.CONTRACT_VIOLATION,
+            )
+
         completed = set(completed_node_ids)
         node_ids = [node.node_id for node in nodes]
         if len(node_ids) != len(set(node_ids)):
