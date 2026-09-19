@@ -40,10 +40,13 @@ def _validate_proposition(proposition: Proposition) -> None:
         raise EpisodeInvariantError("canonical proposition kind must be exact PropositionKind")
     if (
         proposition.producer_execution_id is not None
-        and type(proposition.producer_execution_id) is not str
+        and (
+            type(proposition.producer_execution_id) is not str
+            or not proposition.producer_execution_id
+        )
     ):
         raise EpisodeInvariantError(
-            "canonical proposition producer identity must be exact str"
+            "canonical proposition producer identity must be a non-empty exact str"
         )
     if proposition.confidence is not None and type(proposition.confidence) is not float:
         raise EpisodeInvariantError("canonical proposition confidence must be exact float")
@@ -70,9 +73,14 @@ def _validate_relation(relation: Hyperrelation) -> None:
         )
     if (
         relation.producer_execution_id is not None
-        and type(relation.producer_execution_id) is not str
+        and (
+            type(relation.producer_execution_id) is not str
+            or not relation.producer_execution_id
+        )
     ):
-        raise EpisodeInvariantError("canonical relation producer identity must be exact str")
+        raise EpisodeInvariantError(
+            "canonical relation producer identity must be a non-empty exact str"
+        )
     _require_exact_str_tuple(relation.source_refs, "canonical relation source refs")
     _require_exact_str_tuple(relation.source_versions, "canonical relation source versions")
     if type(relation.participants) is not tuple:
