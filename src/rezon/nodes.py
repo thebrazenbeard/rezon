@@ -127,7 +127,10 @@ class ExecutionResult:
 
 
 def _exact_str_tuple(values) -> bool:
-    return type(values) is tuple and all(type(value) is str for value in values)
+    return bool(
+        type(values) is tuple
+        and all(type(value) is str and bool(value) for value in values)
+    )
 
 
 def _exact_proposition_contract(proposition) -> bool:
