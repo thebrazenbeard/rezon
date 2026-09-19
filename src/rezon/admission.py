@@ -6,7 +6,7 @@ from functools import wraps
 from .envelopes import TaskSpecification
 from .episode import Episode, EpisodeInvariantError
 from .epistemics import Hyperrelation, Participant, Proposition, PropositionKind, source_ref_version_bindings
-from .nodes import ExecutionResult, NodeDescriptor
+from .nodes import ExecutionResult, NodeDescriptor, node_descriptor_contract_is_exact
 from .receipts import FailureState
 from .provenance import (
     canonical_episode_snapshot_digest,
@@ -34,8 +34,8 @@ def _validate_admission_contract(
 ) -> None:
     if type(episode) is not Episode:
         raise AdmissionError("episode must be exact Episode")
-    if type(descriptor) is not NodeDescriptor:
-        raise AdmissionError("descriptor must be exact NodeDescriptor")
+    if not node_descriptor_contract_is_exact(descriptor):
+        raise AdmissionError("descriptor must satisfy exact NodeDescriptor contract")
     if type(result) is not ExecutionResult:
         raise AdmissionError("execution result must be exact ExecutionResult")
 
