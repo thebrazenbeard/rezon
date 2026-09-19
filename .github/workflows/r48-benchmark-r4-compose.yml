@@ -21,8 +21,10 @@ jobs:
       - name: Compose exact subjects without commit
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "e5af543b6306ee41c88b9b5419ca6653f787be24" || {
-            echo "qualification branch parent is not exact R48"
+          git merge-base --is-ancestor "e5af543b6306ee41c88b9b5419ca6653f787be24" HEAD
+          changed="$(git diff --name-only "e5af543b6306ee41c88b9b5419ca6653f787be24"..HEAD)"
+          test "${changed}" = ".github/workflows/r48-benchmark-r4-compose.yml" || {
+            echo "qualification branch changed files outside the harness: ${changed}"
             exit 1
           }
           git cat-file -e "e5af543b6306ee41c88b9b5419ca6653f787be24^{commit}"
