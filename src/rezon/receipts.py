@@ -268,6 +268,7 @@ class ResultReceipt:
     effect_state: EffectState = EffectState.PLAN
     source_versions: tuple[str, ...] = ()
     execution_ids: tuple[str, ...] = ()
+    execution_output_digests: tuple[tuple[str, str], ...] = ()
     task_envelope_digest: str | None = None
     claim_disposition_complete: bool = False
 
@@ -277,6 +278,31 @@ class ResultReceipt:
         overlap = set(self.accepted_claim_ids) & set(self.rejected_claim_ids)
         if overlap:
             raise ValueError(f"claims cannot be both accepted and rejected: {sorted(overlap)}")
+        if type(self.execution_output_digests) is not tuple:
+            raise ValueError(
+                "execution output digests must be an exact tuple"
+            )
+        seen_execution_ids: set[str] = set()
+        known_execution_ids = set(self.execution_ids)
+        for binding in self.execution_output_digests:
+            if (
+                type(binding) is not tuple
+                or len(binding) != 2
+                or any(type(value) is not str or not value for value in binding)
+            ):
+                raise ValueError(
+                    "execution output digests must contain non-empty exact str pairs"
+                )
+            execution_id, _output_digest = binding
+            if execution_id not in known_execution_ids:
+                raise ValueError(
+                    "execution output digest must bind a receipt execution id"
+                )
+            if execution_id in seen_execution_ids:
+                raise ValueError(
+                    "execution output digest binding cannot duplicate execution id"
+                )
+            seen_execution_ids.add(execution_id)
         if self.accepted_claim_ids or self.rejected_claim_ids:
             raise ValueError(
                 "generic ResultReceipt cannot assert accepted/rejected claim disposition; "
