@@ -12,7 +12,12 @@ from .envelopes import (
 )
 from .episode import Episode
 from .epistemics import PropositionKind, source_ref_version_bindings
-from .nodes import NodeDescriptor, VerificationStatus, node_descriptor_contract_is_exact
+from .nodes import (
+    NodeDescriptor,
+    VerificationStatus,
+    execution_result_contract_is_exact,
+    node_descriptor_contract_is_exact,
+)
 from .provenance import (
     canonical_episode_snapshot_digest,
     canonical_output_digest,
@@ -46,6 +51,10 @@ class RunOutcome:
 
 
 class _ExecutorEpisodeMutationError(RuntimeError):
+    pass
+
+
+class _InvalidExecutionResultError(RuntimeError):
     pass
 
 
@@ -516,6 +525,10 @@ class EpisodeRunner:
             try:
                 with episode.atomic_mutation():
                     result = executor.execute(executor_view, episode.episode_id)
+                    if not execution_result_contract_is_exact(result):
+                        raise _InvalidExecutionResultError(
+                            "executor returned an invalid ExecutionResult contract"
+                        )
                     if (
                         canonical_episode_snapshot_digest(episode.snapshot())
                         != canonical_snapshot_digest
@@ -523,6 +536,36 @@ class EpisodeRunner:
                         raise _ExecutorEpisodeMutationError(
                             "executor mutated canonical episode during execution"
                         )
+            except _InvalidExecutionResultError:
+                duration = perf_counter() - started
+                add_failure(FailureState.CONTRACT_VIOLATION)
+                unresolved.append(f"execution_result:invalid_contract:{execution_id}")
+                records.append(TraceRecord(
+                    execution_id=execution_id,
+                    node_id=runner_node.descriptor.node_id,
+                    episode_version=audit_view.episode_version,
+                    visible_proposition_ids=tuple(p.proposition_id for p in audit_view.propositions),
+                    blinded_proposition_ids=audit_view.blinded_proposition_ids,
+                    visible_relation_ids=tuple(r.relation_id for r in audit_view.relations),
+                    blinded_relation_ids=audit_view.blinded_relation_ids,
+                    emitted_proposition_ids=(),
+                    independence_demonstrated=independence_ok,
+                    task_envelope_digest=task_digest,
+                    executor_task_specification_digest=executor_task_specification_digest,
+                    executor_episode_version=executor_episode_version,
+                    canonical_producer_execution_id=None,
+                    canonical_episode_snapshot_digest=canonical_snapshot_digest,
+                    canonical_output_digest=None,
+                    source_refs=input_source_refs,
+                    source_versions=input_source_versions,
+                    duration_seconds=duration,
+                    failures=(FailureState.CONTRACT_VIOLATION,),
+                ))
+                completed.append(runner_node.descriptor.node_id)
+                used += 1
+                if runner_node.descriptor.mandatory_verification:
+                    break
+                continue
             except _ExecutorEpisodeMutationError:
                 duration = perf_counter() - started
                 add_failure(FailureState.CONTRACT_VIOLATION)
