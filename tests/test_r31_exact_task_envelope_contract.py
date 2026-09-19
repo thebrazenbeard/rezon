@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 
 from rezon.admission import AdmissionError, admit_execution_result
 from rezon.envelopes import TaskEnvelope, TaskSpecification
@@ -209,4 +209,3 @@ def test_exact_task_specification_fields_are_required_at_direct_admission():
             expected_execution_id="attempt",
             task_specification=malformed,
         )
-
