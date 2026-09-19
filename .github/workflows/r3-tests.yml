@@ -28,6 +28,7 @@ on:
       - work/rezon-kernel-v0-r24-exact-admission-identities
       - work/rezon-kernel-v0-r25-exact-admission-contract
       - work/rezon-kernel-v0-r26-exact-episode-boundary
+      - work/rezon-kernel-v0-r27-exact-retrieval-admission
 
 jobs:
   test:
