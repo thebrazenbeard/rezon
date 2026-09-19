@@ -12,9 +12,30 @@ class RetrievalAdmissionError(ValueError):
     pass
 
 
+def _require_exact_nonempty_str(value, label: str) -> None:
+    if type(value) is not str or not value:
+        raise RetrievalAdmissionError(f"{label} must be a non-empty exact str")
+
+
+def _require_exact_str_tuple(
+    values,
+    label: str,
+    *,
+    require_nonempty: bool = False,
+) -> None:
+    if type(values) is not tuple:
+        raise RetrievalAdmissionError(f"{label} must be an exact tuple")
+    if require_nonempty and not values:
+        raise RetrievalAdmissionError(f"{label} must not be empty")
+    if any(type(value) is not str or not value for value in values):
+        raise RetrievalAdmissionError(
+            f"{label} must contain non-empty exact str values"
+        )
+
+
 def digest_retrieved_content(content: str) -> str:
-    if not content:
-        raise ValueError("retrieved content cannot be empty")
+    if type(content) is not str or not content:
+        raise ValueError("retrieved content must be a non-empty exact str")
     return sha256(content.encode("utf-8")).hexdigest()
 
 
@@ -51,8 +72,11 @@ class RetrievalAdmissionPolicy:
         content: str,
         required_scope: str | None,
     ) -> RetrievalAdmissionEvidence | None:
-        if not required_scope:
-            return None
+        _validate_policy(self)
+        _validate_receipt(receipt)
+        _require_exact_nonempty_str(content, "retrieved content")
+        _require_exact_nonempty_str(required_scope, "required authoritative scope")
+
         content_digest = digest_retrieved_content(content)
         returned_refs = set(receipt.returned_refs)
         for evidence in self.verified_admissions:
@@ -63,12 +87,77 @@ class RetrievalAdmissionPolicy:
                 continue
             if evidence.authoritative_scope != required_scope:
                 continue
-            if not evidence.content_digest or evidence.content_digest != content_digest:
+            if evidence.content_digest != content_digest:
                 continue
-            if not returned_refs or not returned_refs.issubset(set(evidence.locator_refs)):
+            if not returned_refs.issubset(set(evidence.locator_refs)):
                 continue
             return evidence
         return None
+
+
+def _validate_receipt(receipt: RetrievalReceipt) -> None:
+    if type(receipt) is not RetrievalReceipt:
+        raise RetrievalAdmissionError("retrieval receipt must be exact RetrievalReceipt")
+    for value, label in (
+        (receipt.retrieval_id, "retrieval id"),
+        (receipt.query, "retrieval query"),
+        (receipt.source_id, "retrieval source id"),
+        (receipt.source_version, "retrieval source version"),
+        (receipt.method, "retrieval method"),
+    ):
+        _require_exact_nonempty_str(value, label)
+    _require_exact_str_tuple(
+        receipt.returned_refs,
+        "retrieval returned refs",
+        require_nonempty=True,
+    )
+    if type(receipt.admission_status) is not AdmissionStatus:
+        raise RetrievalAdmissionError("retrieval admission status must be exact AdmissionStatus")
+    _require_exact_str_tuple(receipt.verification_refs, "retrieval verification refs")
+    for value, label in (
+        (receipt.admission_authority_ref, "retrieval admission authority ref"),
+        (receipt.currentness_ref, "retrieval currentness ref"),
+        (receipt.authoritative_scope, "retrieval authoritative scope"),
+    ):
+        if value is not None:
+            _require_exact_nonempty_str(value, label)
+
+
+def _validate_evidence(evidence: RetrievalAdmissionEvidence) -> None:
+    if type(evidence) is not RetrievalAdmissionEvidence:
+        raise RetrievalAdmissionError(
+            "retrieval admission evidence must be exact RetrievalAdmissionEvidence"
+        )
+    for value, label in (
+        (evidence.source_id, "evidence source id"),
+        (evidence.source_version, "evidence source version"),
+        (evidence.admission_authority_ref, "evidence admission authority ref"),
+        (evidence.currentness_ref, "evidence currentness ref"),
+        (evidence.authoritative_scope, "evidence authoritative scope"),
+        (evidence.content_digest, "evidence content digest"),
+    ):
+        _require_exact_nonempty_str(value, label)
+    _require_exact_str_tuple(
+        evidence.verification_refs,
+        "evidence verification refs",
+        require_nonempty=True,
+    )
+    _require_exact_str_tuple(
+        evidence.locator_refs,
+        "evidence locator refs",
+        require_nonempty=True,
+    )
+
+
+def _validate_policy(policy: RetrievalAdmissionPolicy) -> None:
+    if type(policy) is not RetrievalAdmissionPolicy:
+        raise RetrievalAdmissionError(
+            "retrieval admission policy must be exact RetrievalAdmissionPolicy"
+        )
+    if type(policy.verified_admissions) is not tuple:
+        raise RetrievalAdmissionError("verified admissions must be an exact tuple")
+    for evidence in policy.verified_admissions:
+        _validate_evidence(evidence)
 
 
 def admit_retrieval_as_evidence(
@@ -80,14 +169,18 @@ def admit_retrieval_as_evidence(
     policy: RetrievalAdmissionPolicy | None = None,
     required_scope: str | None = None,
 ) -> Proposition:
-    if receipt.admission_status is not AdmissionStatus.ADMITTED:
-        raise RetrievalAdmissionError("retrieved material has not been admitted as evidence")
-    if not receipt.source_version:
-        raise RetrievalAdmissionError("admitted evidence requires an exact source version")
+    if type(episode) is not Episode:
+        raise RetrievalAdmissionError("episode must be exact Episode")
+    _require_exact_nonempty_str(proposition_id, "evidence proposition id")
+    _require_exact_nonempty_str(content, "retrieved content")
     if policy is None:
         raise RetrievalAdmissionError("retrieval admission requires an external admission policy")
-    if not required_scope:
-        raise RetrievalAdmissionError("retrieval admission requires an explicit authoritative scope")
+    _validate_policy(policy)
+    _validate_receipt(receipt)
+    _require_exact_nonempty_str(required_scope, "required authoritative scope")
+
+    if receipt.admission_status is not AdmissionStatus.ADMITTED:
+        raise RetrievalAdmissionError("retrieved material has not been admitted as evidence")
     verified = policy.verify(receipt, content, required_scope)
     if verified is None:
         raise RetrievalAdmissionError(
