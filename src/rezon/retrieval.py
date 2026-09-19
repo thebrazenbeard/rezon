@@ -17,6 +17,14 @@ def _require_exact_nonempty_str(value, label: str) -> None:
         raise RetrievalAdmissionError(f"{label} must be a non-empty exact str")
 
 
+def _require_exact_source_binding_component(value, label: str) -> None:
+    _require_exact_nonempty_str(value, label)
+    if "@" in value:
+        raise RetrievalAdmissionError(
+            f"{label} cannot contain the source-version binding separator '@'"
+        )
+
+
 def _require_exact_str_tuple(
     values,
     label: str,
@@ -101,11 +109,14 @@ def _validate_receipt(receipt: RetrievalReceipt) -> None:
     for value, label in (
         (receipt.retrieval_id, "retrieval id"),
         (receipt.query, "retrieval query"),
-        (receipt.source_id, "retrieval source id"),
-        (receipt.source_version, "retrieval source version"),
         (receipt.method, "retrieval method"),
     ):
         _require_exact_nonempty_str(value, label)
+    _require_exact_source_binding_component(receipt.source_id, "retrieval source id")
+    _require_exact_source_binding_component(
+        receipt.source_version,
+        "retrieval source version",
+    )
     _require_exact_str_tuple(
         receipt.returned_refs,
         "retrieval returned refs",
@@ -128,9 +139,12 @@ def _validate_evidence(evidence: RetrievalAdmissionEvidence) -> None:
         raise RetrievalAdmissionError(
             "retrieval admission evidence must be exact RetrievalAdmissionEvidence"
         )
+    _require_exact_source_binding_component(evidence.source_id, "evidence source id")
+    _require_exact_source_binding_component(
+        evidence.source_version,
+        "evidence source version",
+    )
     for value, label in (
-        (evidence.source_id, "evidence source id"),
-        (evidence.source_version, "evidence source version"),
         (evidence.admission_authority_ref, "evidence admission authority ref"),
         (evidence.currentness_ref, "evidence currentness ref"),
         (evidence.authoritative_scope, "evidence authoritative scope"),
