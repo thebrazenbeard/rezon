@@ -43,6 +43,7 @@ on:
       - work/rezon-kernel-v0-r39-exact-runner-control-subobjects
       - work/rezon-kernel-v0-r40-targeted-executor-transaction
       - work/rezon-kernel-v0-r41-frozen-runner-node-controls
+      - work/rezon-kernel-v0-r42-frozen-task-envelope
 
 jobs:
   test:
