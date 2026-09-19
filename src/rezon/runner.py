@@ -862,6 +862,14 @@ class EpisodeRunner:
             effect_state=EffectState.PLAN,
             source_versions=tuple(receipt_source_versions),
             execution_ids=tuple(record.execution_id for record in records),
+            execution_output_digests=tuple(
+                (
+                    record.execution_id,
+                    record.canonical_output_digest,
+                )
+                for record in records
+                if record.canonical_output_digest is not None
+            ),
             task_envelope_digest=task_digest,
             claim_disposition_complete=False,
         )
