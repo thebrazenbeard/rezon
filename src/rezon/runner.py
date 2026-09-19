@@ -148,8 +148,18 @@ class EpisodeRunner:
         if type(task_id) is not str or not task_id:
             receipt = ResultReceipt(
                 task_id="runner:invalid_task_id",
-                episode_version=episode.snapshot().version_ref,
+                episode_version="runner:unbound_episode",
                 unresolved=("runner:invalid_task_id",),
+                failures=(FailureState.CONTRACT_VIOLATION,),
+                effect_state=EffectState.PLAN,
+            )
+            return RunOutcome(receipt, ExecutionTrace())
+
+        if type(episode) is not Episode:
+            receipt = ResultReceipt(
+                task_id=task_id,
+                episode_version="runner:invalid_episode",
+                unresolved=("runner:invalid_episode_contract",),
                 failures=(FailureState.CONTRACT_VIOLATION,),
                 effect_state=EffectState.PLAN,
             )
