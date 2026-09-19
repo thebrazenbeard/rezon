@@ -145,6 +145,9 @@ class EpisodeRunner:
         *,
         task_envelope: TaskEnvelope | None = None,
     ) -> RunOutcome:
+        if type(task_id) is not str or not task_id:
+            raise ValueError("task_id must be an exact non-empty string")
+
         if (
             task_envelope is not None
             and not task_envelope_contract_is_exact(task_envelope)
