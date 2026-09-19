@@ -38,6 +38,7 @@ on:
       - work/rezon-kernel-v0-r34-exact-run-task-id-contract
       - work/rezon-kernel-v0-r35-exact-run-episode-contract
       - work/rezon-kernel-v0-r36-frozen-runner-node-set
+      - work/rezon-kernel-v0-r37-executor-episode-rollback
 
 jobs:
   test:
