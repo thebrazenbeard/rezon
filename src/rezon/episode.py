@@ -1,12 +1,24 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import wraps
+from threading import RLock
 
 from .epistemics import Hyperrelation, Proposition
 
 
 class EpisodeInvariantError(ValueError):
     pass
+
+
+def _episode_locked(method):
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapped
 
 
 @dataclass(frozen=True)
@@ -43,6 +55,12 @@ class Episode:
         self._active_propositions: set[str] = set()
         self._active_relations: set[str] = set()
         self._events: list[EpisodeEvent] = []
+        self._lock = RLock()
+
+    @contextmanager
+    def atomic_mutation(self):
+        with self._lock:
+            yield
 
     def _event(self, event_type: str, target_id: str, reason: str | None = None) -> None:
         self._events.append(EpisodeEvent(
@@ -58,6 +76,7 @@ class Episode:
         active = self._active_propositions | self._active_relations
         return [source_ref for source_ref in source_refs if source_ref in known and source_ref not in active]
 
+    @_episode_locked
     def add_proposition(self, proposition: Proposition) -> None:
         if proposition.episode_id != self.episode_id:
             raise EpisodeInvariantError("proposition belongs to a different episode")
@@ -77,6 +96,7 @@ class Episode:
         self._active_propositions.add(proposition.proposition_id)
         self._event("proposition_added", proposition.proposition_id)
 
+    @_episode_locked
     def retract_proposition(self, proposition_id: str, reason: str) -> None:
         if proposition_id not in self._propositions:
             raise EpisodeInvariantError("cannot retract unknown proposition")
@@ -126,6 +146,7 @@ class Episode:
             if not changed:
                 break
 
+    @_episode_locked
     def add_relation(self, relation: Hyperrelation) -> None:
         if relation.episode_id != self.episode_id:
             raise EpisodeInvariantError("relation belongs to a different episode")
@@ -151,6 +172,7 @@ class Episode:
         self._active_relations.add(relation.relation_id)
         self._event("relation_added", relation.relation_id)
 
+    @_episode_locked
     def snapshot(self) -> EpisodeSnapshot:
         return EpisodeSnapshot(
             episode_id=self.episode_id,

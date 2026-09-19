@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from functools import wraps
 
 from .envelopes import TaskSpecification
 from .episode import Episode, EpisodeInvariantError
@@ -15,6 +16,15 @@ from .provenance import (
 
 class AdmissionError(ValueError):
     pass
+
+
+def _atomic_episode_mutation(method):
+    @wraps(method)
+    def wrapped(episode, *args, **kwargs):
+        with episode.atomic_mutation():
+            return method(episode, *args, **kwargs)
+
+    return wrapped
 
 
 @dataclass(frozen=True)
@@ -62,6 +72,7 @@ def _prevalidate_episode_mutation(episode: Episode, result: ExecutionResult) -> 
         known_current.add(relation.relation_id)
 
 
+@_atomic_episode_mutation
 def admit_execution_result(
     episode: Episode,
     descriptor: NodeDescriptor,
