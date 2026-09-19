@@ -17,6 +17,21 @@ class VisibilityPolicy:
     blind_ids: tuple[str, ...] = ()
 
 
+def visibility_policy_contract_is_exact(policy) -> bool:
+    if type(policy) is not VisibilityPolicy:
+        return False
+    for kinds in (policy.allow_kinds, policy.blind_kinds):
+        if (
+            type(kinds) is not tuple
+            or any(type(kind) is not PropositionKind for kind in kinds)
+        ):
+            return False
+    for ids in (policy.allow_ids, policy.blind_ids):
+        if type(ids) is not tuple or any(type(value) is not str for value in ids):
+            return False
+    return True
+
+
 def build_execution_view(
     execution_id: str,
     snapshot: EpisodeSnapshot,
