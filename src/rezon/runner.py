@@ -145,6 +145,20 @@ class EpisodeRunner:
         *,
         task_envelope: TaskEnvelope | None = None,
     ) -> RunOutcome:
+        if type(episode) is not Episode:
+            receipt = ResultReceipt(
+                task_id=(
+                    task_id
+                    if type(task_id) is str and task_id
+                    else "invalid_task@0"
+                ),
+                episode_version="invalid_episode@0",
+                unresolved=("runner:invalid_episode_contract",),
+                failures=(FailureState.CONTRACT_VIOLATION,),
+                effect_state=EffectState.PLAN,
+            )
+            return RunOutcome(receipt, ExecutionTrace())
+
         if type(task_id) is not str or not task_id:
             raise ValueError("task_id must be an exact non-empty string")
 
