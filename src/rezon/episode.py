@@ -60,7 +60,24 @@ class Episode:
     @contextmanager
     def atomic_mutation(self):
         with self._lock:
-            yield
+            checkpoint = (
+                self._propositions.copy(),
+                self._relations.copy(),
+                self._active_propositions.copy(),
+                self._active_relations.copy(),
+                list(self._events),
+            )
+            try:
+                yield
+            except BaseException:
+                (
+                    self._propositions,
+                    self._relations,
+                    self._active_propositions,
+                    self._active_relations,
+                    self._events,
+                ) = checkpoint
+                raise
 
     def _event(self, event_type: str, target_id: str, reason: str | None = None) -> None:
         self._events.append(EpisodeEvent(
