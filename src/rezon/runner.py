@@ -5,7 +5,11 @@ from time import perf_counter
 from uuid import uuid4
 
 from .admission import AdmissionError, admit_execution_result
-from .envelopes import AuthorityVerificationPolicy, TaskEnvelope
+from .envelopes import (
+    AuthorityVerificationPolicy,
+    TaskEnvelope,
+    task_envelope_contract_is_exact,
+)
 from .episode import Episode
 from .epistemics import PropositionKind, source_ref_version_bindings
 from .nodes import NodeDescriptor, VerificationStatus, node_descriptor_contract_is_exact
@@ -141,6 +145,19 @@ class EpisodeRunner:
         *,
         task_envelope: TaskEnvelope | None = None,
     ) -> RunOutcome:
+        if (
+            task_envelope is not None
+            and not task_envelope_contract_is_exact(task_envelope)
+        ):
+            receipt = ResultReceipt(
+                task_id=task_id,
+                episode_version=episode.snapshot().version_ref,
+                unresolved=("task_envelope:invalid_contract",),
+                failures=(FailureState.CONTRACT_VIOLATION,),
+                effect_state=EffectState.PLAN,
+            )
+            return RunOutcome(receipt, ExecutionTrace())
+
         task_digest = task_envelope.digest if task_envelope is not None else None
         if task_envelope is not None and task_envelope.task_id != task_id:
             receipt = ResultReceipt(
