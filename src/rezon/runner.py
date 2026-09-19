@@ -188,6 +188,17 @@ class EpisodeRunner:
             )
             return RunOutcome(receipt, ExecutionTrace())
 
+        if type(self.budget_limit) is not int or self.budget_limit < 0:
+            receipt = ResultReceipt(
+                task_id=task_id,
+                episode_version=episode.snapshot().version_ref,
+                unresolved=("runner:invalid_budget_contract",),
+                failures=(FailureState.CONTRACT_VIOLATION,),
+                effect_state=EffectState.PLAN,
+                task_envelope_digest=task_digest,
+            )
+            return RunOutcome(receipt, ExecutionTrace())
+
         effective_budget = self.budget_limit
         if task_envelope is not None and task_envelope.resource_budget is not None:
             effective_budget = min(effective_budget, task_envelope.resource_budget)
