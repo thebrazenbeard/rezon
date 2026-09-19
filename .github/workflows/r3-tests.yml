@@ -47,6 +47,7 @@ on:
       - work/rezon-kernel-v0-r43-independence-source-version
       - work/rezon-kernel-v0-r44-nonempty-admission-execution-id
       - work/rezon-kernel-v0-r45-nonempty-source-refs
+      - work/rezon-kernel-v0-r46-nonempty-producer-ids
 
 jobs:
   test:
