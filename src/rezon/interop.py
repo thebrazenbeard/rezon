@@ -57,6 +57,16 @@ def _validate_receipt_trace_binding(
     if receipt.execution_producer_ids != expected_producer_bindings:
         raise RunEvidenceError("receipt producer bindings do not match trace")
 
+    expected_source_versions = tuple(
+        dict.fromkeys(
+            source_version
+            for record in records
+            for source_version in record.source_versions
+        )
+    )
+    if receipt.source_versions != expected_source_versions:
+        raise RunEvidenceError("receipt source versions do not match trace")
+
     if any(
         record.task_envelope_digest != receipt.task_envelope_digest
         for record in records
