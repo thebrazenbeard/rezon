@@ -40,6 +40,7 @@ on:
       - work/rezon-kernel-v0-r36-frozen-runner-node-set
       - work/rezon-kernel-v0-r37-executor-episode-rollback
       - work/rezon-kernel-v0-r38-exact-execution-result-boundary
+      - work/rezon-kernel-v0-r39-bound-episode-methods
       - work/rezon-kernel-v0-r39-exact-runner-control-subobjects
       - work/rezon-kernel-v0-r40-targeted-executor-transaction
       - work/rezon-kernel-v0-r41-frozen-runner-node-controls
@@ -50,6 +51,7 @@ on:
       - work/rezon-kernel-v0-r46-receipt-output-binding
       - work/rezon-kernel-v0-r47-receipt-producer-binding
       - work/rezon-kernel-v0-r48-combined-producer-receipt
+      - work/rezon-kernel-v0-r49-canonical-method-compose
 
 jobs:
   test:
