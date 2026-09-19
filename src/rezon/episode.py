@@ -5,11 +5,85 @@ from dataclasses import dataclass
 from functools import wraps
 from threading import RLock
 
-from .epistemics import Hyperrelation, Proposition
+from .epistemics import Hyperrelation, Participant, Proposition, PropositionKind
 
 
 class EpisodeInvariantError(ValueError):
     pass
+
+
+def _require_exact_str_tuple(values, label: str) -> None:
+    if type(values) is not tuple or any(type(value) is not str for value in values):
+        raise EpisodeInvariantError(f"{label} must be a tuple of exact str values")
+
+
+def _validate_proposition(proposition: Proposition) -> None:
+    if type(proposition) is not Proposition:
+        raise EpisodeInvariantError("canonical proposition must be exact Proposition")
+    if (
+        type(proposition.proposition_id) is not str
+        or not proposition.proposition_id
+        or type(proposition.episode_id) is not str
+        or not proposition.episode_id
+        or type(proposition.content) is not str
+        or not proposition.content
+    ):
+        raise EpisodeInvariantError(
+            "canonical proposition identity/content fields must be non-empty exact str"
+        )
+    if type(proposition.kind) is not PropositionKind:
+        raise EpisodeInvariantError("canonical proposition kind must be exact PropositionKind")
+    if (
+        proposition.producer_execution_id is not None
+        and type(proposition.producer_execution_id) is not str
+    ):
+        raise EpisodeInvariantError(
+            "canonical proposition producer identity must be exact str"
+        )
+    if proposition.confidence is not None and type(proposition.confidence) is not float:
+        raise EpisodeInvariantError("canonical proposition confidence must be exact float")
+    _require_exact_str_tuple(proposition.source_refs, "canonical proposition source refs")
+    _require_exact_str_tuple(
+        proposition.source_versions,
+        "canonical proposition source versions",
+    )
+
+
+def _validate_relation(relation: Hyperrelation) -> None:
+    if type(relation) is not Hyperrelation:
+        raise EpisodeInvariantError("canonical relation must be exact Hyperrelation")
+    if (
+        type(relation.relation_id) is not str
+        or not relation.relation_id
+        or type(relation.episode_id) is not str
+        or not relation.episode_id
+        or type(relation.relation_type) is not str
+        or not relation.relation_type
+    ):
+        raise EpisodeInvariantError(
+            "canonical relation identity/type fields must be non-empty exact str"
+        )
+    if (
+        relation.producer_execution_id is not None
+        and type(relation.producer_execution_id) is not str
+    ):
+        raise EpisodeInvariantError("canonical relation producer identity must be exact str")
+    _require_exact_str_tuple(relation.source_refs, "canonical relation source refs")
+    _require_exact_str_tuple(relation.source_versions, "canonical relation source versions")
+    if type(relation.participants) is not tuple:
+        raise EpisodeInvariantError("canonical relation participants must be an exact tuple")
+    for participant in relation.participants:
+        if type(participant) is not Participant:
+            raise EpisodeInvariantError("canonical relation participant must be exact Participant")
+        if (
+            type(participant.ref_id) is not str
+            or not participant.ref_id
+            or type(participant.role) is not str
+            or not participant.role
+        ):
+            raise EpisodeInvariantError(
+                "canonical participant identity/role fields must be non-empty exact str"
+            )
 
 
 def _episode_locked(method):
@@ -47,15 +121,23 @@ class EpisodeSnapshot:
 
 class Episode:
     def __init__(self, episode_id: str):
-        if not episode_id:
-            raise EpisodeInvariantError("episode_id is required")
-        self.episode_id = episode_id
+        if type(episode_id) is not str or not episode_id:
+            raise EpisodeInvariantError("episode_id must be a non-empty exact str")
+        self._episode_id = episode_id
         self._propositions: dict[str, Proposition] = {}
         self._relations: dict[str, Hyperrelation] = {}
         self._active_propositions: set[str] = set()
         self._active_relations: set[str] = set()
         self._events: list[EpisodeEvent] = []
         self._lock = RLock()
+
+    @property
+    def episode_id(self) -> str:
+        return self._episode_id
+
+    @episode_id.setter
+    def episode_id(self, value: str) -> None:
+        raise EpisodeInvariantError("episode_id is immutable after construction")
 
     @contextmanager
     def atomic_mutation(self):
@@ -95,6 +177,7 @@ class Episode:
 
     @_episode_locked
     def add_proposition(self, proposition: Proposition) -> None:
+        _validate_proposition(proposition)
         if proposition.episode_id != self.episode_id:
             raise EpisodeInvariantError("proposition belongs to a different episode")
         inactive_sources = self._inactive_canonical_source_refs(proposition.source_refs)
@@ -115,6 +198,10 @@ class Episode:
 
     @_episode_locked
     def retract_proposition(self, proposition_id: str, reason: str) -> None:
+        if type(proposition_id) is not str or not proposition_id:
+            raise EpisodeInvariantError("proposition_id must be a non-empty exact str")
+        if type(reason) is not str or not reason:
+            raise EpisodeInvariantError("retraction reason must be a non-empty exact str")
         if proposition_id not in self._propositions:
             raise EpisodeInvariantError("cannot retract unknown proposition")
         if proposition_id not in self._active_propositions:
@@ -165,6 +252,7 @@ class Episode:
 
     @_episode_locked
     def add_relation(self, relation: Hyperrelation) -> None:
+        _validate_relation(relation)
         if relation.episode_id != self.episode_id:
             raise EpisodeInvariantError("relation belongs to a different episode")
         active_refs = self._active_propositions | self._active_relations
