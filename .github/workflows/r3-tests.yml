@@ -41,6 +41,7 @@ on:
       - work/rezon-kernel-v0-r37-executor-episode-rollback
       - work/rezon-kernel-v0-r38-exact-execution-result-boundary
       - work/rezon-kernel-v0-r39-exact-runner-control-subobjects
+      - work/rezon-kernel-v0-r40-targeted-executor-transaction
 
 jobs:
   test:
