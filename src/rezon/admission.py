@@ -85,8 +85,14 @@ def admit_execution_result(
     allowed_source_versions: tuple[str, ...] | None = None,
     allowed_source_bindings: tuple[tuple[str, str], ...] | None = None,
 ) -> AdmissionReceipt:
+    if type(descriptor.node_id) is not str or type(result.node_id) is not str:
+        raise AdmissionError("node identity must use exact str values")
     if result.node_id != descriptor.node_id:
         raise AdmissionError("execution result node does not match descriptor")
+    if type(result.execution_id) is not str:
+        raise AdmissionError("execution result identity must be exact str")
+    if expected_execution_id is not None and type(expected_execution_id) is not str:
+        raise AdmissionError("expected execution identity must be exact str")
     if expected_execution_id is not None and result.execution_id != expected_execution_id:
         raise AdmissionError("execution result identity does not match runner-issued execution")
     if result.failures:
@@ -132,6 +138,13 @@ def admit_execution_result(
     governed_source_bindings = set(allowed_source_bindings or ())
 
     for proposition in result.emitted_propositions:
+        if type(proposition.episode_id) is not str:
+            raise AdmissionError("proposition episode identity must be exact str")
+        if (
+            proposition.producer_execution_id is not None
+            and type(proposition.producer_execution_id) is not str
+        ):
+            raise AdmissionError("proposition producer identity must be exact str")
         if proposition.kind not in permitted:
             raise AdmissionError(f"node {descriptor.node_id} may not emit {proposition.kind.value}")
         if proposition.kind is PropositionKind.EVIDENCE:
@@ -178,6 +191,13 @@ def admit_execution_result(
     staged_prop_ids = {p.proposition_id for p in result.emitted_propositions}
     relation_participant_refs = governed_refs | staged_prop_ids
     for relation in result.emitted_relations:
+        if type(relation.episode_id) is not str:
+            raise AdmissionError("relation episode identity must be exact str")
+        if (
+            relation.producer_execution_id is not None
+            and type(relation.producer_execution_id) is not str
+        ):
+            raise AdmissionError("relation producer identity must be exact str")
         if relation.relation_type.lower() not in permitted_relation_types:
             raise AdmissionError(
                 f"node {descriptor.node_id} may not emit relation type {relation.relation_type}"
