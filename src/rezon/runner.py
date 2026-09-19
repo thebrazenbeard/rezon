@@ -184,7 +184,7 @@ class EpisodeRunner:
         ):
             receipt = ResultReceipt(
                 task_id=task_id,
-                episode_version=episode.snapshot().version_ref,
+                episode_version=Episode.snapshot(episode).version_ref,
                 unresolved=("task_envelope:invalid_contract",),
                 failures=(FailureState.CONTRACT_VIOLATION,),
                 effect_state=EffectState.PLAN,
@@ -195,7 +195,7 @@ class EpisodeRunner:
         if task_envelope is not None and task_envelope.task_id != task_id:
             receipt = ResultReceipt(
                 task_id=task_id,
-                episode_version=episode.snapshot().version_ref,
+                episode_version=Episode.snapshot(episode).version_ref,
                 unresolved=("task_envelope:mismatched_task_id",),
                 failures=(FailureState.CONTRACT_VIOLATION,),
                 effect_state=EffectState.PLAN,
@@ -214,7 +214,7 @@ class EpisodeRunner:
         ):
             receipt = ResultReceipt(
                 task_id=task_id,
-                episode_version=episode.snapshot().version_ref,
+                episode_version=Episode.snapshot(episode).version_ref,
                 unresolved=("runner:invalid_node_contract",),
                 failures=(FailureState.CONTRACT_VIOLATION,),
                 effect_state=EffectState.PLAN,
@@ -227,7 +227,7 @@ class EpisodeRunner:
         if type(self.budget_limit) is not int or self.budget_limit < 0:
             receipt = ResultReceipt(
                 task_id=task_id,
-                episode_version=episode.snapshot().version_ref,
+                episode_version=Episode.snapshot(episode).version_ref,
                 unresolved=("runner:invalid_budget_contract",),
                 failures=(FailureState.CONTRACT_VIOLATION,),
                 effect_state=EffectState.PLAN,
@@ -300,7 +300,7 @@ class EpisodeRunner:
 
         while True:
             decision = governed_scheduler.next(
-                episode.snapshot(),
+                Episode.snapshot(episode),
                 tuple(node.descriptor for node in governed_nodes),
                 tuple(completed),
                 Budget(effective_budget, used),
@@ -358,7 +358,7 @@ class EpisodeRunner:
                     f"{task_id}:exec:{len(records) + 1}:"
                     f"{runner_node.descriptor.node_id}"
                 )
-            execution_snapshot = episode.snapshot()
+            execution_snapshot = Episode.snapshot(episode)
             canonical_snapshot_digest = canonical_episode_snapshot_digest(
                 execution_snapshot
             )
@@ -523,14 +523,14 @@ class EpisodeRunner:
 
             started = perf_counter()
             try:
-                with episode.atomic_mutation():
+                with Episode.atomic_mutation(episode):
                     result = executor.execute(executor_view, episode.episode_id)
                     if not execution_result_contract_is_exact(result):
                         raise _InvalidExecutionResultError(
                             "executor returned an invalid ExecutionResult contract"
                         )
                     if (
-                        canonical_episode_snapshot_digest(episode.snapshot())
+                        canonical_episode_snapshot_digest(Episode.snapshot(episode))
                         != canonical_snapshot_digest
                     ):
                         raise _ExecutorEpisodeMutationError(
@@ -733,7 +733,7 @@ class EpisodeRunner:
             completed.append(runner_node.descriptor.node_id)
             used += 1
 
-        final_snapshot = episode.snapshot()
+        final_snapshot = Episode.snapshot(episode)
         undispositioned_claim_ids = tuple(
             proposition.proposition_id
             for proposition in final_snapshot.current_propositions

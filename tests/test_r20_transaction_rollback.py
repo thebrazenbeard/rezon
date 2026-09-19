@@ -50,12 +50,10 @@ def test_failed_multiobject_admission_rolls_back_exact_snapshot(monkeypatch):
     before = episode.snapshot()
     digest = canonical_episode_snapshot_digest(before)
 
-    original_add_relation = episode.add_relation
-
-    def fail_relation(relation):
+    def fail_relation(self, relation):
         raise EpisodeInvariantError("synthetic commit-stage failure")
 
-    monkeypatch.setattr(episode, "add_relation", fail_relation)
+    monkeypatch.setattr(Episode, "add_relation", fail_relation)
 
     with pytest.raises(AdmissionError, match="synthetic commit-stage failure"):
         admit_execution_result(
@@ -68,19 +66,15 @@ def test_failed_multiobject_admission_rolls_back_exact_snapshot(monkeypatch):
 
     assert episode.snapshot() == before
 
-    monkeypatch.setattr(episode, "add_relation", original_add_relation)
-
 
 def test_transaction_lock_releases_after_rollback(monkeypatch):
     episode = Episode("r20-lock-release")
     digest = canonical_episode_snapshot_digest(episode.snapshot())
 
-    original_add_relation = episode.add_relation
-
-    def fail_relation(relation):
+    def fail_relation(self, relation):
         raise EpisodeInvariantError("synthetic commit-stage failure")
 
-    monkeypatch.setattr(episode, "add_relation", fail_relation)
+    monkeypatch.setattr(Episode, "add_relation", fail_relation)
 
     with pytest.raises(AdmissionError):
         admit_execution_result(
@@ -90,8 +84,6 @@ def test_transaction_lock_releases_after_rollback(monkeypatch):
             expected_episode_snapshot_digest=digest,
             expected_execution_id="attempt-r20",
         )
-
-    monkeypatch.setattr(episode, "add_relation", original_add_relation)
 
     completed = Event()
 

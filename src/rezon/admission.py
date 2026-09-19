@@ -125,7 +125,7 @@ def _validate_admission_contract(
 def _atomic_episode_mutation(method):
     @wraps(method)
     def wrapped(episode, *args, **kwargs):
-        with episode.atomic_mutation():
+        with Episode.atomic_mutation(episode):
             return method(episode, *args, **kwargs)
 
     return wrapped
@@ -140,7 +140,7 @@ class AdmissionReceipt:
 
 
 def _prevalidate_episode_mutation(episode: Episode, result: ExecutionResult) -> None:
-    snapshot = episode.snapshot()
+    snapshot = Episode.snapshot(episode)
     existing_props = {p.proposition_id: p for p in snapshot.all_propositions}
     active_props = {p.proposition_id for p in snapshot.current_propositions}
     existing_relations = {r.relation_id: r for r in snapshot.all_relations}
@@ -211,7 +211,7 @@ def admit_execution_result(
     if result.failures:
         raise AdmissionError("failed execution results cannot mutate canonical episode state")
 
-    snapshot_digest = canonical_episode_snapshot_digest(episode.snapshot())
+    snapshot_digest = canonical_episode_snapshot_digest(Episode.snapshot(episode))
     if (
         type(expected_episode_snapshot_digest) is not str
         or snapshot_digest != expected_episode_snapshot_digest
@@ -386,9 +386,9 @@ def admit_execution_result(
     _prevalidate_episode_mutation(episode, admitted_result)
     try:
         for proposition in admitted_result.emitted_propositions:
-            episode.add_proposition(proposition)
+            Episode.add_proposition(episode, proposition)
         for relation in admitted_result.emitted_relations:
-            episode.add_relation(relation)
+            Episode.add_relation(episode, relation)
     except EpisodeInvariantError as exc:
         raise AdmissionError(str(exc)) from exc
 

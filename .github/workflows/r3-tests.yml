@@ -39,7 +39,7 @@ on:
       - work/rezon-kernel-v0-r35-exact-run-episode-contract
       - work/rezon-kernel-v0-r36-frozen-runner-node-set
       - work/rezon-kernel-v0-r37-executor-episode-rollback
-      - work/rezon-kernel-v0-r38-exact-execution-result-boundary
+      - work/rezon-kernel-v0-r39-bound-episode-methods
 
 jobs:
   test:
