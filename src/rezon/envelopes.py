@@ -21,6 +21,22 @@ class TaskSpecification:
         return sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _is_exact_str_tuple(values) -> bool:
+    return type(values) is tuple and all(type(value) is str for value in values)
+
+
+def task_specification_contract_is_exact(
+    specification: TaskSpecification,
+) -> bool:
+    return bool(
+        type(specification) is TaskSpecification
+        and type(specification.literal_request) is str
+        and specification.literal_request
+        and _is_exact_str_tuple(specification.subject_refs)
+        and _is_exact_str_tuple(specification.constraints)
+    )
+
+
 @dataclass(frozen=True)
 class TaskEnvelope:
     task_id: str
@@ -49,6 +65,40 @@ class TaskEnvelope:
             subject_refs=self.subject_refs,
             constraints=self.constraints,
         )
+
+
+def task_envelope_contract_is_exact(envelope: TaskEnvelope) -> bool:
+    if type(envelope) is not TaskEnvelope:
+        return False
+    if (
+        type(envelope.task_id) is not str
+        or not envelope.task_id
+        or type(envelope.literal_request) is not str
+        or not envelope.literal_request
+    ):
+        return False
+    for values in (
+        envelope.subject_refs,
+        envelope.constraints,
+        envelope.available_authority,
+        envelope.context_refs,
+    ):
+        if not _is_exact_str_tuple(values):
+            return False
+    if (
+        envelope.privacy_scope is not None
+        and type(envelope.privacy_scope) is not str
+    ):
+        return False
+    if (
+        envelope.resource_budget is not None
+        and (
+            type(envelope.resource_budget) is not int
+            or envelope.resource_budget < 0
+        )
+    ):
+        return False
+    return task_specification_contract_is_exact(envelope.to_task_specification())
 
 
 @dataclass(frozen=True)
