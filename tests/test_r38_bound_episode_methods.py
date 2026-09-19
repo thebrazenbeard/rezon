@@ -71,3 +71,42 @@ def test_exact_episode_instance_cannot_shadow_snapshot_to_defeat_rollback():
         for item in outcome.receipt.unresolved
     )
     assert Episode.snapshot(episode) == fake
+
+
+def test_direct_admission_cannot_be_neutered_by_shadowed_add_proposition():
+    from rezon.admission import admit_execution_result
+    from rezon.provenance import canonical_episode_snapshot_digest
+
+    episode = Episode("e2")
+    episode.add_proposition = lambda proposition: None
+    before = Episode.snapshot(episode)
+    descriptor = NodeDescriptor(
+        "echo_hypothesis",
+        (PropositionKind.HYPOTHESIS,),
+    )
+    result = ExecutionResult(
+        execution_id="attempt-1",
+        node_id="echo_hypothesis",
+        emitted_propositions=(
+            Proposition(
+                "admitted",
+                "e2",
+                PropositionKind.HYPOTHESIS,
+                "must become canonical despite instance shadow",
+                producer_execution_id="attempt-1",
+            ),
+        ),
+    )
+
+    admit_execution_result(
+        episode,
+        descriptor,
+        result,
+        expected_execution_id="attempt-1",
+        expected_episode_snapshot_digest=canonical_episode_snapshot_digest(before),
+    )
+
+    assert "admitted" in {
+        proposition.proposition_id
+        for proposition in Episode.snapshot(episode).current_propositions
+    }
