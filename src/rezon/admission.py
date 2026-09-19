@@ -101,6 +101,12 @@ def admit_execution_result(
             "canonical episode state changed after execution view was captured"
         )
 
+    if (
+        task_specification is not None
+        and type(task_specification) is not TaskSpecification
+    ):
+        raise AdmissionError("task specification must be exact TaskSpecification")
+
     task_specification_digest = (
         task_specification.digest if task_specification is not None else None
     )
