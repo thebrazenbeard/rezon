@@ -36,6 +36,7 @@ on:
       - work/rezon-kernel-v0-r32-exact-scheduler-binding
       - work/rezon-kernel-v0-r33-exact-runner-budget-contract
       - work/rezon-kernel-v0-r34-exact-runner-task-id-contract
+      - work/rezon-kernel-v0-r35-combined-runner-preflight
 
 jobs:
   test:
