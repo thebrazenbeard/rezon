@@ -20,6 +20,7 @@ on:
       - work/rezon-kernel-v0-r16-canonical-production-event-identity
       - work/rezon-kernel-v0-r17-task-bound-production-identity
       - work/rezon-kernel-v0-r18-mandatory-state-binding
+      - work/rezon-kernel-v0-r19-atomic-admission
 
 jobs:
   test:
