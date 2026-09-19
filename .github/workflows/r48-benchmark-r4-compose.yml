@@ -1,0 +1,52 @@
+name: Rezon R48 + Benchmark R4 no-commit composition
+
+on:
+  push:
+    branches:
+      - "qualification/r48-benchmark-r4-compose-20260919"
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compose exact subjects without commit
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "e5af543b6306ee41c88b9b5419ca6653f787be24" || {
+            echo "qualification branch parent is not exact R48"
+            exit 1
+          }
+          git cat-file -e "e5af543b6306ee41c88b9b5419ca6653f787be24^{commit}"
+          git cat-file -e "d7373867d3813d32032cb30463e54a6ddf573025^{commit}"
+          git checkout --detach "e5af543b6306ee41c88b9b5419ca6653f787be24"
+          git merge --no-commit --no-ff "d7373867d3813d32032cb30463e54a6ddf573025"
+          test "$(git rev-parse MERGE_HEAD)" = "d7373867d3813d32032cb30463e54a6ddf573025"
+      - name: Install composed tree
+        run: python -m pip install -e .
+      - name: Compile composed tree
+        run: python -m compileall -q src
+      - name: Full composed suite
+        run: pytest -q
+      - name: Diff integrity
+        run: git diff --check
+      - name: Composition status
+        run: |
+          git status --short
+          echo "R48=e5af543b6306ee41c88b9b5419ca6653f787be24"
+          echo "BENCHMARK_R4=d7373867d3813d32032cb30463e54a6ddf573025"
+          echo "MERGE_HEAD=$(git rev-parse MERGE_HEAD)"
+      - name: Abort ephemeral merge
+        if: always()
+        run: |
+          if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+            git merge --abort
+          fi
