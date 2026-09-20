@@ -217,5 +217,5 @@ def admit_retrieval_as_evidence(
         ),
         source_versions=(f"{receipt.source_id}@{receipt.source_version}",),
     )
-    episode.add_proposition(evidence)
+    Episode.add_proposition(episode, evidence)
     return evidence
