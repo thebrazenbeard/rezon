@@ -40,5 +40,13 @@ jobs:
           --seed 20260916
           --code-version "$GITHUB_SHA"
           > /tmp/rezon-benchmark-v1.json
+      - name: Internal adversarial assurance regression
+        shell: bash
+        run: |
+          set -o pipefail
+          python scripts/run_external_assurance_eval_v1.py \
+            tests/fixtures/external_assurance_v1.json \
+            --code-version "$GITHUB_SHA" \
+            | tee /tmp/rezon-external-assurance-v1.json
       - name: Diff check
         run: git diff --check

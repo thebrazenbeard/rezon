@@ -212,3 +212,96 @@ def test_advisory_signals_do_not_override_authority_effect_boundary():
 
     assert outcome.disposition is Disposition.ABSTAIN
     assert "AUTHORITY_EFFECT_BOUNDARY" in outcome.violations_detected
+
+
+
+def test_independence_guard_fails_closed_when_multiworker_lineage_is_unbound():
+    inp = _input(
+        _candidate(
+            "cand-1",
+            model_id="model-a",
+            provider_id="provider-a",
+            prompt_lineage=None,
+            context_lineage=None,
+        ),
+        _candidate(
+            "cand-2",
+            model_id="model-b",
+            provider_id="provider-b",
+            prompt_lineage=None,
+            context_lineage=None,
+        ),
+    )
+
+    guarded = rezon_guarded(inp)
+    ablated = rezon_guarded(
+        inp,
+        guards=_without(GuardName.INDEPENDENCE_CONTAMINATION),
+    )
+
+    assert guarded.disposition is Disposition.ABSTAIN
+    assert "INDEPENDENCE_CONTAMINATION" in guarded.violations_detected
+    assert any(
+        item.startswith("independence_unestablished:")
+        for item in guarded.unresolved
+    )
+    assert ablated.disposition is Disposition.ANSWER
+
+
+def test_independence_guard_accepts_explicitly_distinct_multiworker_lineage():
+    inp = _input(
+        _candidate(
+            "cand-1",
+            model_id="model-a",
+            provider_id="provider-a",
+            prompt_lineage="prompt-a",
+            context_lineage="context-a",
+        ),
+        _candidate(
+            "cand-2",
+            model_id="model-b",
+            provider_id="provider-b",
+            prompt_lineage="prompt-b",
+            context_lineage="context-b",
+        ),
+    )
+
+    outcome = rezon_guarded(inp)
+
+    assert outcome.disposition is Disposition.ANSWER
+    assert outcome.answer == "A"
+    assert "INDEPENDENCE_CONTAMINATION" not in outcome.violations_detected
+
+
+
+def test_shared_source_refs_are_surfaced_without_false_worker_contamination():
+    inp = _input(
+        _candidate(
+            "cand-1",
+            source_refs=("source-1",),
+            model_id="model-a",
+            provider_id="provider-a",
+            prompt_lineage="prompt-a",
+            context_lineage="context-a",
+            common_evidence_refs=(),
+        ),
+        _candidate(
+            "cand-2",
+            source_refs=("source-1",),
+            model_id="model-b",
+            provider_id="provider-b",
+            prompt_lineage="prompt-b",
+            context_lineage="context-b",
+            common_evidence_refs=(),
+        ),
+    )
+
+    guarded = rezon_guarded(inp)
+
+    assert guarded.disposition is Disposition.ANSWER
+    assert "INDEPENDENCE_CONTAMINATION" not in guarded.violations_detected
+    assert any(
+        item == "independence:shared_source_ref:source-1"
+        for item in guarded.trace
+    )
+    assert "shared_evidence_overlap:source-1" in guarded.unresolved

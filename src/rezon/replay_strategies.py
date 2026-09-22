@@ -165,6 +165,34 @@ def _correlated_candidates(candidates: tuple[ReplayCandidate, ...]) -> set[str]:
     return correlated
 
 
+def _independence_unestablished_candidates(
+    candidates: tuple[ReplayCandidate, ...],
+) -> set[str]:
+    """Return workers lacking the minimum lineage needed to test correlation.
+
+    Distinct provider/model/prompt/context labels do not prove independence.
+    They are only the minimum explicit bindings required before multi-worker
+    agreement can avoid fail-closed classification as unestablished.
+    """
+
+    if len(candidates) < 2:
+        return set()
+
+    unresolved: set[str] = set()
+    for candidate in candidates:
+        if any(
+            value is None
+            for value in (
+                candidate.model_id,
+                candidate.provider_id,
+                candidate.prompt_lineage,
+                candidate.context_lineage,
+            )
+        ):
+            unresolved.add(candidate.candidate_id)
+    return unresolved
+
+
 def rezon_guarded(
     strategy_input: StrategyInput,
     guards: GuardConfig = ALL_GUARDS,
@@ -225,13 +253,42 @@ def rezon_guarded(
                 trace.append(f"guard:admission_integrity:reject:{candidate.candidate_id}")
 
     if guards.contains(GuardName.INDEPENDENCE_CONTAMINATION):
+        shared_source_refs: set[str] = set()
+        for index, left in enumerate(answering):
+            for right in answering[index + 1 :]:
+                shared_source_refs.update(
+                    set(left.source_refs).intersection(right.source_refs)
+                )
+        for source_ref in sorted(shared_source_refs):
+            trace.append(
+                f"independence:shared_source_ref:{source_ref}"
+            )
+            unresolved.append(
+                f"shared_evidence_overlap:{source_ref}"
+            )
+
         correlated = _correlated_candidates(answering)
+        unestablished = _independence_unestablished_candidates(answering)
+        contaminated = correlated.union(unestablished)
         operation_count += len(answering)
-        if correlated:
-            rejected.update(correlated)
+        if contaminated:
+            rejected.update(contaminated)
             violations.append("INDEPENDENCE_CONTAMINATION")
-            for candidate_id in sorted(correlated):
-                trace.append(f"guard:independence_contamination:reject:{candidate_id}")
+            if unestablished:
+                unresolved.append(
+                    "independence_unestablished:"
+                    + ",".join(sorted(unestablished))
+                )
+            for candidate_id in sorted(contaminated):
+                reason = (
+                    "unestablished"
+                    if candidate_id in unestablished
+                    else "correlated"
+                )
+                trace.append(
+                    "guard:independence_contamination:"
+                    f"{reason}:reject:{candidate_id}"
+                )
 
     failure_block = False
     if guards.contains(GuardName.FAILURE_VISIBILITY):
