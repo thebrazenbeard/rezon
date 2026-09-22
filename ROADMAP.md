@@ -15,56 +15,56 @@ The repository now contains:
 - canonical Episode mutation and rollback controls;
 - deterministic producer/output identity binding;
 - frozen replay benchmarks and hostile cases;
-- deterministic run-evidence export.
+- deterministic run-evidence export and independent artifact verification.
 
 The estate reconciliation candidate records 337 passing tests on the composed
 R51 + Benchmark R4 + canonical Episode-method subject.
 
-## Current frontier — portable assurance
+## Current frontier — external assurance boundary
 
-Deliverables:
+The current improvement stack adds:
 
-- independently verify serialized Rezon run evidence;
-- expose verification through a minimal CLI;
-- run CI on current branches and pull requests rather than historical branch
-  names only;
-- define Rezon's role as an epistemic assurance layer rather than a competing
-  general-purpose orchestrator.
+- independently verifiable serialized Rezon run evidence;
+- a minimal CLI for evidence verification;
+- generic current-branch / pull-request CI;
+- dependency-free OTLP/JSON GenAI trace inspection;
+- fail-closed duplicate-key and malformed semantic-metadata handling;
+- per-event telemetry schema visibility and dropped-attribute gaps;
+- exact trace-to-Rezon-evidence digest/schema cross-binding;
+- binding digests that include the full canonical telemetry-intake digest;
+- explicit preservation of unresolved authority/effect/currentness/independence
+  gaps instead of treating a successful trace as proof.
 
-Success: another process can retain a Rezon evidence artifact and validate its
-internal bindings later without rerunning the original reasoning job.
+This remains source/build/test candidate work until separately integrated.
 
-## Next — external runtime adapters
+## Next — real-runtime qualification
 
-Define a dependency-light adapter contract for completed execution events from
-external agent/workflow systems.
+The next question is empirical: does this boundary catch useful failures on real
+external traces rather than merely validating synthetic fixtures?
 
-First adapters should prove the shape before multiplying integrations. Candidate
-surfaces include:
-
-- agent SDK traces;
-- explicit workflow runtimes;
-- MCP tool activity;
-- A2A task exchanges.
-
-Adapters must preserve identity, provenance, source version/currentness,
-executor lineage, failures, and authority/effect boundaries. Text-only
-flattening is not acceptable.
-
-## Next — cross-runtime adversarial qualification
-
-Build fixtures where simpler orchestration traces look healthy while the
-epistemic state is not:
+Use at least two independent agent/workflow runtimes and freeze held-out cases
+covering:
 
 - correlated workers presented as independent consensus;
 - stale or version-ambiguous evidence;
-- hidden execution failures;
-- output/producer substitution;
+- hidden or dropped telemetry;
+- evidence-artifact substitution;
 - tool success misrepresented as authorization;
-- receipt summaries that conceal trace failures.
+- effect claims that exceed available receipts;
+- runtime-specific fields lost during translation.
 
-Compare Rezon assurance against simpler baselines on detection accuracy, false
-blocks, runtime overhead, and evidence size.
+Compare Rezon assurance against simpler trace-only baselines on detection
+accuracy, false blocks, runtime overhead, and evidence size.
+
+## Next — runtime-specific adapters and MCP surface
+
+Only after real-runtime qualification:
+
+- add thin runtime-specific exporters/adapters where OTLP alone loses necessary
+  identity, provenance, or effect semantics;
+- evaluate an MCP-facing assurance service so external agents can submit and
+  verify evidence without importing the Python package;
+- keep hosted/service deployment separately authorized and separately qualified.
 
 ## Later — adaptive routing
 
