@@ -60,6 +60,40 @@ def _optional_nonempty_string(value: object, name: str) -> str | None:
     return value
 
 
+def _optional_string(value: object, name: str) -> str | None:
+    if value is None:
+        return None
+    if type(value) is not str:
+        raise OTelIntakeError(f"{name} must be a string when present")
+    return value
+
+
+def _valid_trace_id(value: object) -> bool:
+    return (
+        type(value) is str
+        and _TRACE_ID.fullmatch(value) is not None
+        and int(value, 16) != 0
+    )
+
+
+def _valid_span_id(value: object) -> bool:
+    return (
+        type(value) is str
+        and _SPAN_ID.fullmatch(value) is not None
+        and int(value, 16) != 0
+    )
+
+
+def _flags(raw: object) -> int:
+    if raw is None:
+        return 0
+    if type(raw) is not int or raw < 0 or raw > 0xFFFFFFFF:
+        raise OTelIntakeError(
+            "span.flags must be an unsigned 32-bit integer when present"
+        )
+    return raw
+
+
 def _dropped_attributes_count(raw: object, name: str) -> int:
     if raw is None:
         return 0
@@ -160,23 +194,25 @@ def _status(raw: object) -> str:
         return "unset"
     status = _require_dict(raw, "span.status")
     code = status.get("code", 0)
-    if code in (1, "STATUS_CODE_OK", "OK"):
-        return "ok"
-    if code in (2, "STATUS_CODE_ERROR", "ERROR"):
-        return "error"
-    return "unset"
+    if type(code) is not int or code not in (0, 1, 2):
+        raise OTelIntakeError(
+            "span.status.code must be an OTLP integer enum value 0, 1, or 2"
+        )
+    return {
+        0: "unset",
+        1: "ok",
+        2: "error",
+    }[code]
 
 
-def _span_kind(raw: object) -> int | str | None:
+def _span_kind(raw: object) -> int | None:
     if raw is None:
         return None
-    if type(raw) is int and raw >= 0:
-        return raw
-    if type(raw) is str and raw:
-        return raw
-    raise OTelIntakeError(
-        "span.kind must be a non-negative integer or non-empty string when present"
-    )
+    if type(raw) is not int or raw not in (0, 1, 2, 3, 4, 5):
+        raise OTelIntakeError(
+            "span.kind must be an OTLP integer enum value from 0 through 5"
+        )
+    return raw
 
 
 def _events(raw: object, span_name: str) -> tuple[list[dict[str, object]], bool]:
@@ -227,13 +263,13 @@ def _links(raw: object, span_name: str) -> tuple[list[dict[str, object]], bool]:
         )
         trace_id = link.get("traceId")
         span_id = link.get("spanId")
-        if type(trace_id) is not str or not _TRACE_ID.fullmatch(trace_id):
+        if not _valid_trace_id(trace_id):
             raise OTelIntakeError(
-                f"{span_name}.links[{index}].traceId must be exactly 32 hex characters"
+                f"{span_name}.links[{index}].traceId must be a non-zero 32-character hex ID"
             )
-        if type(span_id) is not str or not _SPAN_ID.fullmatch(span_id):
+        if not _valid_span_id(span_id):
             raise OTelIntakeError(
-                f"{span_name}.links[{index}].spanId must be exactly 16 hex characters"
+                f"{span_name}.links[{index}].spanId must be a non-zero 16-character hex ID"
             )
         dropped_count = _dropped_attributes_count(
             link.get("droppedAttributesCount"),
@@ -244,7 +280,7 @@ def _links(raw: object, span_name: str) -> tuple[list[dict[str, object]], bool]:
             {
                 "trace_id": trace_id,
                 "span_id": span_id,
-                "trace_state": _optional_nonempty_string(
+                "trace_state": _optional_string(
                     link.get("traceState"),
                     f"{span_name}.links[{index}].traceState",
                 ),
@@ -389,13 +425,13 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                 span = _require_dict(raw_span, span_path)
                 trace_id = span.get("traceId")
                 span_id = span.get("spanId")
-                if type(trace_id) is not str or not _TRACE_ID.fullmatch(trace_id):
+                if not _valid_trace_id(trace_id):
                     raise OTelIntakeError(
-                        "traceId must be exactly 32 hex characters"
+                        "traceId must be a non-zero 32-character hex ID"
                     )
-                if type(span_id) is not str or not _SPAN_ID.fullmatch(span_id):
+                if not _valid_span_id(span_id):
                     raise OTelIntakeError(
-                        "spanId must be exactly 16 hex characters"
+                        "spanId must be a non-zero 16-character hex ID"
                     )
 
                 identity = (trace_id.lower(), span_id.lower())
@@ -409,8 +445,7 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                 if parent_span_id in (None, ""):
                     parent_span_id = None
                 elif (
-                    type(parent_span_id) is not str
-                    or not _SPAN_ID.fullmatch(parent_span_id)
+                    not _valid_span_id(parent_span_id)
                 ):
                     raise OTelIntakeError(
                         "parentSpanId must be exactly 16 hex characters when present"
@@ -452,6 +487,11 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                         "parent_span_id": parent_span_id,
                         "span_name": span_name,
                         "span_kind": _span_kind(span.get("kind")),
+                        "trace_state": _optional_string(
+                            span.get("traceState"),
+                            f"{span_path}.traceState",
+                        ),
+                        "flags": _flags(span.get("flags")),
                         "status": _status(span.get("status")),
                         "schema_url": scope_schema or resource_schema,
                         "resource_attributes": dict(resource_attributes),
