@@ -10,6 +10,7 @@ from agent_framework.observability import (
     enable_instrumentation,
 )
 from opentelemetry import trace as otel_trace
+from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from typing_extensions import Never
 
@@ -48,6 +49,15 @@ async def _run() -> str:
     if output is None:
         raise RuntimeError("Agent Framework workflow produced no output")
     return str(output)
+
+
+def _flush() -> None:
+    provider = otel_trace.get_tracer_provider()
+    force_flush = getattr(provider, "force_flush", None)
+    if not callable(force_flush):
+        raise RuntimeError("configured tracer provider does not expose force_flush")
+    if force_flush() is False:
+        raise RuntimeError("configured tracer provider force_flush failed")
 
 
 def _analyze(spans):
