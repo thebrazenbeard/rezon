@@ -288,3 +288,19 @@ def test_generic_intake_rejects_all_zero_trace_and_span_ids():
 
     with pytest.raises(OTelIntakeError, match="spanId"):
         inspect_otel_export(zero_span)
+
+
+def test_resource_schema_does_not_masquerade_as_span_schema_binding():
+    payload = _microsoft_like_payload()
+    payload["resourceSpans"][1]["schemaUrl"] = (
+        "https://opentelemetry.io/schemas/1.44.0"
+    )
+
+    report = inspect_otel_export(payload)
+    background = report["spans"][2]
+
+    assert background["resource_schema_url"] == (
+        "https://opentelemetry.io/schemas/1.44.0"
+    )
+    assert background["schema_url"] is None
+    assert "telemetry_schema:unbound" in report["assurance_gaps"]
