@@ -214,8 +214,8 @@ def test_multiple_models_from_one_provider_do_not_become_independent_sources():
     assert report["provider_count"] == 1
     assert report["raw_worker_count"] == 2
     assert report["raw_output_workers"] == [
-        "jan/qwen2.5:7b",
         "jan/llama3.1:70b",
+        "jan/qwen2.5:7b",
     ]
     assert report["assurance"]["provider_independence"] == "unestablished"
     assert "provider_diversity:single_provider" in report["assurance_gaps"]
