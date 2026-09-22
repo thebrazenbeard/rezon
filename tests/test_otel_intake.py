@@ -172,6 +172,7 @@ def test_generic_intake_preserves_multi_trace_workflow_topology_without_semantic
     assert executor["events"] == [
         {
             "name": "executor.started",
+            "time_unix_nano": 0,
             "attributes": {"sequence": 1},
             "dropped_attributes_count": 0,
         }
