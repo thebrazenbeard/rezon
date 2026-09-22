@@ -5,9 +5,20 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 
-def _otlp_value(value: object) -> dict[str, object]:
+def _plain_string(value: object, name: str) -> str:
     if type(value) is str:
-        return {"stringValue": value}
+        return value
+    if isinstance(value, str):
+        enum_value = getattr(value, "value", None)
+        if type(enum_value) is str:
+            return enum_value
+        return str(value)
+    raise TypeError(f"{name} must be string-like")
+
+
+def _otlp_value(value: object) -> dict[str, object]:
+    if isinstance(value, str):
+        return {"stringValue": _plain_string(value, "attribute value")}
     if type(value) is bool:
         return {"boolValue": value}
     if type(value) is int:
@@ -34,15 +45,15 @@ def _hex(value: int, width: int) -> str:
     return f"{value:0{width}x}"
 
 
-def _status_code(span: Any) -> str:
+def _status_code(span: Any) -> int:
     status = getattr(span, "status", None)
     code = getattr(status, "status_code", None)
     name = getattr(code, "name", None)
     if name == "OK":
-        return "STATUS_CODE_OK"
+        return 1
     if name == "ERROR":
-        return "STATUS_CODE_ERROR"
-    return "STATUS_CODE_UNSET"
+        return 2
+    return 0
 
 
 def readable_spans_to_otlp_json(spans: Sequence[Any]) -> dict[str, object]:
@@ -62,18 +73,34 @@ def readable_spans_to_otlp_json(spans: Sequence[Any]) -> dict[str, object]:
                     "OpenTelemetry attribute keys must be string-like for OTLP JSON"
                 )
             attributes.append(
-                {"key": str(key), "value": _otlp_value(value)}
+                {
+                    "key": _plain_string(key, "OpenTelemetry attribute key"),
+                    "value": _otlp_value(value),
+                }
             )
+        span_name = _plain_string(span.name, "OpenTelemetry span name")
         projected: dict[str, object] = {
             "traceId": _hex(context.trace_id, 32),
             "spanId": _hex(context.span_id, 16),
-            "name": span.name,
+            "name": span_name,
             "status": {"code": _status_code(span)},
             "attributes": attributes,
             "droppedAttributesCount": int(getattr(span, "dropped_attributes", 0) or 0),
         }
         if parent is not None and getattr(parent, "span_id", 0):
             projected["parentSpanId"] = _hex(parent.span_id, 16)
+
+        trace_state = getattr(context, "trace_state", None)
+        if trace_state is not None:
+            to_header = getattr(trace_state, "to_header", None)
+            if callable(to_header):
+                header = to_header()
+                if header:
+                    projected["traceState"] = _plain_string(
+                        header,
+                        "OpenTelemetry trace state",
+                    )
+        projected["flags"] = int(getattr(context, "trace_flags", 0) or 0)
 
         scope = getattr(span, "instrumentation_scope", None)
         schema_url = getattr(scope, "schema_url", None)
