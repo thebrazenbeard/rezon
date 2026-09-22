@@ -122,6 +122,8 @@ def test_high_reported_convergence_stays_advisory_and_unbound():
     assert "raw_outputs:not_bound" in report["assurance_gaps"]
     assert "provider_independence:not_demonstrated" in report["assurance_gaps"]
     assert "provider_eligibility:not_bound" in report["assurance_gaps"]
+    assert "synthesis_method:not_bound" in report["assurance_gaps"]
+    assert "privacy_tier:not_bound" in report["assurance_gaps"]
 
 
 def test_raw_outputs_bind_reported_provider_model_outputs_but_not_independence():
@@ -269,3 +271,28 @@ def test_consensus_promotion_is_hostile_without_separate_independence_evidence()
 
     assert HostileViolation.CORRELATED_CONSENSUS_LAUNDERING in evidence_violations
     assert HostileViolation.ADVISORY_AUTHORITY_LAUNDERING in authority_violations
+
+
+
+def test_raw_failure_mismatch_is_exposed_even_if_top_level_claims_clean():
+    payload = _lattice_like(raw=True)
+    payload["raw_outputs"]["gemini/gemini-2.5-pro"]["error"] = "timeout"
+    payload["providers_consulted"].remove("gemini")
+    payload["providers_failed"] = []
+
+    report = inspect_ensemble_consultation(payload)
+
+    assert report["raw_failure_count"] == 1
+    assert report["partial_failure_reported"] is False
+    assert "provider_failures:top_level_mismatch" in report["assurance_gaps"]
+
+
+def test_successful_raw_worker_not_reported_as_consulted_fails_closed():
+    payload = _lattice_like(raw=True)
+    payload["providers_consulted"].remove("gemini")
+
+    with pytest.raises(
+        ConsultationIntakeError,
+        match="successful raw worker.*not represented",
+    ):
+        inspect_ensemble_consultation(payload)
