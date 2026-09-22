@@ -40,7 +40,7 @@ compileall, and diff-check passes. Those are source/build/test claims only; PR
 #80 is not merged and does not establish deployment, installation, live-provider
 behavior, semantic truth, or reasoning superiority.
 
-The active improvement branch builds from that exact candidate rather than from
+The active improvement stack builds from that exact candidate rather than from
 the obsolete default branch.
 
 ## Portable run assurance
@@ -59,6 +59,24 @@ A successful verification establishes structural consistency of that artifact.
 It does not prove that the underlying claims are true or that an external action
 was authorized or completed.
 
+## External telemetry intake
+
+Rezon now has a dependency-free reference intake for OpenTelemetry OTLP/JSON
+GenAI traces:
+
+    rezon inspect-otel-genai trace.json
+
+A workflow span can bind itself to a Rezon evidence artifact with
+application-specific Rezon digest/schema attributes:
+
+    rezon bind-otel-evidence trace.json run-evidence.json
+
+The binding requires one GenAI trace per operation, verifies structural
+consistency and exact payload-to-artifact agreement, and preserves unresolved
+telemetry gaps. It does not authenticate
+the producer, establish semantic truth, grant authority, or prove external
+effect completion.
+
 See 'docs/PORTABLE_ASSURANCE_LAYER.md'.
 
 ## Architecture flow
@@ -72,6 +90,7 @@ See 'docs/PORTABLE_ASSURANCE_LAYER.md'.
       -> ResultReceipt + ExecutionTrace
       -> deterministic run-evidence artifact
       -> independent verification
+      -> optional external telemetry cross-binding
 
 ## Key documents
 
@@ -89,10 +108,10 @@ See 'docs/PORTABLE_ASSURANCE_LAYER.md'.
 
 ## Near-term direction
 
-The highest-value next work is interoperability, not another internal hardening
-round for its own sake: define a strict external execution-event adapter
-contract, implement one dependency-optional reference adapter, and benchmark
-whether Rezon catches correlated consensus, stale evidence, concealed failures,
-and authority laundering that simpler trace-only acceptance misses.
+The first provider-neutral external intake now exists as an OTLP/JSON candidate.
+The next useful work is not another orchestration layer: exercise the adapter
+against real independent runtimes and measure whether Rezon catches stale,
+correlated, incomplete, substituted, or unauthorized evidence that simpler
+trace-only acceptance misses.
 
 No merge or protected runtime effect is implied by this repository state.
