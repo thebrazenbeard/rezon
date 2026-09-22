@@ -263,6 +263,9 @@ def rezon_guarded(
             trace.append(
                 f"independence:shared_source_ref:{source_ref}"
             )
+            unresolved.append(
+                f"shared_evidence_overlap:{source_ref}"
+            )
 
         correlated = _correlated_candidates(answering)
         unestablished = _independence_unestablished_candidates(answering)
