@@ -304,3 +304,4 @@ def test_shared_source_refs_are_surfaced_without_false_worker_contamination():
         item == "independence:shared_source_ref:source-1"
         for item in guarded.trace
     )
+    assert "shared_evidence_overlap:source-1" in guarded.unresolved
