@@ -44,8 +44,65 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .
           python -m pip install             "agent-framework==1.19.0"             "opentelemetry-sdk"
-      - name: Qualify Microsoft Agent Framework telemetry
+      - name: Observe Microsoft Agent Framework qualification
+        id: microsoft_qualification
+        continue-on-error: true
         env:
           ENABLE_SENSITIVE_DATA: "false"
           ENABLE_MESSAGE_EVENTS: "false"
-        run: python scripts/qualify_microsoft_agent_framework_otel.py
+        run: |
+          python scripts/qualify_microsoft_agent_framework_otel.py             | tee /tmp/microsoft-qualification.jsonl
+      - name: Assert recorded Microsoft compatibility gap
+        env:
+          QUALIFICATION_STEP_OUTCOME: ${{ steps.microsoft_qualification.outcome }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          outcome = os.environ["QUALIFICATION_STEP_OUTCOME"]
+          if outcome != "failure":
+              raise SystemExit(
+                  "Microsoft qualification no longer reproduces the recorded FAIL; "
+                  "re-qualify before changing the compatibility claim"
+              )
+
+          reports = []
+          for line in Path("/tmp/microsoft-qualification.jsonl").read_text().splitlines():
+              if line.startswith("{"):
+                  reports.append(json.loads(line))
+          if not reports:
+              raise SystemExit("Microsoft qualification emitted no JSON result")
+
+          report = reports[-1]
+          expected_reason = "default_path_emitted_no_rezon_consumable_genai_events"
+          if report.get("qualification") != "FAIL":
+              raise SystemExit(f"unexpected qualification: {report}")
+          if report.get("reason") != expected_reason:
+              raise SystemExit(f"unexpected Microsoft failure reason: {report}")
+          if report.get("exporter_control_span_count", 0) < 1:
+              raise SystemExit("exporter/provider control was not proven live")
+          if report.get("default_runtime_span_count", 0) < 1:
+              raise SystemExit("Agent Framework emitted no native workflow spans")
+          if report.get("default_genai_attribute_keys") != []:
+              raise SystemExit("Microsoft workflow GenAI semantics changed; re-qualify")
+          if report.get("default_rezon_event_operations") != []:
+              raise SystemExit("Rezon generic intake behavior changed; re-qualify")
+
+          exploratory = report.get("explicit_enable_probe", {})
+          if exploratory.get("rezon_event_operations") != []:
+              raise SystemExit("explicit-enable probe now emits consumable GenAI events")
+
+          print(
+              json.dumps(
+                  {
+                      "monitor": "PASS",
+                      "recorded_qualification": "FAIL",
+                      "reason": expected_reason,
+                      "native_span_count": report["default_runtime_span_count"],
+                  },
+                  sort_keys=True,
+              )
+          )
+          PY
