@@ -155,3 +155,28 @@ that is present in the current Agent Framework documentation and package:
 Executor + WorkflowBuilder + configure_otel_providers. Capture the actual spans
 from that workflow. Do not add GenAI attributes. If workflow telemetry contains
 no Rezon-consumable gen_ai.operation.name, H2 is falsified for this path.
+
+
+### E4 — Microsoft documented workflow path
+
+Status: CONFIRMATORY FAIL FOR Q2 DEFAULT CONFIGURATION
+Run: GitHub Actions 35746765241 / job 106810294300
+Subject: agent-framework 1.19.0
+
+Observed:
+- package installation succeeded;
+- documented credential-free Executor + WorkflowBuilder path executed correctly;
+- workflow output was NOZER OLLEH;
+- in-memory OpenTelemetry exporter captured zero spans.
+
+Disposition:
+H2 is falsified for the exact Q2 configuration as executed. This is not yet
+evidence that Rezon rejects Microsoft telemetry because no telemetry reached the
+adapter.
+
+Exploratory diagnostic D1:
+Prove the in-memory exporter/provider path with a direct Agent Framework tracer
+control span in the same process. If the control span exports, rerun the workflow
+and compare. If the framework path still emits no spans, explicitly call the
+documented enable_instrumentation() and run once more as an exploratory probe.
+Do not promote that exploratory result into the original H2 confirmatory pass.
