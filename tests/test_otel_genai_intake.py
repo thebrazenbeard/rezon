@@ -287,3 +287,30 @@ def test_source_payload_digest_binds_fields_outside_normalized_genai_events():
     assert first["events"] == second["events"]
     assert first["source_payload_digest"] != second["source_payload_digest"]
     assert first["intake_digest"] != second["intake_digest"]
+
+
+def test_genai_view_uses_generic_structural_validation_for_all_attributes():
+    payload = _payload()
+    workflow = payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    workflow["attributes"].append(
+        {
+            "key": "custom.structural_payload",
+            "value": {"notAnOtlpValueKind": "ignored-by-old-parser"},
+        }
+    )
+
+    with pytest.raises(
+        OTelGenAIIntakeError,
+        match="exactly one OTLP value kind",
+    ):
+        inspect_otel_genai_export(payload)
+
+
+def test_genai_and_generic_views_bind_the_same_source_payload():
+    from rezon.otel import inspect_otel_export
+
+    payload = _payload()
+    generic = inspect_otel_export(payload)
+    genai = inspect_otel_genai_export(payload)
+
+    assert genai["source_payload_digest"] == generic["source_payload_digest"]
