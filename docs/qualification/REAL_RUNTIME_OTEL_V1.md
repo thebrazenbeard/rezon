@@ -180,3 +180,28 @@ control span in the same process. If the control span exports, rerun the workflo
 and compare. If the framework path still emits no spans, explicitly call the
 documented enable_instrumentation() and run once more as an exploratory probe.
 Do not promote that exploratory result into the original H2 confirmatory pass.
+
+
+### E5 — Microsoft diagnostic control failure
+
+Status: HARNESS DEAD END / NOT A RUNTIME VERDICT
+Run: GitHub Actions 35747016355 / job 106811137568
+Subject: agent-framework 1.19.0
+
+Observed:
+- configure_otel_providers(exporters=[InMemorySpanExporter]) completed;
+- a control span opened through agent_framework.observability.get_tracer()
+  exported zero spans.
+
+Interpretation:
+Current documentation says configure_otel_providers creates/configures providers
+and custom exporters. Therefore this result does not justify blaming Rezon or
+Agent Framework workflow instrumentation. The diagnostic control itself may be
+using a tracer obtained through framework helper state that was initialized
+before provider configuration.
+
+Pivot P3:
+After configure_otel_providers(), create the control tracer through the standard
+opentelemetry.trace.get_tracer API. This directly tests the installed global
+provider/exporter pipeline. Only if that control exports may the workflow-span
+result be interpreted.
