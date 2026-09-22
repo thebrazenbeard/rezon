@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import base64
+import binascii
+from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 import json
+import math
 import re
 
 
@@ -9,7 +13,6 @@ OTEL_INTAKE_SCHEMA = "rezon.otel-intake.v1"
 
 _TRACE_ID = re.compile(r"^[0-9a-fA-F]{32}$")
 _SPAN_ID = re.compile(r"^[0-9a-fA-F]{16}$")
-_INT = re.compile(r"^-?[0-9]+$")
 _ANY_VALUE_KINDS = {
     "stringValue",
     "boolValue",
@@ -84,24 +87,80 @@ def _valid_span_id(value: object) -> bool:
     )
 
 
-def _flags(raw: object) -> int:
+def _integer(
+    raw: object,
+    name: str,
+    *,
+    minimum: int,
+    maximum: int,
+) -> int:
+    if type(raw) is bool or raw is None:
+        raise OTelIntakeError(
+            f"{name} must be an integer-compatible OTLP JSON value"
+        )
+
+    if type(raw) is int:
+        value = raw
+    elif type(raw) is float:
+        if not math.isfinite(raw) or not raw.is_integer():
+            raise OTelIntakeError(
+                f"{name} must be an exact integer"
+            )
+        value = int(raw)
+    elif type(raw) is str and raw:
+        try:
+            decimal = Decimal(raw)
+        except InvalidOperation as exc:
+            raise OTelIntakeError(
+                f"{name} must be an integer-compatible OTLP JSON value"
+            ) from exc
+        if (
+            not decimal.is_finite()
+            or decimal != decimal.to_integral_value()
+        ):
+            raise OTelIntakeError(
+                f"{name} must be an exact integer"
+            )
+        value = int(decimal)
+    else:
+        raise OTelIntakeError(
+            f"{name} must be an integer-compatible OTLP JSON value"
+        )
+
+    if value < minimum or value > maximum:
+        raise OTelIntakeError(
+            f"{name} is outside the permitted integer range"
+        )
+    return value
+
+
+def _uint32(raw: object, name: str) -> int:
+    return _integer(raw, name, minimum=0, maximum=(2**32) - 1)
+
+
+def _uint64(raw: object, name: str) -> int:
+    return _integer(raw, name, minimum=0, maximum=(2**64) - 1)
+
+
+def _int64(raw: object, name: str) -> int:
+    return _integer(
+        raw,
+        name,
+        minimum=-(2**63),
+        maximum=(2**63) - 1,
+    )
+
+
+def _flags(raw: object, name: str = "span.flags") -> int:
     if raw is None:
         return 0
-    if type(raw) is not int or raw < 0 or raw > 0xFFFFFFFF:
-        raise OTelIntakeError(
-            "span.flags must be an unsigned 32-bit integer when present"
-        )
-    return raw
+    return _uint32(raw, name)
 
 
 def _dropped_attributes_count(raw: object, name: str) -> int:
     if raw is None:
         return 0
-    if type(raw) is not int or raw < 0:
-        raise OTelIntakeError(
-            f"{name} must be a non-negative exact integer"
-        )
-    return raw
+    return _uint32(raw, name)
 
 
 def _decode_any_value(raw: object, name: str) -> object:
@@ -126,19 +185,34 @@ def _decode_any_value(raw: object, name: str) -> object:
         return raw_value
 
     if kind == "intValue":
-        if type(raw_value) is int:
-            return raw_value
-        if type(raw_value) is str and _INT.fullmatch(raw_value):
-            return int(raw_value)
-        raise OTelIntakeError(
-            f"{name}.intValue must be an integer or decimal integer string"
-        )
+        return _int64(raw_value, f"{name}.intValue")
 
     if kind == "doubleValue":
+        if type(raw_value) is bool:
+            raise OTelIntakeError(
+                f"{name}.doubleValue must be numeric or a supported special value"
+            )
         if type(raw_value) in (int, float):
+            numeric = float(raw_value)
+            if not math.isfinite(numeric):
+                raise OTelIntakeError(
+                    f"{name}.doubleValue must be finite unless encoded as a supported special string"
+                )
             return raw_value
         if raw_value in ("NaN", "Infinity", "-Infinity"):
             return raw_value
+        if type(raw_value) is str and raw_value:
+            try:
+                numeric = float(raw_value)
+            except ValueError as exc:
+                raise OTelIntakeError(
+                    f"{name}.doubleValue must be numeric or a supported special value"
+                ) from exc
+            if not math.isfinite(numeric):
+                raise OTelIntakeError(
+                    f"{name}.doubleValue is outside the finite double range"
+                )
+            return numeric
         raise OTelIntakeError(
             f"{name}.doubleValue must be numeric or a supported special value"
         )
@@ -148,6 +222,14 @@ def _decode_any_value(raw: object, name: str) -> object:
             raise OTelIntakeError(
                 f"{name}.bytesValue must be a base64 string"
             )
+        try:
+            encoded = raw_value.encode("ascii")
+            padded = encoded + (b"=" * ((-len(encoded)) % 4))
+            base64.b64decode(padded, altchars=b"-_", validate=True)
+        except (UnicodeEncodeError, binascii.Error, ValueError) as exc:
+            raise OTelIntakeError(
+                f"{name}.bytesValue must be valid base64"
+            ) from exc
         return {"bytes_base64": raw_value}
 
     if kind == "arrayValue":
@@ -238,9 +320,14 @@ def _events(raw: object, span_name: str) -> tuple[list[dict[str, object]], bool]
             f"{span_name}.events[{index}].droppedAttributesCount",
         )
         dropped = dropped or dropped_count > 0
+        event_time = _uint64(
+            event.get("timeUnixNano", 0),
+            f"{span_name}.events[{index}].timeUnixNano",
+        )
         events.append(
             {
                 "name": name,
+                "time_unix_nano": event_time,
                 "attributes": _decode_attributes(
                     event.get("attributes", []),
                     f"{span_name}.events[{index}].attributes",
@@ -284,6 +371,10 @@ def _links(raw: object, span_name: str) -> tuple[list[dict[str, object]], bool]:
                     link.get("traceState"),
                     f"{span_name}.links[{index}].traceState",
                 ),
+                "flags": _flags(
+                    link.get("flags"),
+                    f"{span_name}.links[{index}].flags",
+                ),
                 "attributes": _decode_attributes(
                     link.get("attributes", []),
                     f"{span_name}.links[{index}].attributes",
@@ -310,6 +401,9 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
     span_schema_urls: list[str] = []
     seen_span_ids: set[tuple[str, str]] = set()
     any_dropped_attributes = False
+    any_dropped_events = False
+    any_dropped_links = False
+    any_unbound_timing = False
 
     for resource_index, raw_resource_spans in enumerate(resource_spans):
         resource_spans_entry = _require_dict(
@@ -386,14 +480,14 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                         f"scopeSpans[{scope_index}].scope"
                     ),
                 )
-                scope_name = _optional_nonempty_string(
+                scope_name = _optional_string(
                     scope.get("name"),
                     (
                         f"resourceSpans[{resource_index}]."
                         f"scopeSpans[{scope_index}].scope.name"
                     ),
                 )
-                scope_version = _optional_nonempty_string(
+                scope_version = _optional_string(
                     scope.get("version"),
                     (
                         f"resourceSpans[{resource_index}]."
@@ -466,9 +560,41 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                 if span_name is None:
                     raise OTelIntakeError(f"{span_path}.name is required")
 
+                start_time = _uint64(
+                    span.get("startTimeUnixNano", 0),
+                    f"{span_path}.startTimeUnixNano",
+                )
+                end_time = _uint64(
+                    span.get("endTimeUnixNano", 0),
+                    f"{span_path}.endTimeUnixNano",
+                )
+                if start_time and end_time and end_time < start_time:
+                    raise OTelIntakeError(
+                        f"{span_path}.endTimeUnixNano must be greater than or equal to startTimeUnixNano"
+                    )
+                any_unbound_timing = (
+                    any_unbound_timing
+                    or start_time == 0
+                    or end_time == 0
+                )
+
                 dropped_count = _dropped_attributes_count(
                     span.get("droppedAttributesCount"),
                     f"{span_path}.droppedAttributesCount",
+                )
+                dropped_events_count = _uint32(
+                    span.get("droppedEventsCount", 0),
+                    f"{span_path}.droppedEventsCount",
+                )
+                dropped_links_count = _uint32(
+                    span.get("droppedLinksCount", 0),
+                    f"{span_path}.droppedLinksCount",
+                )
+                any_dropped_events = (
+                    any_dropped_events or dropped_events_count > 0
+                )
+                any_dropped_links = (
+                    any_dropped_links or dropped_links_count > 0
                 )
                 events, events_dropped = _events(
                     span.get("events", []),
@@ -495,6 +621,8 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                         "parent_span_id": parent_span_id,
                         "span_name": span_name,
                         "span_kind": _span_kind(span.get("kind")),
+                        "start_time_unix_nano": start_time,
+                        "end_time_unix_nano": end_time,
                         "trace_state": _optional_string(
                             span.get("traceState"),
                             f"{span_path}.traceState",
@@ -518,6 +646,8 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                         "events": events,
                         "links": links,
                         "dropped_attributes_count": dropped_count,
+                        "dropped_events_count": dropped_events_count,
+                        "dropped_links_count": dropped_links_count,
                         "semantic_classification": "unclassified",
                     }
                 )
@@ -534,6 +664,12 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
         assurance_gaps.append("telemetry_schema:unbound")
     if any_dropped_attributes:
         assurance_gaps.append("telemetry_attributes:dropped")
+    if any_dropped_events:
+        assurance_gaps.append("telemetry_events:dropped")
+    if any_dropped_links:
+        assurance_gaps.append("telemetry_links:dropped")
+    if any_unbound_timing:
+        assurance_gaps.append("telemetry_timing:unbound")
 
     body: dict[str, object] = {
         "schema_version": OTEL_INTAKE_SCHEMA,
