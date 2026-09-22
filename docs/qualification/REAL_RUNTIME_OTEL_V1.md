@@ -325,3 +325,22 @@ Observed:
 Pivot P6:
 Enable shell pipefail for the observation pipeline. No runtime result, adapter
 behavior, or compatibility claim changes.
+
+
+### E5 — Microsoft zero-span diagnostic correction
+
+Status: HARNESS DEFECT IDENTIFIED / E4 ZERO-SPAN INTERPRETATION SUPERSEDED
+Evidence: exact Agent Framework observability source inspected after E4.
+
+Finding:
+configure_otel_providers() constructs an OpenTelemetry TracerProvider and attaches
+BatchSpanProcessor instances to custom span exporters. The qualification probe
+read InMemorySpanExporter immediately after span end without forcing the provider
+to flush. Therefore E4's zero-span observation cannot be treated as a framework
+non-emission result.
+
+Correction P3:
+Force-flush the configured tracer provider before every exporter read. Preserve
+the same credential-free workflow and the same no-semantic-synthesis acceptance
+criterion. E4 remains durable as a harness failure record but is not evidence
+against H2.
