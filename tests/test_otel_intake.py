@@ -46,6 +46,8 @@ def _microsoft_like_payload():
                                 "spanId": "aaaaaaaaaaaaaaaa",
                                 "name": "workflow.run",
                                 "kind": 1,
+                                "traceState": "vendor=value",
+                                "flags": 1,
                                 "status": {"code": 1},
                                 "attributes": [
                                     _attr("workflow.id", "stringValue", "wf-1"),
@@ -144,6 +146,8 @@ def test_generic_intake_preserves_multi_trace_workflow_topology_without_semantic
 
     workflow, executor, background = report["spans"]
     assert workflow["span_name"] == "workflow.run"
+    assert workflow["trace_state"] == "vendor=value"
+    assert workflow["flags"] == 1
     assert workflow["resource_attributes"] == {
         "service.name": "agent-framework",
         "service.version": "1.19.0",
@@ -248,3 +252,39 @@ def test_generic_intake_rejects_invalid_identity_and_malformed_attribute_values(
 
     with pytest.raises(OTelIntakeError, match="exactly one OTLP value kind"):
         inspect_otel_export(invalid_value)
+
+
+def test_generic_intake_rejects_non_otlp_json_enum_names():
+    invalid_kind = _microsoft_like_payload()
+    invalid_kind["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["kind"] = (
+        "SPAN_KIND_INTERNAL"
+    )
+
+    with pytest.raises(OTelIntakeError, match="span.kind"):
+        inspect_otel_export(invalid_kind)
+
+    invalid_status = _microsoft_like_payload()
+    invalid_status["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["status"] = {
+        "code": "STATUS_CODE_OK"
+    }
+
+    with pytest.raises(OTelIntakeError, match="status.code"):
+        inspect_otel_export(invalid_status)
+
+
+def test_generic_intake_rejects_all_zero_trace_and_span_ids():
+    zero_trace = _microsoft_like_payload()
+    zero_trace["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["traceId"] = (
+        "0" * 32
+    )
+
+    with pytest.raises(OTelIntakeError, match="traceId"):
+        inspect_otel_export(zero_trace)
+
+    zero_span = _microsoft_like_payload()
+    zero_span["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["spanId"] = (
+        "0" * 16
+    )
+
+    with pytest.raises(OTelIntakeError, match="spanId"):
+        inspect_otel_export(zero_span)
