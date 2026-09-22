@@ -108,13 +108,18 @@ def _subject_name(operation: str, attributes: dict[str, str]) -> str | None:
     return attributes.get(key) if key is not None else None
 
 
-def _canonical_digest(body: dict[str, object]) -> str:
-    encoded = json.dumps(
-        body,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    ).encode("utf-8")
+def _canonical_digest(value: object) -> str:
+    try:
+        encoded = json.dumps(
+            value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise OTelGenAIIntakeError(
+            "OTLP assurance input must be canonically JSON-serializable"
+        ) from exc
     return sha256(encoded).hexdigest()
 
 
@@ -125,6 +130,7 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
     if "resourceSpans" not in root:
         raise OTelGenAIIntakeError("OTLP export requires resourceSpans")
     resource_spans = _require_list(root["resourceSpans"], "resourceSpans")
+    source_payload_digest = _canonical_digest(root)
 
     events: list[dict[str, object]] = []
     ignored_span_count = 0
@@ -262,6 +268,7 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
     body: dict[str, object] = {
         "schema_version": OTEL_GENAI_INTAKE_SCHEMA,
         "semconv_stability": "development",
+        "source_payload_digest": source_payload_digest,
         "schema_urls": schema_urls,
         "trace_ids": trace_ids,
         "events": events,
@@ -289,6 +296,10 @@ def bind_otel_genai_to_run_evidence(
     """Cross-bind an OTLP GenAI workflow span to verified Rezon run evidence."""
 
     intake = inspect_otel_genai_export(otel_payload)
+    if len(intake["trace_ids"]) != 1:
+        raise OTelGenAIIntakeError(
+            "OTLP evidence binding requires exactly one GenAI trace"
+        )
     anchored = [
         event
         for event in intake["events"]
@@ -339,6 +350,7 @@ def bind_otel_genai_to_run_evidence(
         "binding_scope": "trace_to_verified_artifact",
         "trace_ids": intake["trace_ids"],
         "workflow_span_id": anchor["span_id"],
+        "telemetry_source_payload_digest": intake["source_payload_digest"],
         "telemetry_intake_digest": intake["intake_digest"],
         "telemetry_assurance_gaps": list(intake["assurance_gaps"]),
         "evidence_digest": evidence["evidence_digest"],
