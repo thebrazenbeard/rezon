@@ -372,3 +372,28 @@ though the JSON result reproduced the expected Microsoft FAIL.
 Correction P4:
 Enable shell pipefail for the observation pipeline. Do not change the
 qualification expectation or Microsoft compatibility verdict.
+
+
+## Engineering repair gate — generic OTLP intake
+
+Classification: POST-RESULT ENGINEERING QUALIFICATION, not a new confirmatory
+test of H2.
+
+The Microsoft Agent Framework result showed a real provider-neutral boundary:
+the framework emitted native OpenTelemetry workflow spans but no GenAI semantic
+attributes on the credential-free workflow path. Rezon must not synthesize
+gen_ai.* fields merely to make that path pass.
+
+Repair criterion:
+- feed the exact captured Agent Framework spans into the generic Rezon OTLP
+  structural intake;
+- require every captured runtime span to survive normalization;
+- preserve trace hierarchy and emitted native attributes;
+- keep semantic meaning, provenance/currentness, independence, authority, and
+  external effect completion unestablished;
+- simultaneously preserve the original GenAI qualification FAIL when no
+  gen_ai.operation.name exists.
+
+A PASS here means Rezon can observe the runtime structurally without falsely
+classifying its telemetry as GenAI evidence. It does not retroactively turn H2
+into a PASS.
