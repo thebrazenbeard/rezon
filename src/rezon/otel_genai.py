@@ -117,7 +117,7 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
         "schema_version": OTEL_GENAI_INTAKE_SCHEMA,
         "semconv_stability": "development",
         "source_payload_digest": structural["source_payload_digest"],
-        "schema_urls": list(structural["schema_urls"]),
+        "schema_urls": list(structural["span_schema_urls"]),
         "trace_ids": trace_ids,
         "events": events,
         "ignored_span_count": ignored_span_count,
