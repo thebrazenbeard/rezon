@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from hashlib import sha256
 import json
 import math
@@ -179,11 +180,7 @@ def inspect_ensemble_consultation(payload: object) -> dict[str, object]:
         root.get("providers_consulted"),
         "providers_consulted",
     )
-    if len(providers_consulted) != len(set(providers_consulted)):
-        raise ConsultationIntakeError(
-            "providers_consulted contains duplicate provider identity"
-        )
-
+    consulted_counts = Counter(providers_consulted)
     providers_failed = _strings(
         root.get("providers_failed"),
         "providers_failed",
@@ -199,39 +196,62 @@ def inspect_ensemble_consultation(payload: object) -> dict[str, object]:
 
     raw_present = "raw_outputs" in root
     raw_items: list[dict[str, object]] = []
-    raw_provider_to_item: dict[str, dict[str, object]] = {}
+    raw_success_counts: Counter[str] = Counter()
     if raw_present:
         raw_map = _dict(root["raw_outputs"], "raw_outputs")
-        for raw_key, raw_value in raw_map.items():
-            item = _raw_output(raw_key, raw_value)
-            provider = item["provider"]
-            if provider in raw_provider_to_item:
-                raise ConsultationIntakeError(
-                    "raw_outputs contains duplicate provider identity"
-                )
-            raw_provider_to_item[provider] = item
+        parsed = [
+            _raw_output(raw_key, raw_value)
+            for raw_key, raw_value in raw_map.items()
+        ]
 
-        # Normalize in reported consultation order first; append non-success
-        # provider outputs deterministically afterwards.
-        for provider in providers_consulted:
-            item = raw_provider_to_item.get(provider)
-            if item is not None:
-                raw_items.append(item)
-        extras = sorted(
-            (
-                item
-                for provider, item in raw_provider_to_item.items()
-                if provider not in providers_consulted
+        # Canonical normalized order: first appearance of each reported
+        # provider, then model name; non-consulted providers sort afterwards.
+        provider_order: dict[str, int] = {}
+        for index, provider in enumerate(providers_consulted):
+            provider_order.setdefault(provider, index)
+        raw_items = sorted(
+            parsed,
+            key=lambda item: (
+                provider_order.get(
+                    item["provider"],
+                    len(provider_order),
+                ),
+                item["provider"],
+                item["model"],
             ),
-            key=lambda item: (item["provider"], item["model"]),
         )
-        raw_items.extend(extras)
+        raw_success_counts.update(
+            item["provider"]
+            for item in raw_items
+            if item["error"] is None
+        )
 
-    missing_raw = [
-        provider
-        for provider in providers_consulted
-        if provider not in raw_provider_to_item
-    ]
+        for provider, expected_successes in consulted_counts.items():
+            if raw_success_counts[provider] > expected_successes:
+                raise ConsultationIntakeError(
+                    "raw_outputs reports more successful workers than "
+                    f"providers_consulted for provider {provider!r}"
+                )
+
+    missing_raw: list[str] = []
+    for provider, expected_successes in consulted_counts.items():
+        deficit = expected_successes - raw_success_counts[provider]
+        if raw_present and deficit > 0:
+            # When raw outputs are present, a reported consulted member must
+            # have a corresponding successful raw worker. An error record is
+            # not a successful consulted response.
+            provider_raw = [
+                item
+                for item in raw_items
+                if item["provider"] == provider
+            ]
+            if provider_raw and all(
+                item["error"] is not None for item in provider_raw
+            ):
+                raise ConsultationIntakeError(
+                    f"consulted provider {provider!r} has only raw error outputs"
+                )
+        missing_raw.extend([provider] * max(deficit, 0))
 
     if not raw_present or not raw_items:
         raw_binding = "unestablished"
@@ -276,6 +296,8 @@ def inspect_ensemble_consultation(payload: object) -> dict[str, object]:
         assurance_gaps.append(
             "convergence:undefined_for_single_provider"
         )
+    if providers_consulted and len(set(providers_consulted)) == 1:
+        assurance_gaps.append("provider_diversity:single_provider")
 
     body: dict[str, object] = {
         "schema_version": CONSULTATION_INTAKE_SCHEMA,
@@ -287,7 +309,8 @@ def inspect_ensemble_consultation(payload: object) -> dict[str, object]:
             "divergence_findings": divergence_findings,
         },
         "providers_consulted": providers_consulted,
-        "provider_count": len(providers_consulted),
+        "consultation_member_count": len(providers_consulted),
+        "provider_count": len(set(providers_consulted)),
         "providers_failed": providers_failed,
         "partial_failure_reported": bool(providers_failed),
         "providers_skipped": providers_skipped,
@@ -297,6 +320,11 @@ def inspect_ensemble_consultation(payload: object) -> dict[str, object]:
         "reported_total_latency_ms": reported_latency,
         "raw_outputs": raw_items,
         "raw_output_count": len(raw_items),
+        "raw_worker_count": len(raw_items),
+        "raw_output_workers": [
+            f"{item['provider']}/{item['model']}"
+            for item in raw_items
+        ],
         "raw_output_providers": [
             item["provider"] for item in raw_items
         ],
