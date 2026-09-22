@@ -12,6 +12,9 @@ from rezon.replay_strategies import fixed_multipass, rezon_guarded, single_pass
 
 
 DOES_NOT_PROVE = [
+    "independent benchmark performance",
+    "generalization beyond the frozen manually authored corpus",
+    "live external runtime behavior",
     "live provider or model quality",
     "universal external-runtime compatibility",
     "producer authenticity",
@@ -72,7 +75,11 @@ def build_report(path: Path, *, code_version: str) -> dict[str, object]:
     )
 
     return {
-        "evaluation": "rezon-external-assurance-v1",
+        "evaluation": "rezon-assurance-regression-v1",
+        "evaluation_classification": "internal_manual_adversarial_regression",
+        "independent_evaluation": False,
+        "pre_registered_before_guard_design": False,
+        "external_runtime_evidence": False,
         "fixture_version": "external-assurance-v1.0",
         "fixture_path": str(path),
         "fixture_sha256": hashlib.sha256(raw).hexdigest(),
@@ -97,7 +104,9 @@ def build_report(path: Path, *, code_version: str) -> dict[str, object]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run Rezon external assurance evaluation V1"
+        description=(
+            "Run Rezon internal manually authored adversarial assurance regression V1"
+        )
     )
     parser.add_argument(
         "fixture",
