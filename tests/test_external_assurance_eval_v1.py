@@ -98,7 +98,13 @@ def test_external_assurance_runner_emits_bound_nonpromotional_report():
     )
     report = json.loads(completed.stdout)
 
-    assert report["evaluation"] == "rezon-external-assurance-v1"
+    assert report["evaluation"] == "rezon-assurance-regression-v1"
+    assert report["evaluation_classification"] == (
+        "internal_manual_adversarial_regression"
+    )
+    assert report["independent_evaluation"] is False
+    assert report["pre_registered_before_guard_design"] is False
+    assert report["external_runtime_evidence"] is False
     assert report["fixture_version"] == "external-assurance-v1.0"
     assert report["code_version"] == "test-exact-head"
     assert report["case_count"] == 10
@@ -113,6 +119,10 @@ def test_external_assurance_runner_emits_bound_nonpromotional_report():
     assert report["strategies"]["trace_only_primary"]["false_accepts"] == 8
     assert report["strategies"]["ungoverned_exact_vote"]["false_accepts"] == 8
     assert report["strategies"]["rezon_guarded"]["false_abstains"] == 0
-    assert report["does_not_prove"]
+    assert "independent benchmark performance" in report["does_not_prove"]
+    assert "generalization beyond the frozen manually authored corpus" in (
+        report["does_not_prove"]
+    )
+    assert "live external runtime behavior" in report["does_not_prove"]
     assert "winner" not in report
     assert "best_strategy" not in report
