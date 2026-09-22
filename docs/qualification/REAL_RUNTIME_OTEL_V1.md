@@ -224,3 +224,26 @@ a synchronous simple exporter.
 Pivot P4:
 Call the installed tracer provider's force_flush() before every exporter
 readback. No qualification hypothesis or Rezon acceptance rule changes.
+
+
+### E7 — Microsoft string-enum attribute key boundary
+
+Status: QUALIFICATION PROJECTION DEFECT / NOT A RUNTIME VERDICT
+Run: GitHub Actions 35748467846 / job 106816056155
+Subject: agent-framework 1.19.0
+
+Observed:
+- the batch-export flush defect was repaired;
+- the control span exported, so provider/exporter wiring was proven live;
+- workflow telemetry reached the Rezon qualification projection;
+- Rezon rejected projected attribute key type OtelAttr because the projection
+  preserved the Python str-Enum object instead of emitting its JSON string value.
+
+Source inspection:
+agent_framework.observability.OtelAttr subclasses str and Enum and defines
+__str__ to return the canonical attribute value (for example workflow.id).
+
+Pivot P5:
+The qualification projection will accept only isinstance(key, str) keys and
+serialize str(key). Non-string keys still fail. Rezon's OTLP/JSON parser remains
+strict and unchanged.
