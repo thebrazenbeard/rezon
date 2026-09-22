@@ -31,13 +31,33 @@ A valid artifact proves internal structural consistency of that Rezon evidence
 artifact. It does not prove semantic truth, source authenticity outside the
 recorded bindings, external authority, deployment state, or reasoning superiority.
 
+## Generic OpenTelemetry structural intake
+
+Rezon accepts ordinary OTLP/JSON traces without requiring GenAI semantic
+conventions:
+
+    rezon inspect-otel trace.json
+
+The generic intake validates trace/span identities, rejects duplicate
+attributes, decodes OTLP scalar/array/key-value attribute types, preserves
+resource and instrumentation-scope identity, span hierarchy, events and links,
+reports dropped attributes and unbound schemas, and binds both the complete
+source payload and normalized intake with deterministic digests.
+
+Generic intake does not infer a semantic role from a span name or vendor
+attribute. A span named workflow.run is observed as a span named workflow.run;
+that observation alone does not establish what the operation means, whether its
+inputs are current, whether workers are independent, whether an actor was
+authorized, or whether an external effect durably completed.
+
 ## OpenTelemetry GenAI reference intake
 
-The first dependency-free external intake accepts OTLP/JSON GenAI traces:
+The GenAI projection accepts structurally valid OTLP/JSON and then selects
+spans that actually carry GenAI operation semantics:
 
     rezon inspect-otel-genai trace.json
 
-The intake:
+The GenAI projection:
 
 - validates OTLP trace/span identities used by the adapter;
 - rejects duplicate attribute keys instead of applying ambiguous last-value wins;
@@ -99,6 +119,22 @@ the unresolved telemetry assurance gaps and still does not prove:
 
 The source-payload digest establishes content binding, not producer
 authenticity. Mutual consistency is not authenticity.
+
+## Real-runtime boundary evidence
+
+The credential-free qualification currently distinguishes two exact runtime
+subjects:
+
+- OpenAI Agents SDK 0.22.3 with its OTel instrumentation emitted three spans
+  carrying real gen_ai.* semantics; Rezon observed execute_tool and invoke_agent
+  while retaining its assurance gaps.
+- Microsoft Agent Framework 1.19.0 emitted seven native workflow spans on the
+  tested Executor + WorkflowBuilder path, but no gen_ai.* attributes. Generic
+  Rezon intake accepts those spans structurally; GenAI intake correctly leaves
+  them outside the GenAI view.
+
+This is deliberately not normalized into a claim that both runtimes expose the
+same semantics.
 
 ## Integration direction
 

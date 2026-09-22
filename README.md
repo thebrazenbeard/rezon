@@ -61,12 +61,23 @@ was authorized or completed.
 
 ## External telemetry intake
 
-Rezon now has a dependency-free reference intake for OpenTelemetry OTLP/JSON
-GenAI traces:
+Rezon has a dependency-free structural intake for generic OpenTelemetry
+OTLP/JSON traces:
+
+    rezon inspect-otel trace.json
+
+That layer preserves typed attributes, resource/instrumentation-scope identity,
+trace hierarchy, events, links, schema visibility, dropped-attribute gaps, and
+a canonical full-payload binding. It deliberately classifies semantic meaning,
+provenance/currentness, independence, authority, and external effect completion
+as unestablished.
+
+GenAI inspection is a semantic projection over that structural layer rather
+than a second parser:
 
     rezon inspect-otel-genai trace.json
 
-A workflow span can bind itself to a Rezon evidence artifact with
+A GenAI workflow span can bind itself to a Rezon evidence artifact with
 application-specific Rezon digest/schema attributes:
 
     rezon bind-otel-evidence trace.json run-evidence.json
@@ -108,10 +119,15 @@ See 'docs/PORTABLE_ASSURANCE_LAYER.md'.
 
 ## Near-term direction
 
-The first provider-neutral external intake now exists as an OTLP/JSON candidate.
-The next useful work is not another orchestration layer: exercise the adapter
-against real independent runtimes and measure whether Rezon catches stale,
-correlated, incomplete, substituted, or unauthorized evidence that simpler
-trace-only acceptance misses.
+The external boundary has now been exercised against two independent runtime
+subjects. OpenAI Agents SDK telemetry produced consumable GenAI operations.
+Microsoft Agent Framework's credential-free workflow path produced native
+OpenTelemetry workflow spans but no gen_ai.* operation semantics; those spans
+are now consumable through the generic structural intake without being
+misclassified as GenAI evidence.
+
+The next useful work is adversarial cross-runtime measurement: determine whether
+Rezon catches stale, correlated, incomplete, substituted, or unauthorized
+evidence that simpler trace-only acceptance misses.
 
 No merge or protected runtime effect is implied by this repository state.

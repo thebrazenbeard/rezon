@@ -1,0 +1,119 @@
+name: Real runtime OTLP qualification
+
+on:
+  push:
+    branches:
+      - "qualification/real-runtime-otel-v1-20260922"
+  pull_request:
+    paths:
+      - "src/rezon/otel.py"
+      - "src/rezon/otel_genai.py"
+      - "scripts/runtime_otel_support.py"
+      - "scripts/qualify_openai_agents_otel.py"
+      - "scripts/qualify_microsoft_agent_framework_otel.py"
+      - ".github/workflows/real-runtime-otel-qualification.yml"
+      - "docs/qualification/REAL_RUNTIME_OTEL_V1.md"
+
+jobs:
+  openai-agents:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install qualification subject
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install             "openai-agents==0.22.3"             "opentelemetry-sdk"             "opentelemetry-instrumentation-openai-agents==0.62.3"
+      - name: Qualify OpenAI Agents telemetry
+        env:
+          OPENAI_AGENTS_TRACE_INCLUDE_SENSITIVE_DATA: "0"
+          OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "no_content"
+        run: python scripts/qualify_openai_agents_otel.py
+
+  microsoft-agent-framework:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install qualification subject
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install             "agent-framework==1.19.0"             "opentelemetry-sdk"
+      - name: Observe Microsoft Agent Framework qualification
+        id: microsoft_qualification
+        continue-on-error: true
+        env:
+          ENABLE_SENSITIVE_DATA: "false"
+          ENABLE_MESSAGE_EVENTS: "false"
+        run: |
+          set -o pipefail
+          python scripts/qualify_microsoft_agent_framework_otel.py \
+            | tee /tmp/microsoft-qualification.jsonl
+      - name: Assert recorded Microsoft compatibility gap
+        env:
+          QUALIFICATION_STEP_OUTCOME: ${{ steps.microsoft_qualification.outcome }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          outcome = os.environ["QUALIFICATION_STEP_OUTCOME"]
+          if outcome != "failure":
+              raise SystemExit(
+                  "Microsoft qualification no longer reproduces the recorded FAIL; "
+                  "re-qualify before changing the compatibility claim"
+              )
+
+          reports = []
+          for line in Path("/tmp/microsoft-qualification.jsonl").read_text().splitlines():
+              if line.startswith("{"):
+                  reports.append(json.loads(line))
+          if not reports:
+              raise SystemExit("Microsoft qualification emitted no JSON result")
+
+          report = reports[-1]
+          expected_reason = "default_path_emitted_no_rezon_consumable_genai_events"
+          if report.get("qualification") != "FAIL":
+              raise SystemExit(f"unexpected qualification: {report}")
+          if report.get("reason") != expected_reason:
+              raise SystemExit(f"unexpected Microsoft failure reason: {report}")
+          if report.get("exporter_control_span_count", 0) < 1:
+              raise SystemExit("exporter/provider control was not proven live")
+          if report.get("default_runtime_span_count", 0) < 1:
+              raise SystemExit("Agent Framework emitted no native workflow spans")
+          if report.get("generic_structural_intake") != "PASS":
+              raise SystemExit("generic Rezon OTLP intake did not accept native spans")
+          if report.get("default_generic_span_count") != report.get(
+              "default_runtime_span_count"
+          ):
+              raise SystemExit("generic Rezon OTLP intake lost native spans")
+          if report.get("default_genai_attribute_keys") != []:
+              raise SystemExit("Microsoft workflow GenAI semantics changed; re-qualify")
+          if report.get("default_rezon_event_operations") != []:
+              raise SystemExit("Rezon GenAI intake behavior changed; re-qualify")
+
+          exploratory = report.get("explicit_enable_probe", {})
+          if exploratory.get("generic_structural_intake") != "PASS":
+              raise SystemExit("explicit-enable generic OTLP intake failed")
+          if exploratory.get("rezon_event_operations") != []:
+              raise SystemExit("explicit-enable probe now emits consumable GenAI events")
+
+          print(
+              json.dumps(
+                  {
+                      "monitor": "PASS",
+                      "recorded_qualification": "FAIL",
+                      "reason": expected_reason,
+                      "native_span_count": report["default_runtime_span_count"],
+                  },
+                  sort_keys=True,
+              )
+          )
+          PY
