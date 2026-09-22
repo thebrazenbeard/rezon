@@ -8,8 +8,8 @@ from agent_framework import Executor, WorkflowBuilder, WorkflowContext, handler
 from agent_framework.observability import (
     configure_otel_providers,
     enable_instrumentation,
-    get_tracer,
 )
+from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from typing_extensions import Never
 
@@ -59,7 +59,10 @@ def main() -> int:
     exporter = InMemorySpanExporter()
     configure_otel_providers(exporters=[exporter])
 
-    with get_tracer().start_as_current_span("rezon.qualification.exporter_control"):
+    control_tracer = otel_trace.get_tracer("rezon.qualification.control")
+    with control_tracer.start_as_current_span(
+        "rezon.qualification.exporter_control"
+    ):
         pass
     control_spans = exporter.get_finished_spans()
     if not control_spans:
