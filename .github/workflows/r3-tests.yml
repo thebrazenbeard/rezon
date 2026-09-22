@@ -1,0 +1,75 @@
+name: Rezon kernel tests
+
+on:
+  push:
+    branches:
+      - work/rezon-kernel-v0-r3-mune-red
+      - work/rezon-kernel-v0-r3-mune
+      - work/rezon-kernel-v0-r4-mune
+      - work/rezon-kernel-v0-r5-independence
+      - work/rezon-kernel-v0-r6-hostile-hardening
+      - work/rezon-kernel-v0-r7-hostile-hardening
+      - work/rezon-kernel-v0-r8-authority-fail-closed
+      - work/rezon-kernel-v0-r9-context-isolation
+      - work/rezon-kernel-v0-r10-task-envelope-projection
+      - work/rezon-kernel-v0-r11-task-spec-boundary
+      - work/rezon-kernel-v0-r12-episode-version-isolation
+      - work/rezon-kernel-v0-r13-opaque-execution-identity
+      - work/rezon-kernel-v0-r14-attempt-vs-producer-identity
+      - work/rezon-kernel-v0-r15-canonical-state-digest-binding
+      - work/rezon-kernel-v0-r16-canonical-production-event-identity
+      - work/rezon-kernel-v0-r17-task-bound-production-identity
+      - work/rezon-kernel-v0-r18-mandatory-state-binding
+      - work/rezon-kernel-v0-r19-atomic-admission
+      - work/rezon-kernel-v0-r20-transaction-rollback
+      - work/rezon-kernel-v0-r21-nonnullable-state-binding
+      - work/rezon-kernel-v0-r22-exact-string-state-binding
+      - work/rezon-kernel-v0-r23-exact-task-specification
+      - work/rezon-kernel-v0-r24-exact-admission-identities
+      - work/rezon-kernel-v0-r25-exact-admission-contract
+      - work/rezon-kernel-v0-r26-exact-episode-boundary
+      - work/rezon-kernel-v0-r27-exact-retrieval-admission
+      - work/rezon-kernel-v0-r28-unambiguous-source-version-binding
+      - work/rezon-kernel-v0-r29-exact-independence-contract
+      - work/rezon-kernel-v0-r30-exact-node-descriptor-preflight
+      - work/rezon-kernel-v0-r31-exact-task-envelope-contract
+      - work/rezon-kernel-v0-r32-exact-scheduler-binding
+      - work/rezon-kernel-v0-r33-exact-runner-budget-contract
+      - work/rezon-kernel-v0-r34-exact-run-task-id-contract
+      - work/rezon-kernel-v0-r35-exact-run-episode-contract
+      - work/rezon-kernel-v0-r36-frozen-runner-node-set
+      - work/rezon-kernel-v0-r37-executor-episode-rollback
+      - work/rezon-kernel-v0-r38-exact-execution-result-boundary
+      - work/rezon-kernel-v0-r39-exact-runner-control-subobjects
+      - work/rezon-kernel-v0-r40-targeted-executor-transaction
+      - work/rezon-kernel-v0-r41-frozen-runner-node-controls
+      - work/rezon-kernel-v0-r42-frozen-task-envelope
+      - work/rezon-kernel-v0-r43-independence-source-version
+      - work/rezon-kernel-v0-r44-nonempty-admission-execution-id
+      - work/rezon-kernel-v0-r45-nonempty-source-refs
+      - work/rezon-kernel-v0-r46-receipt-output-binding
+      - work/rezon-kernel-v0-r47-receipt-producer-binding
+      - work/rezon-kernel-v0-r48-combined-producer-receipt
+      - work/rezon-kernel-v0-r49-project-runner-evidence-export
+      - work/rezon-kernel-v0-r50-receipt-source-version-binding
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+          python -m pip install -e .
+      - name: Compile
+        run: python -m compileall -q src
+      - name: Test
+        run: pytest -q
+      - name: Diff check
+        run: git diff --check
