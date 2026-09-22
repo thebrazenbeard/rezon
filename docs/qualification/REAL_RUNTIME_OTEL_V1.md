@@ -89,3 +89,46 @@ The projection is not claimed to be byte-for-byte exporter output.
 - Microsoft Agent Framework: 1.19.0 (PyPI release 2026-09-18).
 - OpenTelemetry OpenAI Agents instrumentation route is version-pinned in the CI
   workflow and remains qualification-only, not a Rezon runtime dependency.
+
+
+## Evidence log
+
+### E1 — OpenAI runtime capture
+
+Status: CONFIRMATORY PASS
+Run: GitHub Actions 35746266230 / job 106808579975
+Subject: openai-agents 0.22.3 + opentelemetry-instrumentation-openai-agents 0.62.3
+
+Observed:
+- qualification dependencies installed successfully;
+- native OpenAI Agents trace/agent/function span APIs executed without model or
+  cloud credentials;
+- in-memory OpenTelemetry exporter captured 3 spans;
+- emitted GenAI keys included gen_ai.operation.name, gen_ai.agent.name,
+  gen_ai.tool.name, gen_ai.tool.type, and gen_ai.provider.name;
+- Rezon observed execute_tool and invoke_agent;
+- Rezon preserved authority/effect/currentness/independence gaps.
+
+Disposition: H1 confirmed for this exact package pair and credential-free probe.
+This does not qualify model-call telemetry or all OpenAI Agents span families.
+
+### E2 — Microsoft first attempt
+
+Status: HARNESS DEAD END / NOT A RUNTIME VERDICT
+Run: GitHub Actions 35746266230 / job 106808583722
+Subject: agent-framework 1.19.0
+
+Observed:
+- package installation succeeded;
+- qualification did not execute because importing use_agent_instrumentation from
+  package root raised ImportError.
+
+Cause:
+The live installed package does not re-export use_agent_instrumentation from
+agent_framework.__init__. The current API reference documents the function in
+agent_framework.observability while an embedded example still shows a package-
+root import.
+
+Pivot P1:
+Change only the harness import to agent_framework.observability. Do not change
+the hypothesis, expected telemetry, or Rezon acceptance rules.
