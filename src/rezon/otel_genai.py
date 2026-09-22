@@ -4,6 +4,9 @@ from hashlib import sha256
 import json
 import re
 
+from .audit import verify_run_evidence
+from .interop import RunEvidenceError
+
 
 OTEL_GENAI_INTAKE_SCHEMA = "rezon.otel-genai-intake.v1"
 _SUPPORTED_OPERATIONS = {
@@ -203,6 +206,10 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
                         "operation": operation,
                         "subject_name": _subject_name(operation, attributes),
                         "provider_name": attributes.get("gen_ai.provider.name"),
+                        "run_evidence_digest": attributes.get("rezon.run_evidence.digest"),
+                        "run_evidence_schema_version": attributes.get(
+                            "rezon.run_evidence.schema_version"
+                        ),
                         "status": _status(span.get("status")),
                         "execution_observed": True,
                     }
@@ -238,4 +245,72 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
     return {
         **body,
         "intake_digest": _canonical_digest(body),
+    }
+
+
+def bind_otel_genai_to_run_evidence(
+    otel_payload: object,
+    evidence_payload: object,
+) -> dict[str, object]:
+    """Cross-bind an OTLP GenAI workflow span to verified Rezon run evidence."""
+
+    intake = inspect_otel_genai_export(otel_payload)
+    anchored = [
+        event
+        for event in intake["events"]
+        if event["operation"] == "invoke_workflow"
+        and (
+            event["run_evidence_digest"] is not None
+            or event["run_evidence_schema_version"] is not None
+        )
+    ]
+    if not anchored:
+        raise OTelGenAIIntakeError("OTLP workflow has no Rezon evidence anchor")
+    if len(anchored) != 1:
+        raise OTelGenAIIntakeError(
+            "OTLP workflow must contain exactly one Rezon evidence anchor"
+        )
+
+    anchor = anchored[0]
+    anchor_digest = anchor["run_evidence_digest"]
+    anchor_schema = anchor["run_evidence_schema_version"]
+    if type(anchor_digest) is not str or not re.fullmatch(r"[0-9a-fA-F]{64}", anchor_digest):
+        raise OTelGenAIIntakeError(
+            "Rezon evidence anchor digest must be exactly 64 hex characters"
+        )
+    if type(anchor_schema) is not str or not anchor_schema:
+        raise OTelGenAIIntakeError(
+            "Rezon evidence anchor schema must be a non-empty string"
+        )
+
+    try:
+        evidence = verify_run_evidence(evidence_payload)
+    except RunEvidenceError as exc:
+        raise OTelGenAIIntakeError(
+            f"Rezon run evidence verification failed: {exc}"
+        ) from exc
+
+    if anchor_digest != evidence["evidence_digest"]:
+        raise OTelGenAIIntakeError(
+            "OTLP Rezon evidence digest does not match verified artifact"
+        )
+    if anchor_schema != evidence["schema_version"]:
+        raise OTelGenAIIntakeError(
+            "OTLP Rezon evidence schema does not match verified artifact"
+        )
+
+    body: dict[str, object] = {
+        "binding_schema_version": "rezon.otel-run-evidence-binding.v1",
+        "binding_status": "verified",
+        "trace_ids": intake["trace_ids"],
+        "workflow_span_id": anchor["span_id"],
+        "evidence_digest": evidence["evidence_digest"],
+        "evidence_schema_version": evidence["schema_version"],
+        "evidence_effect_state": evidence["effect_state"],
+        "authority": "unestablished",
+        "effect_completion": "unestablished",
+    }
+    return {
+        **body,
+        "binding_digest": _canonical_digest(body),
     }
