@@ -9,12 +9,6 @@ from .interop import RunEvidenceError
 
 
 OTEL_GENAI_INTAKE_SCHEMA = "rezon.otel-genai-intake.v1"
-_SUPPORTED_OPERATIONS = {
-    "invoke_workflow",
-    "invoke_agent",
-    "plan",
-    "execute_tool",
-}
 _TRACE_ID = re.compile(r"^[0-9a-fA-F]{32}$")
 _SPAN_ID = re.compile(r"^[0-9a-fA-F]{16}$")
 
@@ -53,6 +47,10 @@ def _attributes(raw: object, name: str) -> dict[str, str]:
         )
         if key is None:
             raise OTelGenAIIntakeError(f"{name}[{index}].key is required")
+        if key in values:
+            raise OTelGenAIIntakeError(
+                f"{name} contains duplicate attribute key: {key}"
+            )
         raw_value = _require_dict(
             attribute.get("value"),
             f"{name}[{index}].value",
@@ -184,9 +182,13 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
                     "span.attributes",
                 )
                 operation = attributes.get("gen_ai.operation.name")
-                if operation not in _SUPPORTED_OPERATIONS:
+                if operation is None:
                     ignored_span_count += 1
                     continue
+                if type(operation) is not str or not operation:
+                    raise OTelGenAIIntakeError(
+                        "gen_ai.operation.name must be a non-empty string"
+                    )
 
                 if trace_id not in trace_ids:
                     trace_ids.append(trace_id)
