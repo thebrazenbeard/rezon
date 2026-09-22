@@ -26,6 +26,8 @@ def _source(
 def _candidate(
     candidate_id: str = "cand-1",
     *,
+    worker_id: str | None = None,
+    execution_id: str | None = None,
     answer: str | None = "A",
     solved_request: str | None = "What is current?",
     source_refs: tuple[str, ...] = ("source-1",),
@@ -42,8 +44,8 @@ def _candidate(
 ) -> ReplayCandidate:
     return ReplayCandidate(
         candidate_id=candidate_id,
-        worker_id=f"worker-{candidate_id}",
-        execution_id=f"exec-{candidate_id}",
+        worker_id=worker_id or f"worker-{candidate_id}",
+        execution_id=execution_id or f"exec-{candidate_id}",
         answer=answer,
         solved_request=solved_request,
         source_refs=source_refs,
@@ -305,3 +307,74 @@ def test_shared_source_refs_are_surfaced_without_false_worker_contamination():
         for item in guarded.trace
     )
     assert "shared_evidence_overlap:source-1" in guarded.unresolved
+
+
+
+def test_duplicate_execution_identity_fails_structural_validation():
+    inp = _input(
+        _candidate(
+            "cand-1",
+            worker_id="worker-a",
+            execution_id="exec-shared",
+            model_id="model-a",
+            provider_id="provider-a",
+            prompt_lineage="prompt-a",
+            context_lineage="context-a",
+        ),
+        _candidate(
+            "cand-2",
+            worker_id="worker-b",
+            execution_id="exec-shared",
+            model_id="model-b",
+            provider_id="provider-b",
+            prompt_lineage="prompt-b",
+            context_lineage="context-b",
+        ),
+    )
+
+    import pytest
+    from rezon.replay import ReplayValidationError
+
+    with pytest.raises(ReplayValidationError, match="execution IDs must be unique"):
+        rezon_guarded(inp)
+
+
+def test_independence_guard_blocks_same_worker_across_distinct_executions():
+    inp = _input(
+        _candidate(
+            "cand-1",
+            worker_id="worker-shared",
+            execution_id="exec-a",
+            model_id="model-a",
+            provider_id="provider-a",
+            prompt_lineage="prompt-a",
+            context_lineage="context-a",
+        ),
+        _candidate(
+            "cand-2",
+            worker_id="worker-shared",
+            execution_id="exec-b",
+            model_id="model-b",
+            provider_id="provider-b",
+            prompt_lineage="prompt-b",
+            context_lineage="context-b",
+        ),
+    )
+
+    guarded = rezon_guarded(inp)
+    ablated = rezon_guarded(
+        inp,
+        guards=_without(GuardName.INDEPENDENCE_CONTAMINATION),
+    )
+
+    assert guarded.disposition is Disposition.ABSTAIN
+    assert "INDEPENDENCE_CONTAMINATION" in guarded.violations_detected
+    assert any(
+        item == "guard:independence_contamination:correlated:reject:cand-1"
+        for item in guarded.trace
+    )
+    assert any(
+        item == "guard:independence_contamination:correlated:reject:cand-2"
+        for item in guarded.trace
+    )
+    assert ablated.disposition is Disposition.ANSWER
