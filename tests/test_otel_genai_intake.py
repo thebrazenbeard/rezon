@@ -127,14 +127,28 @@ def test_successful_tool_telemetry_does_not_establish_rezon_authority_or_effect_
     assert "effect_completion:not_established_by_otel" in report["assurance_gaps"]
 
 
-def test_schema_url_is_preserved_when_exporter_provides_one():
+def test_scope_schema_url_binds_genai_semantic_convention_version():
     payload = _payload()
-    payload["resourceSpans"][0]["schemaUrl"] = "https://opentelemetry.io/schemas/1.44.0"
+    payload["resourceSpans"][0]["scopeSpans"][0]["schemaUrl"] = (
+        "https://opentelemetry.io/schemas/1.44.0"
+    )
 
     report = inspect_otel_genai_export(payload)
 
     assert report["schema_urls"] == ["https://opentelemetry.io/schemas/1.44.0"]
     assert "semantic_convention_version:unbound" not in report["assurance_gaps"]
+
+
+def test_resource_schema_alone_does_not_bind_genai_semantic_convention_version():
+    payload = _payload()
+    payload["resourceSpans"][0]["schemaUrl"] = (
+        "https://opentelemetry.io/schemas/1.44.0"
+    )
+
+    report = inspect_otel_genai_export(payload)
+
+    assert report["events"][0]["schema_url"] is None
+    assert "semantic_convention_version:unbound" in report["assurance_gaps"]
 
 
 def test_invalid_or_duplicate_otlp_span_identity_fails_closed():
