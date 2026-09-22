@@ -414,3 +414,31 @@ def test_empty_instrumentation_scope_identity_is_valid_unknown_state():
 
     assert report["spans"][0]["instrumentation_scope"]["name"] == ""
     assert report["spans"][0]["instrumentation_scope"]["version"] == ""
+
+
+
+def test_empty_schema_urls_are_valid_unbound_defaults():
+    payload = _microsoft_like_payload()
+    payload["resourceSpans"][0]["schemaUrl"] = ""
+    payload["resourceSpans"][0]["scopeSpans"][0]["schemaUrl"] = ""
+
+    report = inspect_otel_export(payload)
+
+    assert report["spans"][0]["schema_url"] is None
+    assert report["spans"][0]["resource_schema_url"] is None
+    assert "telemetry_schema:unbound" in report["assurance_gaps"]
+
+
+def test_status_message_is_preserved_without_changing_status_semantics():
+    payload = _microsoft_like_payload()
+    workflow = payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    workflow["status"] = {
+        "code": 2,
+        "message": "upstream tool failed",
+    }
+
+    report = inspect_otel_export(payload)
+    observed = report["spans"][0]
+
+    assert observed["status"] == "error"
+    assert observed["status_message"] == "upstream tool failed"
