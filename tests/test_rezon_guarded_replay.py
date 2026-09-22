@@ -271,3 +271,37 @@ def test_independence_guard_accepts_explicitly_distinct_multiworker_lineage():
     assert outcome.disposition is Disposition.ANSWER
     assert outcome.answer == "A"
     assert "INDEPENDENCE_CONTAMINATION" not in outcome.violations_detected
+
+
+
+def test_independence_guard_detects_shared_source_refs_without_common_evidence_hint():
+    inp = _input(
+        _candidate(
+            "cand-1",
+            source_refs=("source-1",),
+            model_id="model-a",
+            provider_id="provider-a",
+            prompt_lineage="prompt-a",
+            context_lineage="context-a",
+            common_evidence_refs=(),
+        ),
+        _candidate(
+            "cand-2",
+            source_refs=("source-1",),
+            model_id="model-b",
+            provider_id="provider-b",
+            prompt_lineage="prompt-b",
+            context_lineage="context-b",
+            common_evidence_refs=(),
+        ),
+    )
+
+    guarded = rezon_guarded(inp)
+    ablated = rezon_guarded(
+        inp,
+        guards=_without(GuardName.INDEPENDENCE_CONTAMINATION),
+    )
+
+    assert guarded.disposition is Disposition.ABSTAIN
+    assert "INDEPENDENCE_CONTAMINATION" in guarded.violations_detected
+    assert ablated.disposition is Disposition.ANSWER
