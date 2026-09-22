@@ -180,6 +180,7 @@ def test_verified_binding_preserves_unresolved_telemetry_assurance_gaps():
 
     assert binding["binding_status"] == "verified"
     assert binding["binding_scope"] == "trace_to_verified_artifact"
+    assert binding["telemetry_source_payload_digest"]
     assert binding["telemetry_intake_digest"]
     assert "semantic_convention_version:unbound" in (
         binding["telemetry_assurance_gaps"]
@@ -203,3 +204,34 @@ def test_binding_digest_changes_when_bound_telemetry_changes():
     assert first["evidence_digest"] == second["evidence_digest"]
     assert first["telemetry_intake_digest"] != second["telemetry_intake_digest"]
     assert first["binding_digest"] != second["binding_digest"]
+
+
+def test_binding_rejects_ambiguous_multi_trace_genai_batch():
+    evidence = _evidence()
+    otel = _otel(evidence)
+    otel["resourceSpans"].append(
+        {
+            "scopeSpans": [
+                {
+                    "spans": [
+                        {
+                            "traceId": "dddddddddddddddddddddddddddddddd",
+                            "spanId": "eeeeeeeeeeeeeeee",
+                            "name": "invoke_agent unrelated",
+                            "status": {"code": 1},
+                            "attributes": [
+                                _attr("gen_ai.operation.name", "invoke_agent"),
+                                _attr("gen_ai.agent.name", "unrelated"),
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+
+    with pytest.raises(
+        otel_genai.OTelGenAIIntakeError,
+        match="exactly one GenAI trace",
+    ):
+        _bind(otel, evidence)
