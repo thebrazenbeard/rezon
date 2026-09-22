@@ -203,9 +203,12 @@ def test_duplicate_attribute_key_rejected_even_when_first_value_is_not_string():
     workflow["attributes"].insert(
         0,
         {
-            "key": "gen_ai.operation.name",
+            "key": "custom.attribute",
             "value": {"intValue": "1"},
         },
+    )
+    workflow["attributes"].append(
+        _attr("custom.attribute", "second-value")
     )
 
     with pytest.raises(OTelGenAIIntakeError, match="duplicate attribute"):
