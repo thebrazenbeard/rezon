@@ -344,3 +344,31 @@ Force-flush the configured tracer provider before every exporter read. Preserve
 the same credential-free workflow and the same no-semantic-synthesis acceptance
 criterion. E4 remains durable as a harness failure record but is not evidence
 against H2.
+
+
+### E6 — Microsoft monitor pipeline defect
+
+Status: MONITOR HARNESS DEFECT / QUALIFICATION RESULT UNAFFECTED
+Run: GitHub Actions 35770468175 / job 106890581894
+
+Observed qualification result after batch flush:
+- exporter/provider control span: 1;
+- native Agent Framework workflow spans: 7;
+- span names included workflow.build, executor.process, message.send,
+  edge_group.process, and workflow.run;
+- default gen_ai attribute keys: none;
+- default Rezon event operations: none;
+- explicit enable_instrumentation exploratory probe produced the same 7 native
+  spans and still no GenAI semantics;
+- qualification reason:
+  default_path_emitted_no_rezon_consumable_genai_events.
+
+Monitor defect:
+The observation shell piped the deliberately nonzero qualification probe through
+tee without pipefail, causing the GitHub step outcome to be reported as success.
+The subsequent monitor correctly rejected that inconsistent step outcome even
+though the JSON result reproduced the expected Microsoft FAIL.
+
+Correction P4:
+Enable shell pipefail for the observation pipeline. Do not change the
+qualification expectation or Microsoft compatibility verdict.
