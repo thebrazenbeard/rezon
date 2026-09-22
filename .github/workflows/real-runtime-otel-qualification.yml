@@ -51,7 +51,9 @@ jobs:
           ENABLE_SENSITIVE_DATA: "false"
           ENABLE_MESSAGE_EVENTS: "false"
         run: |
-          python scripts/qualify_microsoft_agent_framework_otel.py             | tee /tmp/microsoft-qualification.jsonl
+          set -o pipefail
+          python scripts/qualify_microsoft_agent_framework_otel.py \
+            | tee /tmp/microsoft-qualification.jsonl
       - name: Assert recorded Microsoft compatibility gap
         env:
           QUALIFICATION_STEP_OUTCOME: ${{ steps.microsoft_qualification.outcome }}
