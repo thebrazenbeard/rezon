@@ -141,7 +141,7 @@ def test_scope_schema_url_binds_genai_semantic_convention_version():
 
 def test_resource_schema_alone_does_not_bind_genai_semantic_convention_version():
     payload = _payload()
-    payload["resourceSpans"][0]["scopeSpans"][0]["schemaUrl"] = (
+    payload["resourceSpans"][0]["schemaUrl"] = (
         "https://opentelemetry.io/schemas/1.44.0"
     )
 
@@ -231,7 +231,7 @@ def test_duplicate_attribute_key_rejected_even_when_first_value_is_not_string():
 
 def test_schema_binding_is_evaluated_per_genai_event_not_globally():
     payload = _payload()
-    payload["resourceSpans"][0]["schemaUrl"] = (
+    payload["resourceSpans"][0]["scopeSpans"][0]["schemaUrl"] = (
         "https://opentelemetry.io/schemas/1.44.0"
     )
     payload["resourceSpans"].append(
