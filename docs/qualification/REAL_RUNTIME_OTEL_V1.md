@@ -132,3 +132,26 @@ root import.
 Pivot P1:
 Change only the harness import to agent_framework.observability. Do not change
 the hypothesis, expected telemetry, or Rezon acceptance rules.
+
+
+### E3 — Microsoft second attempt
+
+Status: HARNESS DEAD END / NOT A RUNTIME VERDICT
+Run: GitHub Actions 35746495139 / job 106809368121
+Subject: agent-framework 1.19.0
+
+Observed:
+- package installation again succeeded;
+- importing use_agent_instrumentation from agent_framework.observability also
+  raised ImportError.
+
+Interpretation:
+The installed 1.19.0 subject does not expose the decorator through either import
+path shown by the current API documentation examined during this qualification.
+
+Pivot P2:
+Remain inside frozen Q2 by using the credential-free workflow observability path
+that is present in the current Agent Framework documentation and package:
+Executor + WorkflowBuilder + configure_otel_providers. Capture the actual spans
+from that workflow. Do not add GenAI attributes. If workflow telemetry contains
+no Rezon-consumable gen_ai.operation.name, H2 is falsified for this path.
