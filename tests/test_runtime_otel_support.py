@@ -53,3 +53,133 @@ def test_runtime_projection_emits_plain_otlp_json_primitives():
     assert projected["flags"] == 1
 
     json.dumps(payload)
+
+
+
+def test_runtime_projection_preserves_readable_span_structure():
+    parent_context = SimpleNamespace(
+        trace_id=int("56" * 16, 16),
+        span_id=int("78" * 8, 16),
+        trace_flags=1,
+        trace_state=SimpleNamespace(to_header=lambda: "parent=v"),
+    )
+    context = SimpleNamespace(
+        trace_id=int("12" * 16, 16),
+        span_id=int("34" * 8, 16),
+        trace_flags=1,
+        trace_state=SimpleNamespace(to_header=lambda: "vendor=value"),
+    )
+    link_context = SimpleNamespace(
+        trace_id=int("9a" * 16, 16),
+        span_id=int("bc" * 8, 16),
+        trace_flags=1,
+        trace_state=SimpleNamespace(to_header=lambda: "link=v"),
+    )
+    event_attributes = {"event.count": 2}
+    event = SimpleNamespace(
+        name="workflow.started",
+        timestamp=150,
+        attributes=event_attributes,
+        dropped_attributes=1,
+    )
+    link_attributes = {"link.role": "dependency"}
+    link = SimpleNamespace(
+        context=link_context,
+        attributes=link_attributes,
+        dropped_attributes=2,
+    )
+    resource = SimpleNamespace(
+        attributes={"service.name": "runtime-probe"},
+        schema_url="https://example.test/resource-schema",
+    )
+    scope_attributes = {"scope.role": "qualification"}
+    scope = SimpleNamespace(
+        name="runtime.instrumentation",
+        version="1.2.3",
+        schema_url="https://example.test/span-schema",
+        attributes=scope_attributes,
+    )
+    status = SimpleNamespace(
+        status_code=SimpleNamespace(name="OK"),
+        description="completed",
+    )
+    span = SimpleNamespace(
+        context=context,
+        parent=parent_context,
+        name=SpanName.WORKFLOW_RUN,
+        kind=SimpleNamespace(value=1),
+        status=status,
+        attributes={"workflow.id": "wf-1"},
+        dropped_attributes=3,
+        dropped_events=4,
+        dropped_links=5,
+        start_time=100,
+        end_time=200,
+        events=[event],
+        links=[link],
+        resource=resource,
+        instrumentation_scope=scope,
+    )
+
+    payload = readable_spans_to_otlp_json([span])
+    resource_spans = payload["resourceSpans"][0]
+    scope_spans = resource_spans["scopeSpans"][0]
+    projected = scope_spans["spans"][0]
+
+    assert resource_spans["schemaUrl"] == "https://example.test/resource-schema"
+    assert resource_spans["resource"]["attributes"] == [
+        {
+            "key": "service.name",
+            "value": {"stringValue": "runtime-probe"},
+        }
+    ]
+    assert scope_spans["schemaUrl"] == "https://example.test/span-schema"
+    assert scope_spans["scope"] == {
+        "name": "runtime.instrumentation",
+        "version": "1.2.3",
+        "attributes": [
+            {
+                "key": "scope.role",
+                "value": {"stringValue": "qualification"},
+            }
+        ],
+        "droppedAttributesCount": 0,
+    }
+
+    assert projected["kind"] == 1
+    assert projected["startTimeUnixNano"] == "100"
+    assert projected["endTimeUnixNano"] == "200"
+    assert projected["droppedAttributesCount"] == 3
+    assert projected["droppedEventsCount"] == 4
+    assert projected["droppedLinksCount"] == 5
+    assert projected["status"] == {"code": 1, "message": "completed"}
+    assert projected["events"] == [
+        {
+            "timeUnixNano": "150",
+            "name": "workflow.started",
+            "attributes": [
+                {
+                    "key": "event.count",
+                    "value": {"intValue": "2"},
+                }
+            ],
+            "droppedAttributesCount": 1,
+        }
+    ]
+    assert projected["links"] == [
+        {
+            "traceId": "9a" * 16,
+            "spanId": "bc" * 8,
+            "traceState": "link=v",
+            "attributes": [
+                {
+                    "key": "link.role",
+                    "value": {"stringValue": "dependency"},
+                }
+            ],
+            "droppedAttributesCount": 2,
+            "flags": 1,
+        }
+    ]
+
+    json.dumps(payload)
