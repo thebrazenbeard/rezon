@@ -205,3 +205,22 @@ After configure_otel_providers(), create the control tracer through the standard
 opentelemetry.trace.get_tracer API. This directly tests the installed global
 provider/exporter pipeline. Only if that control exports may the workflow-span
 result be interpreted.
+
+
+### E6 — Microsoft batch-export diagnosis
+
+Status: HARNESS DEFECT CONFIRMED / NOT A RUNTIME VERDICT
+Subject: agent-framework 1.19.0 observability provider wiring
+
+Source inspection established that configure_otel_providers() installs a
+TracerProvider and attaches custom SpanExporter instances through
+BatchSpanProcessor. The prior diagnostics read InMemorySpanExporter immediately
+after span completion without forcing the provider to flush.
+
+Root cause:
+The qualification harness treated an asynchronous batch exporter as if it were
+a synchronous simple exporter.
+
+Pivot P4:
+Call the installed tracer provider's force_flush() before every exporter
+readback. No qualification hypothesis or Rezon acceptance rule changes.
