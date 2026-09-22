@@ -13,11 +13,17 @@ from rezon.replay import (
 )
 
 
-def _candidate(candidate_id: str = "cand-a", *, answer: str | None = "A") -> ReplayCandidate:
+def _candidate(
+    candidate_id: str = "cand-a",
+    *,
+    answer: str | None = "A",
+    worker_id: str | None = None,
+    execution_id: str | None = None,
+) -> ReplayCandidate:
     return ReplayCandidate(
         candidate_id=candidate_id,
-        worker_id=f"worker-{candidate_id}",
-        execution_id=f"exec-{candidate_id}",
+        worker_id=worker_id or f"worker-{candidate_id}",
+        execution_id=execution_id or f"exec-{candidate_id}",
         answer=answer,
         solved_request="Is A true?",
         model_id="model-a",
@@ -94,6 +100,25 @@ def test_duplicate_candidate_ids_fail_closed():
     duplicate = _candidate("cand-a", answer="B")
     case = _case(candidates=(_candidate("cand-a"), duplicate))
     with pytest.raises(ReplayValidationError):
+        case.validate()
+
+
+def test_duplicate_execution_ids_fail_closed():
+    case = _case(
+        candidates=(
+            _candidate(
+                "cand-a",
+                worker_id="worker-a",
+                execution_id="exec-shared",
+            ),
+            _candidate(
+                "cand-b",
+                worker_id="worker-b",
+                execution_id="exec-shared",
+            ),
+        )
+    )
+    with pytest.raises(ReplayValidationError, match="execution IDs must be unique"):
         case.validate()
 
 
