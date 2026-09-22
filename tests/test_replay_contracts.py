@@ -243,3 +243,47 @@ def test_loader_parses_structured_case_without_repairing_attack_metadata(tmp_pat
     assert len(cases) == 1
     assert cases[0].candidates[0].effect_state_claim == "QUALIFIED"
     assert cases[0].sources[0].is_current is False
+
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("model_id", ""),
+        ("model_id", 7),
+        ("provider_id", ""),
+        ("provider_id", 7),
+        ("prompt_lineage", ""),
+        ("prompt_lineage", 7),
+        ("context_lineage", ""),
+        ("context_lineage", 7),
+    ],
+)
+def test_optional_candidate_identity_fields_require_nonempty_strings(field, value):
+    candidate = dataclasses.replace(_candidate(), **{field: value})
+    with pytest.raises(ReplayValidationError, match=field):
+        candidate.validate()
+
+
+@pytest.mark.parametrize("value", ["false", 0, 1, []])
+def test_saw_other_answer_requires_exact_boolean_or_none(value):
+    candidate = dataclasses.replace(_candidate(), saw_other_answer=value)
+    with pytest.raises(ReplayValidationError, match="saw_other_answer"):
+        candidate.validate()
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("candidate_id", ""),
+        ("candidate_id", 7),
+        ("worker_id", ""),
+        ("worker_id", 7),
+        ("execution_id", ""),
+        ("execution_id", 7),
+    ],
+)
+def test_required_candidate_identity_fields_require_nonempty_strings(field, value):
+    candidate = dataclasses.replace(_candidate(), **{field: value})
+    with pytest.raises(ReplayValidationError, match=field):
+        candidate.validate()
