@@ -180,9 +180,26 @@ def test_verified_binding_preserves_unresolved_telemetry_assurance_gaps():
 
     assert binding["binding_status"] == "verified"
     assert binding["binding_scope"] == "trace_to_verified_artifact"
+    assert binding["telemetry_intake_digest"]
     assert "semantic_convention_version:unbound" in (
         binding["telemetry_assurance_gaps"]
     )
     assert "telemetry_attributes:dropped" in binding["telemetry_assurance_gaps"]
     assert binding["authority"] == "unestablished"
     assert binding["effect_completion"] == "unestablished"
+
+
+def test_binding_digest_changes_when_bound_telemetry_changes():
+    evidence = _evidence()
+    first_otel = _otel(evidence)
+    second_otel = _otel(evidence)
+    second_otel["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["status"] = {
+        "code": 2
+    }
+
+    first = _bind(first_otel, evidence)
+    second = _bind(second_otel, evidence)
+
+    assert first["evidence_digest"] == second["evidence_digest"]
+    assert first["telemetry_intake_digest"] != second["telemetry_intake_digest"]
+    assert first["binding_digest"] != second["binding_digest"]
