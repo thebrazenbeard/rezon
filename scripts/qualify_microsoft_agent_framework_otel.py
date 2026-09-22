@@ -4,8 +4,10 @@ import asyncio
 import json
 from importlib.metadata import version
 
-from agent_framework import use_agent_instrumentation
-from agent_framework.observability import configure_otel_providers
+from agent_framework.observability import (
+    configure_otel_providers,
+    use_agent_instrumentation,
+)
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from rezon.otel_genai import inspect_otel_genai_export
