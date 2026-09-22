@@ -10,10 +10,10 @@ from agent_framework.observability import (
     enable_instrumentation,
 )
 from opentelemetry import trace as otel_trace
-from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from typing_extensions import Never
 
+from rezon.otel import inspect_otel_export
 from rezon.otel_genai import inspect_otel_genai_export
 from runtime_otel_support import genai_attribute_keys, readable_spans_to_otlp_json
 
@@ -51,18 +51,29 @@ async def _run() -> str:
     return str(output)
 
 
-def _flush() -> None:
-    provider = otel_trace.get_tracer_provider()
-    force_flush = getattr(provider, "force_flush", None)
-    if not callable(force_flush):
-        raise RuntimeError("configured tracer provider does not expose force_flush")
-    if force_flush() is False:
-        raise RuntimeError("configured tracer provider force_flush failed")
-
-
 def _analyze(spans):
     projected = readable_spans_to_otlp_json(spans)
-    return inspect_otel_genai_export(projected)
+    return (
+        inspect_otel_export(projected),
+        inspect_otel_genai_export(projected),
+    )
+
+
+def _assert_generic_intake(spans, report) -> None:
+    if not spans:
+        raise RuntimeError(
+            "Agent Framework qualification emitted no native workflow spans"
+        )
+    if report["span_count"] != len(spans):
+        raise RuntimeError(
+            "generic OTLP intake did not preserve every captured runtime span"
+        )
+    if report["assurance"]["semantic_meaning"] != "unestablished":
+        raise RuntimeError("generic telemetry improperly promoted semantic meaning")
+    if report["assurance"]["authority"] != "unestablished":
+        raise RuntimeError("generic telemetry improperly promoted authority")
+    if report["assurance"]["effect_completion"] != "unestablished":
+        raise RuntimeError("generic telemetry improperly promoted effect completion")
 
 
 def main() -> int:
@@ -89,7 +100,8 @@ def main() -> int:
         raise RuntimeError("Agent Framework default-path force_flush failed")
     after_default = exporter.get_finished_spans()
     default_runtime_spans = after_default[before_default:]
-    default_report = _analyze(default_runtime_spans)
+    default_generic, default_genai = _analyze(default_runtime_spans)
+    _assert_generic_intake(default_runtime_spans, default_generic)
 
     summary = {
         "runtime": "agent-framework",
@@ -98,21 +110,25 @@ def main() -> int:
         "exporter_control_span_count": before_default,
         "default_runtime_span_count": len(default_runtime_spans),
         "default_span_names": [span.name for span in default_runtime_spans],
+        "generic_structural_intake": "PASS",
+        "default_generic_span_count": default_generic["span_count"],
+        "default_generic_trace_ids": default_generic["trace_ids"],
+        "default_generic_assurance_gaps": default_generic["assurance_gaps"],
         "default_genai_attribute_keys": list(
             genai_attribute_keys(default_runtime_spans)
         ),
         "default_rezon_event_operations": [
-            event["operation"] for event in default_report["events"]
+            event["operation"] for event in default_genai["events"]
         ],
     }
 
-    if default_report["events"]:
+    if default_genai["events"]:
         summary["qualification"] = "PASS"
         summary["confirmatory"] = True
         print(json.dumps(summary, sort_keys=True))
         return 0
 
-    # Exploratory only after the pre-registered default path failed.
+    # Exploratory only after the pre-registered GenAI compatibility path failed.
     enable_instrumentation()
     before_explicit = len(exporter.get_finished_spans())
     exploratory_output = asyncio.run(_run())
@@ -120,7 +136,9 @@ def main() -> int:
         raise RuntimeError("Agent Framework exploratory force_flush failed")
     after_explicit = exporter.get_finished_spans()
     explicit_runtime_spans = after_explicit[before_explicit:]
-    explicit_report = _analyze(explicit_runtime_spans)
+    explicit_generic, explicit_genai = _analyze(explicit_runtime_spans)
+    _assert_generic_intake(explicit_runtime_spans, explicit_generic)
+
     summary.update(
         {
             "qualification": "FAIL",
@@ -130,12 +148,14 @@ def main() -> int:
                 "classification": "EXPLORATORY",
                 "workflow_output": exploratory_output,
                 "runtime_span_count": len(explicit_runtime_spans),
+                "generic_structural_intake": "PASS",
+                "generic_span_count": explicit_generic["span_count"],
                 "span_names": [span.name for span in explicit_runtime_spans],
                 "genai_attribute_keys": list(
                     genai_attribute_keys(explicit_runtime_spans)
                 ),
                 "rezon_event_operations": [
-                    event["operation"] for event in explicit_report["events"]
+                    event["operation"] for event in explicit_genai["events"]
                 ],
             },
         }
