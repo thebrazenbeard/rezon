@@ -9,6 +9,15 @@ from .interop import RunEvidenceError
 
 
 OTEL_GENAI_INTAKE_SCHEMA = "rezon.otel-genai-intake.v1"
+_STRING_ATTRIBUTE_KEYS = {
+    "gen_ai.operation.name",
+    "gen_ai.workflow.name",
+    "gen_ai.agent.name",
+    "gen_ai.tool.name",
+    "gen_ai.provider.name",
+    "rezon.run_evidence.digest",
+    "rezon.run_evidence.schema_version",
+}
 _TRACE_ID = re.compile(r"^[0-9a-fA-F]{32}$")
 _SPAN_ID = re.compile(r"^[0-9a-fA-F]{16}$")
 
@@ -58,9 +67,23 @@ def _attributes(raw: object, name: str) -> dict[str, str]:
             f"{name}[{index}].value",
         )
         value = raw_value.get("stringValue")
+        if key in _STRING_ATTRIBUTE_KEYS and type(value) is not str:
+            raise OTelGenAIIntakeError(
+                f"{key} must use an OTLP stringValue"
+            )
         if type(value) is str:
             values[key] = value
     return values
+
+
+def _dropped_attributes_count(raw: object) -> int:
+    if raw is None:
+        return 0
+    if type(raw) is not int or raw < 0:
+        raise OTelGenAIIntakeError(
+            "droppedAttributesCount must be a non-negative exact integer"
+        )
+    return raw
 
 
 def _status(raw: object) -> str:
@@ -201,6 +224,9 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
                         "GenAI span name must be a non-empty string"
                     )
 
+                dropped_attributes_count = _dropped_attributes_count(
+                    span.get("droppedAttributesCount")
+                )
                 events.append(
                     {
                         "trace_id": trace_id,
@@ -217,6 +243,7 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
                         ),
                         "status": _status(span.get("status")),
                         "execution_observed": True,
+                        "dropped_attributes_count": dropped_attributes_count,
                     }
                 )
 
@@ -229,6 +256,8 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
     ]
     if not events or any(event["schema_url"] is None for event in events):
         assurance_gaps.append("semantic_convention_version:unbound")
+    if any(event["dropped_attributes_count"] > 0 for event in events):
+        assurance_gaps.append("telemetry_attributes:dropped")
 
     body: dict[str, object] = {
         "schema_version": OTEL_GENAI_INTAKE_SCHEMA,
