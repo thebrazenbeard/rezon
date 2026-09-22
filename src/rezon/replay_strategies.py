@@ -253,6 +253,17 @@ def rezon_guarded(
                 trace.append(f"guard:admission_integrity:reject:{candidate.candidate_id}")
 
     if guards.contains(GuardName.INDEPENDENCE_CONTAMINATION):
+        shared_source_refs: set[str] = set()
+        for index, left in enumerate(answering):
+            for right in answering[index + 1 :]:
+                shared_source_refs.update(
+                    set(left.source_refs).intersection(right.source_refs)
+                )
+        for source_ref in sorted(shared_source_refs):
+            trace.append(
+                f"independence:shared_source_ref:{source_ref}"
+            )
+
         correlated = _correlated_candidates(answering)
         unestablished = _independence_unestablished_candidates(answering)
         contaminated = correlated.union(unestablished)
