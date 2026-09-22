@@ -1,63 +1,98 @@
 # Rezon
 
-Rezon is an executable multi-faceted reasoning project: a place to study, formalize, test, and eventually run heterogeneous reasoning as a coordinated system rather than treating one model invocation as the whole reasoning process.
+Rezon is a provider-independent epistemic reasoning kernel and assurance layer.
 
-The project deliberately separates four things that are often collapsed together:
+Its purpose is not to replace general agent runtimes. Agent SDKs and workflow
+frameworks already handle model loops, tools, handoffs, sessions, persistence,
+and orchestration well. Rezon focuses on the harder boundary they do not make
+true merely by executing successfully: what evidence was actually available,
+which sources and versions were consumed, whether supposedly independent
+reasoners were actually independent, which failures occurred, and whether a
+reasoning result is being mistaken for authority or an external effect.
 
-1. **Reasoning methods** — deduction, induction, abduction, causality, counterfactuals, planning, analogy, probabilistic inference, semantic reasoning, adversarial challenge, and more.
-2. **Reasoning topology** — how several reasoning processes cooperate, oppose, verify, retrieve, route, and integrate.
-3. **State and identity** — what subject is being reasoned about, what changed, what persisted, and what evidence supports continuity.
-4. **Execution** — provider/model adapters, worker routing, receipts, provenance, resource constraints, and runtime behavior.
+## Core model
 
-Rezon is intended to become runnable from the beginning, but the first population is knowledge-first: the architecture is being made explicit before implementation hardens accidental assumptions into interfaces.
+Rezon separates:
 
-## Core direction
+1. reasoning methods — deduction, induction, abduction, causality,
+   counterfactuals, planning, analogy, probabilistic inference, falsification;
+2. reasoning topology — heterogeneous workers, opposition, verification,
+   retrieval, scheduling, and integration;
+3. epistemic state — propositions, relations, provenance, currentness,
+   disagreement, source versions, and persistent subject identity;
+4. execution evidence — task envelopes, execution traces, output digests,
+   producer identities, failures, receipts, and effect ceilings.
 
-A working Rezon system should eventually support a flow like:
+A capable model is never automatically an authority source. Agreement among
+multiple workers is never automatically independent confirmation.
 
-```text
-TaskEnvelope
-  -> Decomposer / Planner
-  -> Heterogeneous Reasoning Nodes
-  -> Opposition / Falsification Lane
-  -> Retrieval + Semantic / Provenance Verification
-  -> Integrator
-  -> ResultReceipt
-```
+## Current source state
 
-Cross-cutting state substrates:
+The default branch is still the one-commit bootstrap. Draft PR #80,
+'estate/rezon-canonical-baseline-v1-20260920', is the current repository
+canonicalization candidate at exact head
+'90140fa109bdfe5bd5aba24dec4afab799b25848'.
 
-```text
-Persistent Subject / Identity Track
-Multi-View State Graph / Hypergraph
-Evidence + Provenance Ledger
-```
+That candidate composes the R51 kernel lineage, accepted Benchmark R4, and the
+reviewed canonical Episode-method binding. Its recorded exact-subject evidence
+is 337/337 tests passing on Python 3.12, plus benchmark replay, install,
+compileall, and diff-check passes. Those are source/build/test claims only; PR
+#80 is not merged and does not establish deployment, installation, live-provider
+behavior, semantic truth, or reasoning superiority.
 
-A stronger model is never automatically an authority source. A reasoning node may be more capable, more expensive, or more specialized without being entitled to promote identity, consent, facts, deployment state, or governance claims.
+The active improvement branch builds from that exact candidate rather than from
+the obsolete default branch.
 
-## Documents
+## Portable run assurance
 
-- `docs/FOUNDATION.md` — project principles and scope
-- `docs/REASONING_TAXONOMY.md` — reasoning families worth modeling
-- `docs/HUMAN_AI_REASONING_SYNTHESIS.md` — transferable human/AI reasoning mechanisms
-- `docs/IDENTITY_TRACKING.md` — persistent identity under discontinuous observations
-- `docs/MULTIVIEW_HYPERGRAPH_STATE.md` — many-to-many, multi-view state representation
-- `docs/HIERARCHICAL_DISTRIBUTED_REASONING.md` — slow/fast and heterogeneous worker topology
-- `docs/ADVERSARIAL_COLLABORATION.md` — literal-proposition hostile review method
-- `docs/RETRIEVAL_CONTEXT.md` — reasoning-based retrieval and context selection
-- `docs/SEMANTIC_PROVENANCE.md` — knowledge graphs, ontologies, provenance, repair
-- `docs/WORKER_ROUTING_ULTRA.md` — optional high-reasoning worker routing
-- `docs/EVALUATION_AND_FALSIFICATION.md` — how Rezon should try to prove itself wrong
-- `docs/SOURCE_TRANSFER_MATRIX.md` — source-by-source transfer analysis
-- `docs/EXECUTABLE_FRAMEWORK_DIRECTION.md` — runnable system direction
-- `docs/VERA_ADOPTION_CANDIDATES.md` — mechanisms that may be promoted into Vera later
+Rezon can export a deterministic 'rezon.run-evidence.v1' artifact. The portable
+verifier checks that artifact without rerunning the reasoning job:
 
-## Current status
+    rezon verify-evidence run-evidence.json
 
-`work/rezon-kernel-v0-r5-independence` contains the current provider-independent Kernel V0 R5 candidate. Executable payload `d32cca38606e767813d9e0797681d1ab00e0b0b8`, tree `fbe4a4eca7251144306b4ba301fd7f3c9d9d9f8f`, passed the hosted Python 3.12 qualification surface with **91/91 tests passing** after a test-first repair of Mune's exact-head R4 pairwise-independence blocker.
+Verification covers canonical body integrity, receipt-to-trace execution
+coverage, ordered source-version binding, failure visibility, output-digest
+binding, canonical producer identity recomputation, task-envelope consistency,
+and the non-promotional PLAN ceiling.
 
-R5 preserves all R4 controls and additionally rejects strong pairwise-independence claims when workers share any executor, model, provider, prompt lineage, context lineage, or declared common evidence. Exact RED head `289e89b8a2be526349aba893c09fa301f41011d4` reproduced **3 failed / 88 passed** before the repair, matching the three R4 correlation bypasses identified by Mune. See `docs/qualification/KERNEL_V0_ACCEPTANCE.md`.
+A successful verification establishes structural consistency of that artifact.
+It does not prove that the underlying claims are true or that an external action
+was authorized or completed.
 
-Masa's R1/R2 `CHANGES_REQUESTED` dispositions and Mune's R2/R3/R4 `CHANGES_REQUESTED` dispositions remain preserved as historical exact-subject evidence. R5 repairs the currently known executable/source blockers but does **not** self-award independent R5 qualification. Fresh exact-head Mune and Masa rereview is required before R5 is promoted into the P0 integration subject or predecessor PRs are advanced.
+See 'docs/PORTABLE_ASSURANCE_LAYER.md'.
 
-This remains source/build/test candidate evidence only. It does not establish reasoning superiority, live-provider/tool correctness, deployment, installation, activation, or downstream behavioral qualification.
+## Architecture flow
+
+    TaskEnvelope
+      -> governed scheduling
+      -> heterogeneous reasoning nodes
+      -> opposition / falsification
+      -> retrieval + provenance controls
+      -> canonical Episode admission
+      -> ResultReceipt + ExecutionTrace
+      -> deterministic run-evidence artifact
+      -> independent verification
+
+## Key documents
+
+- 'docs/FOUNDATION.md' — principles and scope
+- 'docs/REASONING_TAXONOMY.md' — reasoning families
+- 'docs/MULTIVIEW_HYPERGRAPH_STATE.md' — multi-view state representation
+- 'docs/HIERARCHICAL_DISTRIBUTED_REASONING.md' — worker topology
+- 'docs/ADVERSARIAL_COLLABORATION.md' — hostile review method
+- 'docs/RETRIEVAL_CONTEXT.md' — retrieval and context selection
+- 'docs/SEMANTIC_PROVENANCE.md' — provenance and semantic repair
+- 'docs/EVALUATION_AND_FALSIFICATION.md' — falsification discipline
+- 'docs/architecture/PROJECT_RUNNER_OUTER_ORCHESTRATION_BOUNDARY.md' — runtime boundary
+- 'docs/PORTABLE_ASSURANCE_LAYER.md' — current integration direction
+- 'architecture/REPOSITORY_RECONCILIATION_V1.json' — exact estate reconciliation
+
+## Near-term direction
+
+The highest-value next work is interoperability, not another internal hardening
+round for its own sake: define a strict external execution-event adapter
+contract, implement one dependency-optional reference adapter, and benchmark
+whether Rezon catches correlated consensus, stale evidence, concealed failures,
+and authority laundering that simpler trace-only acceptance misses.
+
+No merge or protected runtime effect is implied by this repository state.
