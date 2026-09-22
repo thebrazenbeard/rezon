@@ -55,10 +55,15 @@ def readable_spans_to_otlp_json(spans: Sequence[Any]) -> dict[str, object]:
     for span in spans:
         context = span.context
         parent = span.parent
-        attributes = [
-            {"key": key, "value": _otlp_value(value)}
-            for key, value in (span.attributes or {}).items()
-        ]
+        attributes = []
+        for key, value in (span.attributes or {}).items():
+            if not isinstance(key, str):
+                raise TypeError(
+                    "OpenTelemetry attribute keys must be string-like for OTLP JSON"
+                )
+            attributes.append(
+                {"key": str(key), "value": _otlp_value(value)}
+            )
         projected: dict[str, object] = {
             "traceId": _hex(context.trace_id, 32),
             "spanId": _hex(context.span_id, 16),
