@@ -59,6 +59,26 @@ A successful verification establishes structural consistency of that artifact.
 It does not prove that the underlying claims are true or that an external action
 was authorized or completed.
 
+## External consultation intake
+
+Rezon can inspect a multi-model consultation report without promoting reported
+agreement into independent evidence:
+
+    rezon inspect-consultation consultation.json
+
+The intake preserves reported synthesis, convergence/confidence signals,
+provider/model identities, failures, costs, latency, and optional raw-output
+bindings. It explicitly leaves the original prompt/configuration, worker
+independence, semantic truth, evidence status, and authority unestablished when
+the artifact does not bind them.
+
+The first adversarial reference specimen is
+`anywave/lattice-consult-mcp@675faae4d8ebd32071b656a2344fbd54843c8295`.
+Its heuristic synthesis is treated as reported advisory output rather than a
+truth or authority signal.
+
+See `docs/ENSEMBLE_CONSULTATION_INTAKE.md`.
+
 ## External telemetry intake
 
 Rezon has a dependency-free structural intake for generic OpenTelemetry
