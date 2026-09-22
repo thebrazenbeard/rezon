@@ -135,6 +135,7 @@ See 'docs/PORTABLE_ASSURANCE_LAYER.md'.
 - 'docs/EVALUATION_AND_FALSIFICATION.md' — falsification discipline
 - 'docs/architecture/PROJECT_RUNNER_OUTER_ORCHESTRATION_BOUNDARY.md' — runtime boundary
 - 'docs/PORTABLE_ASSURANCE_LAYER.md' — current integration direction
+- 'docs/ASSURANCE_REGRESSION_V1.md' — internal adversarial regression evidence class and claim ceiling
 - 'architecture/REPOSITORY_RECONCILIATION_V1.json' — exact estate reconciliation
 
 ## Near-term direction
@@ -146,8 +147,13 @@ OpenTelemetry workflow spans but no gen_ai.* operation semantics; those spans
 are now consumable through the generic structural intake without being
 misclassified as GenAI evidence.
 
-The next useful work is adversarial cross-runtime measurement: determine whether
-Rezon catches stale, correlated, incomplete, substituted, or unauthorized
-evidence that simpler trace-only acceptance misses.
+A manually authored adversarial regression now verifies that the current guards
+detect their known failure classes without false-blocking the frozen clean
+controls. That regression is explicitly internal, not independent external
+validation.
+
+The next stronger qualification step is to freeze independently sourced or
+externally generated cases before inspecting Rezon behavior, then compare the
+same strategies on that separately bound subject.
 
 No merge or protected runtime effect is implied by this repository state.
