@@ -4,7 +4,11 @@ import re
 
 from .audit import verify_run_evidence
 from .interop import RunEvidenceError
-from .otel import OTelIntakeError, canonical_json_digest, inspect_otel_export
+from .otel import (
+    OTelIntakeError,
+    canonical_json_digest,
+    inspect_otel_export,
+)
 
 
 OTEL_GENAI_INTAKE_SCHEMA = "rezon.otel-genai-intake.v1"
@@ -19,8 +23,33 @@ _STRING_ATTRIBUTE_KEYS = {
 }
 
 
-class OTelGenAIIntakeError(OTelIntakeError):
+class OTelGenAIIntakeError(ValueError):
     pass
+
+
+def _canonical_digest(value: object) -> str:
+    try:
+        return canonical_json_digest(value)
+    except OTelIntakeError as exc:
+        raise OTelGenAIIntakeError(str(exc)) from exc
+
+
+def _string_attribute(
+    attributes: dict[str, object],
+    key: str,
+) -> str | None:
+    value = attributes.get(key)
+    if value is None:
+        return None
+    if type(value) is not str:
+        raise OTelGenAIIntakeError(
+            f"{key} must use an OTLP stringValue"
+        )
+    if not value:
+        raise OTelGenAIIntakeError(
+            f"{key} must be a non-empty string"
+        )
+    return value
 
 
 def _subject_name(
@@ -33,49 +62,48 @@ def _subject_name(
         "execute_tool": "gen_ai.tool.name",
     }
     key = key_by_operation.get(operation)
-    if key is None:
-        return None
-    value = attributes.get(key)
-    return value if type(value) is str else None
-
-
-def _structural_intake(payload: object) -> dict[str, object]:
-    try:
-        return inspect_otel_export(payload)
-    except OTelIntakeError as exc:
-        raise OTelGenAIIntakeError(str(exc)) from exc
+    return _string_attribute(attributes, key) if key is not None else None
 
 
 def inspect_otel_genai_export(payload: object) -> dict[str, object]:
-    """Project structurally valid OTLP/JSON into a GenAI-specific assurance view."""
+    """Derive a GenAI semantic view from structurally validated OTLP/JSON."""
 
-    structural = _structural_intake(payload)
+    try:
+        generic = inspect_otel_export(payload)
+    except OTelIntakeError as exc:
+        raise OTelGenAIIntakeError(str(exc)) from exc
+
     events: list[dict[str, object]] = []
-    ignored_span_count = 0
     trace_ids: list[str] = []
+    schema_urls: list[str] = []
+    ignored_span_count = 0
 
-    for span in structural["spans"]:
+    for span in generic["spans"]:
         attributes = span["attributes"]
+        if type(attributes) is not dict:
+            raise OTelGenAIIntakeError(
+                "generic OTLP intake produced invalid span attributes"
+            )
 
-        for key in _STRING_ATTRIBUTE_KEYS:
-            value = attributes.get(key)
-            if value is not None and type(value) is not str:
-                raise OTelGenAIIntakeError(
-                    f"{key} must use an OTLP stringValue"
-                )
-
-        operation = attributes.get("gen_ai.operation.name")
+        operation = _string_attribute(
+            attributes,
+            "gen_ai.operation.name",
+        )
         if operation is None:
             ignored_span_count += 1
             continue
-        if type(operation) is not str or not operation:
-            raise OTelGenAIIntakeError(
-                "gen_ai.operation.name must be a non-empty string"
-            )
+
+        for key in _STRING_ATTRIBUTE_KEYS - {"gen_ai.operation.name"}:
+            if key in attributes:
+                _string_attribute(attributes, key)
 
         trace_id = span["trace_id"]
         if trace_id not in trace_ids:
             trace_ids.append(trace_id)
+
+        schema_url = span["schema_url"]
+        if schema_url is not None and schema_url not in schema_urls:
+            schema_urls.append(schema_url)
 
         events.append(
             {
@@ -85,13 +113,18 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
                 "span_name": span["span_name"],
                 "operation": operation,
                 "subject_name": _subject_name(operation, attributes),
-                "provider_name": attributes.get("gen_ai.provider.name"),
-                "schema_url": span["schema_url"],
-                "run_evidence_digest": attributes.get(
-                    "rezon.run_evidence.digest"
+                "provider_name": _string_attribute(
+                    attributes,
+                    "gen_ai.provider.name",
                 ),
-                "run_evidence_schema_version": attributes.get(
-                    "rezon.run_evidence.schema_version"
+                "schema_url": schema_url,
+                "run_evidence_digest": _string_attribute(
+                    attributes,
+                    "rezon.run_evidence.digest",
+                ),
+                "run_evidence_schema_version": _string_attribute(
+                    attributes,
+                    "rezon.run_evidence.schema_version",
                 ),
                 "status": span["status"],
                 "execution_observed": True,
@@ -110,14 +143,14 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
     ]
     if not events or any(event["schema_url"] is None for event in events):
         assurance_gaps.append("semantic_convention_version:unbound")
-    if "telemetry_attributes:dropped" in structural["assurance_gaps"]:
+    if any(event["dropped_attributes_count"] > 0 for event in events):
         assurance_gaps.append("telemetry_attributes:dropped")
 
     body: dict[str, object] = {
         "schema_version": OTEL_GENAI_INTAKE_SCHEMA,
         "semconv_stability": "development",
-        "source_payload_digest": structural["source_payload_digest"],
-        "schema_urls": list(structural["span_schema_urls"]),
+        "source_payload_digest": generic["source_payload_digest"],
+        "schema_urls": schema_urls,
         "trace_ids": trace_ids,
         "events": events,
         "ignored_span_count": ignored_span_count,
@@ -133,7 +166,7 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
     }
     return {
         **body,
-        "intake_digest": canonical_json_digest(body),
+        "intake_digest": _canonical_digest(body),
     }
 
 
@@ -158,9 +191,7 @@ def bind_otel_genai_to_run_evidence(
         )
     ]
     if not anchored:
-        raise OTelGenAIIntakeError(
-            "OTLP workflow has no Rezon evidence anchor"
-        )
+        raise OTelGenAIIntakeError("OTLP workflow has no Rezon evidence anchor")
     if len(anchored) != 1:
         raise OTelGenAIIntakeError(
             "OTLP workflow must contain exactly one Rezon evidence anchor"
@@ -169,9 +200,9 @@ def bind_otel_genai_to_run_evidence(
     anchor = anchored[0]
     anchor_digest = anchor["run_evidence_digest"]
     anchor_schema = anchor["run_evidence_schema_version"]
-    if (
-        type(anchor_digest) is not str
-        or not re.fullmatch(r"[0-9a-fA-F]{64}", anchor_digest)
+    if type(anchor_digest) is not str or not re.fullmatch(
+        r"[0-9a-fA-F]{64}",
+        anchor_digest,
     ):
         raise OTelGenAIIntakeError(
             "Rezon evidence anchor digest must be exactly 64 hex characters"
@@ -203,9 +234,7 @@ def bind_otel_genai_to_run_evidence(
         "binding_scope": "trace_to_verified_artifact",
         "trace_ids": intake["trace_ids"],
         "workflow_span_id": anchor["span_id"],
-        "telemetry_source_payload_digest": intake[
-            "source_payload_digest"
-        ],
+        "telemetry_source_payload_digest": intake["source_payload_digest"],
         "telemetry_intake_digest": intake["intake_digest"],
         "telemetry_assurance_gaps": list(intake["assurance_gaps"]),
         "evidence_digest": evidence["evidence_digest"],
@@ -216,5 +245,5 @@ def bind_otel_genai_to_run_evidence(
     }
     return {
         **body,
-        "binding_digest": canonical_json_digest(body),
+        "binding_digest": _canonical_digest(body),
     }
