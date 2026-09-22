@@ -6,6 +6,7 @@ on:
       - "qualification/real-runtime-otel-v1-20260922"
   pull_request:
     paths:
+      - "src/rezon/otel.py"
       - "src/rezon/otel_genai.py"
       - "scripts/runtime_otel_support.py"
       - "scripts/qualify_openai_agents_otel.py"
@@ -87,12 +88,20 @@ jobs:
               raise SystemExit("exporter/provider control was not proven live")
           if report.get("default_runtime_span_count", 0) < 1:
               raise SystemExit("Agent Framework emitted no native workflow spans")
+          if report.get("generic_structural_intake") != "PASS":
+              raise SystemExit("generic Rezon OTLP intake did not accept native spans")
+          if report.get("default_generic_span_count") != report.get(
+              "default_runtime_span_count"
+          ):
+              raise SystemExit("generic Rezon OTLP intake lost native spans")
           if report.get("default_genai_attribute_keys") != []:
               raise SystemExit("Microsoft workflow GenAI semantics changed; re-qualify")
           if report.get("default_rezon_event_operations") != []:
-              raise SystemExit("Rezon generic intake behavior changed; re-qualify")
+              raise SystemExit("Rezon GenAI intake behavior changed; re-qualify")
 
           exploratory = report.get("explicit_enable_probe", {})
+          if exploratory.get("generic_structural_intake") != "PASS":
+              raise SystemExit("explicit-enable generic OTLP intake failed")
           if exploratory.get("rezon_event_operations") != []:
               raise SystemExit("explicit-enable probe now emits consumable GenAI events")
 
