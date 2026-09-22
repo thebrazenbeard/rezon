@@ -336,8 +336,11 @@ def bind_otel_genai_to_run_evidence(
     body: dict[str, object] = {
         "binding_schema_version": "rezon.otel-run-evidence-binding.v1",
         "binding_status": "verified",
+        "binding_scope": "trace_to_verified_artifact",
         "trace_ids": intake["trace_ids"],
         "workflow_span_id": anchor["span_id"],
+        "telemetry_intake_digest": intake["intake_digest"],
+        "telemetry_assurance_gaps": list(intake["assurance_gaps"]),
         "evidence_digest": evidence["evidence_digest"],
         "evidence_schema_version": evidence["schema_version"],
         "evidence_effect_state": evidence["effect_state"],
