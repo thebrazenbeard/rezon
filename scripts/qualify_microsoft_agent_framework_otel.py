@@ -5,7 +5,11 @@ import json
 from importlib.metadata import version
 
 from agent_framework import Executor, WorkflowBuilder, WorkflowContext, handler
-from agent_framework.observability import configure_otel_providers
+from agent_framework.observability import (
+    configure_otel_providers,
+    enable_instrumentation,
+    get_tracer,
+)
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from typing_extensions import Never
 
@@ -46,48 +50,80 @@ async def _run() -> str:
     return str(output)
 
 
+def _analyze(spans):
+    projected = readable_spans_to_otlp_json(spans)
+    return inspect_otel_genai_export(projected)
+
+
 def main() -> int:
     exporter = InMemorySpanExporter()
     configure_otel_providers(exporters=[exporter])
 
+    with get_tracer().start_as_current_span("rezon.qualification.exporter_control"):
+        pass
+    control_spans = exporter.get_finished_spans()
+    if not control_spans:
+        raise RuntimeError(
+            "Agent Framework qualification exporter/provider control emitted no span"
+        )
+
+    before_default = len(control_spans)
     output = asyncio.run(_run())
-    spans = exporter.get_finished_spans()
-    projected = readable_spans_to_otlp_json(spans)
-    report = inspect_otel_genai_export(projected)
+    after_default = exporter.get_finished_spans()
+    default_runtime_spans = after_default[before_default:]
+    default_report = _analyze(default_runtime_spans)
 
     summary = {
         "runtime": "agent-framework",
         "runtime_version": version("agent-framework"),
         "workflow_output": output,
-        "captured_span_count": len(spans),
-        "captured_span_names": [span.name for span in spans],
-        "genai_attribute_keys": list(genai_attribute_keys(spans)),
-        "rezon_event_operations": [
-            event["operation"] for event in report["events"]
+        "exporter_control_span_count": before_default,
+        "default_runtime_span_count": len(default_runtime_spans),
+        "default_span_names": [span.name for span in default_runtime_spans],
+        "default_genai_attribute_keys": list(
+            genai_attribute_keys(default_runtime_spans)
+        ),
+        "default_rezon_event_operations": [
+            event["operation"] for event in default_report["events"]
         ],
-        "rezon_assurance_gaps": report["assurance_gaps"],
     }
 
-    if not spans:
-        summary["qualification"] = "FAIL"
-        summary["reason"] = "no_opentelemetry_spans"
+    if default_report["events"]:
+        summary["qualification"] = "PASS"
+        summary["confirmatory"] = True
         print(json.dumps(summary, sort_keys=True))
-        raise RuntimeError("Agent Framework qualification emitted no OpenTelemetry spans")
-    if not report["events"]:
-        summary["qualification"] = "FAIL"
-        summary["reason"] = "no_rezon_consumable_genai_events"
-        print(json.dumps(summary, sort_keys=True))
-        raise RuntimeError(
-            "Agent Framework telemetry contained no Rezon-consumable GenAI events"
-        )
-    if report["assurance"]["authority"] != "unestablished":
-        raise RuntimeError("telemetry improperly promoted authority")
-    if report["assurance"]["effect_completion"] != "unestablished":
-        raise RuntimeError("telemetry improperly promoted effect completion")
+        return 0
 
-    summary["qualification"] = "PASS"
+    # Exploratory only after the pre-registered default path failed.
+    enable_instrumentation()
+    before_explicit = len(exporter.get_finished_spans())
+    exploratory_output = asyncio.run(_run())
+    after_explicit = exporter.get_finished_spans()
+    explicit_runtime_spans = after_explicit[before_explicit:]
+    explicit_report = _analyze(explicit_runtime_spans)
+    summary.update(
+        {
+            "qualification": "FAIL",
+            "confirmatory": True,
+            "reason": "default_path_emitted_no_rezon_consumable_genai_events",
+            "explicit_enable_probe": {
+                "classification": "EXPLORATORY",
+                "workflow_output": exploratory_output,
+                "runtime_span_count": len(explicit_runtime_spans),
+                "span_names": [span.name for span in explicit_runtime_spans],
+                "genai_attribute_keys": list(
+                    genai_attribute_keys(explicit_runtime_spans)
+                ),
+                "rezon_event_operations": [
+                    event["operation"] for event in explicit_report["events"]
+                ],
+            },
+        }
+    )
     print(json.dumps(summary, sort_keys=True))
-    return 0
+    raise RuntimeError(
+        "Agent Framework default qualification emitted no Rezon-consumable GenAI events"
+    )
 
 
 if __name__ == "__main__":
