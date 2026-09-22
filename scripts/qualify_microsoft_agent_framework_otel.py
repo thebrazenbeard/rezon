@@ -64,6 +64,9 @@ def main() -> int:
         "rezon.qualification.exporter_control"
     ):
         pass
+    tracer_provider = otel_trace.get_tracer_provider()
+    if not tracer_provider.force_flush():
+        raise RuntimeError("Agent Framework tracer provider force_flush failed")
     control_spans = exporter.get_finished_spans()
     if not control_spans:
         raise RuntimeError(
@@ -72,6 +75,8 @@ def main() -> int:
 
     before_default = len(control_spans)
     output = asyncio.run(_run())
+    if not tracer_provider.force_flush():
+        raise RuntimeError("Agent Framework default-path force_flush failed")
     after_default = exporter.get_finished_spans()
     default_runtime_spans = after_default[before_default:]
     default_report = _analyze(default_runtime_spans)
@@ -101,6 +106,8 @@ def main() -> int:
     enable_instrumentation()
     before_explicit = len(exporter.get_finished_spans())
     exploratory_output = asyncio.run(_run())
+    if not tracer_provider.force_flush():
+        raise RuntimeError("Agent Framework exploratory force_flush failed")
     after_explicit = exporter.get_finished_spans()
     explicit_runtime_spans = after_explicit[before_explicit:]
     explicit_report = _analyze(explicit_runtime_spans)
