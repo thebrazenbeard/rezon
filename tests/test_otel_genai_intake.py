@@ -271,3 +271,19 @@ def test_dropped_span_attributes_are_reported_as_assurance_incompleteness():
 
     assert report["events"][1]["dropped_attributes_count"] == 2
     assert "telemetry_attributes:dropped" in report["assurance_gaps"]
+
+
+def test_source_payload_digest_binds_fields_outside_normalized_genai_events():
+    first_payload = _payload()
+    second_payload = _payload()
+    second_payload["resourceSpans"][0]["scopeSpans"][0]["spans"][3]["name"] = (
+        "changed ignored http span"
+    )
+
+    first = inspect_otel_genai_export(first_payload)
+    second = inspect_otel_genai_export(second_payload)
+
+    assert first["ignored_span_count"] == second["ignored_span_count"] == 1
+    assert first["events"] == second["events"]
+    assert first["source_payload_digest"] != second["source_payload_digest"]
+    assert first["intake_digest"] != second["intake_digest"]
