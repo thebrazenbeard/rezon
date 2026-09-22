@@ -48,7 +48,8 @@ The intake:
 - reports dropped span attributes as an assurance gap;
 - records workflow, agent, tool, provider, status, and hierarchy fields used by
   the current assurance boundary;
-- emits a deterministic intake digest;
+- emits a canonical digest of the complete parsed OTLP JSON payload plus a
+  deterministic digest of the normalized assurance intake;
 - does not promote successful telemetry into provenance, source currentness,
   worker independence, authority, or completed external effect.
 
@@ -78,11 +79,13 @@ Bind a trace to an evidence artifact with:
 
     rezon bind-otel-evidence trace.json run-evidence.json
 
-Binding requires exactly one anchored invoke_workflow span, independently
-verifies the Rezon evidence artifact, checks exact schema and digest agreement,
-and incorporates the complete canonical telemetry-intake digest into the
-binding digest. Trace mutation therefore changes the binding even when trace IDs
-and the Rezon evidence artifact remain unchanged.
+Binding requires exactly one GenAI trace and exactly one anchored
+invoke_workflow span, independently verifies the Rezon evidence artifact, and
+checks exact schema and digest agreement. The binding digest incorporates both
+the canonical complete OTLP JSON payload digest and the normalized assurance
+intake digest. Changes to payload content therefore change the binding even when
+trace IDs and the Rezon evidence artifact remain unchanged. JSON formatting and
+object-key order are normalized before hashing.
 
 A successful binding has scope trace_to_verified_artifact. It explicitly carries
 the unresolved telemetry assurance gaps and still does not prove:
@@ -94,7 +97,8 @@ the unresolved telemetry assurance gaps and still does not prove:
 - authorization for an external action;
 - durable completion of an external action.
 
-Mutual consistency is not authenticity.
+The source-payload digest establishes content binding, not producer
+authenticity. Mutual consistency is not authenticity.
 
 ## Integration direction
 
