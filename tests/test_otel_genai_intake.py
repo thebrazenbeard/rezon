@@ -245,3 +245,26 @@ def test_schema_binding_is_evaluated_per_genai_event_not_globally():
     )
     assert report["events"][-1]["schema_url"] is None
     assert "semantic_convention_version:unbound" in report["assurance_gaps"]
+
+
+def test_malformed_string_semantic_attribute_fails_closed():
+    payload = _payload()
+    workflow = payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    workflow["attributes"][0] = {
+        "key": "gen_ai.operation.name",
+        "value": {"intValue": "1"},
+    }
+
+    with pytest.raises(OTelGenAIIntakeError, match="gen_ai.operation.name"):
+        inspect_otel_genai_export(payload)
+
+
+def test_dropped_span_attributes_are_reported_as_assurance_incompleteness():
+    payload = _payload()
+    agent = payload["resourceSpans"][0]["scopeSpans"][0]["spans"][1]
+    agent["droppedAttributesCount"] = 2
+
+    report = inspect_otel_genai_export(payload)
+
+    assert report["events"][1]["dropped_attributes_count"] == 2
+    assert "telemetry_attributes:dropped" in report["assurance_gaps"]
