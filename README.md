@@ -71,8 +71,9 @@ application-specific Rezon digest/schema attributes:
 
     rezon bind-otel-evidence trace.json run-evidence.json
 
-The binding verifies structural consistency and exact trace-to-artifact
-agreement while preserving unresolved telemetry gaps. It does not authenticate
+The binding requires one GenAI trace per operation, verifies structural
+consistency and exact payload-to-artifact agreement, and preserves unresolved
+telemetry gaps. It does not authenticate
 the producer, establish semantic truth, grant authority, or prove external
 effect completion.
 
