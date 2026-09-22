@@ -10,6 +10,7 @@ on:
       - "rezon/**"
       - "improve/**"
       - "feature/**"
+      - "fix/**"
 
 jobs:
   test:
