@@ -87,6 +87,8 @@ def test_inspects_otlp_json_genai_spans_without_flattening_hierarchy():
 
     assert report["schema_version"] == "rezon.otel-genai-intake.v1"
     assert report["semconv_stability"] == "development"
+    assert report["schema_urls"] == []
+    assert "semantic_convention_version:unbound" in report["assurance_gaps"]
     assert report["trace_ids"] == [TRACE_ID]
     assert report["ignored_span_count"] == 1
 
@@ -123,6 +125,16 @@ def test_successful_tool_telemetry_does_not_establish_rezon_authority_or_effect_
     }
     assert "authority:not_established_by_otel" in report["assurance_gaps"]
     assert "effect_completion:not_established_by_otel" in report["assurance_gaps"]
+
+
+def test_schema_url_is_preserved_when_exporter_provides_one():
+    payload = _payload()
+    payload["resourceSpans"][0]["schemaUrl"] = "https://opentelemetry.io/schemas/1.44.0"
+
+    report = inspect_otel_genai_export(payload)
+
+    assert report["schema_urls"] == ["https://opentelemetry.io/schemas/1.44.0"]
+    assert "semantic_convention_version:unbound" not in report["assurance_gaps"]
 
 
 def test_invalid_or_duplicate_otlp_span_identity_fails_closed():
