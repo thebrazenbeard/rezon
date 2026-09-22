@@ -39,6 +39,7 @@ def _optional_nonempty_string(value: object, name: str) -> str | None:
 
 def _attributes(raw: object, name: str) -> dict[str, str]:
     values: dict[str, str] = {}
+    seen_keys: set[str] = set()
     for index, raw_attribute in enumerate(_require_list(raw, name)):
         attribute = _require_dict(raw_attribute, f"{name}[{index}]")
         key = _optional_nonempty_string(
@@ -47,10 +48,11 @@ def _attributes(raw: object, name: str) -> dict[str, str]:
         )
         if key is None:
             raise OTelGenAIIntakeError(f"{name}[{index}].key is required")
-        if key in values:
+        if key in seen_keys:
             raise OTelGenAIIntakeError(
                 f"{name} contains duplicate attribute key: {key}"
             )
+        seen_keys.add(key)
         raw_value = _require_dict(
             attribute.get("value"),
             f"{name}[{index}].value",
@@ -208,6 +210,7 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
                         "operation": operation,
                         "subject_name": _subject_name(operation, attributes),
                         "provider_name": attributes.get("gen_ai.provider.name"),
+                        "schema_url": scope_schema or resource_schema,
                         "run_evidence_digest": attributes.get("rezon.run_evidence.digest"),
                         "run_evidence_schema_version": attributes.get(
                             "rezon.run_evidence.schema_version"
@@ -224,7 +227,7 @@ def inspect_otel_genai_export(payload: object) -> dict[str, object]:
         "authority:not_established_by_otel",
         "effect_completion:not_established_by_otel",
     ]
-    if not schema_urls:
+    if not events or any(event["schema_url"] is None for event in events):
         assurance_gaps.append("semantic_convention_version:unbound")
 
     body: dict[str, object] = {
