@@ -306,6 +306,8 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
     spans_out: list[dict[str, object]] = []
     trace_ids: list[str] = []
     schema_urls: list[str] = []
+    resource_schema_urls: list[str] = []
+    span_schema_urls: list[str] = []
     seen_span_ids: set[tuple[str, str]] = set()
     any_dropped_attributes = False
 
@@ -318,8 +320,11 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
             resource_spans_entry.get("schemaUrl"),
             f"resourceSpans[{resource_index}].schemaUrl",
         )
-        if resource_schema is not None and resource_schema not in schema_urls:
-            schema_urls.append(resource_schema)
+        if resource_schema is not None:
+            if resource_schema not in schema_urls:
+                schema_urls.append(resource_schema)
+            if resource_schema not in resource_schema_urls:
+                resource_schema_urls.append(resource_schema)
 
         raw_resource = resource_spans_entry.get("resource")
         if raw_resource is None:
@@ -361,8 +366,11 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                     f"scopeSpans[{scope_index}].schemaUrl"
                 ),
             )
-            if scope_schema is not None and scope_schema not in schema_urls:
-                schema_urls.append(scope_schema)
+            if scope_schema is not None:
+                if scope_schema not in schema_urls:
+                    schema_urls.append(scope_schema)
+                if scope_schema not in span_schema_urls:
+                    span_schema_urls.append(scope_schema)
 
             raw_scope = scope_spans_entry.get("scope")
             if raw_scope is None:
@@ -493,7 +501,8 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                         ),
                         "flags": _flags(span.get("flags")),
                         "status": _status(span.get("status")),
-                        "schema_url": scope_schema or resource_schema,
+                        "schema_url": scope_schema,
+                        "resource_schema_url": resource_schema,
                         "resource_attributes": dict(resource_attributes),
                         "resource_dropped_attributes_count": resource_dropped,
                         "instrumentation_scope": {
@@ -530,6 +539,8 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
         "schema_version": OTEL_INTAKE_SCHEMA,
         "source_payload_digest": source_payload_digest,
         "schema_urls": schema_urls,
+        "resource_schema_urls": resource_schema_urls,
+        "span_schema_urls": span_schema_urls,
         "trace_ids": trace_ids,
         "span_count": len(spans_out),
         "spans": spans_out,
