@@ -22,8 +22,23 @@ def _microsoft_like_payload():
     return {
         "resourceSpans": [
             {
+                "resource": {
+                    "attributes": [
+                        _attr("service.name", "stringValue", "agent-framework"),
+                        _attr("service.version", "stringValue", "1.19.0"),
+                    ],
+                    "droppedAttributesCount": 0,
+                },
                 "scopeSpans": [
                     {
+                        "scope": {
+                            "name": "agent_framework",
+                            "version": "1.19.0",
+                            "attributes": [
+                                _attr("scope.role", "stringValue", "workflow"),
+                            ],
+                            "droppedAttributesCount": 0,
+                        },
                         "schemaUrl": "https://opentelemetry.io/schemas/1.44.0",
                         "spans": [
                             {
@@ -129,6 +144,16 @@ def test_generic_intake_preserves_multi_trace_workflow_topology_without_semantic
 
     workflow, executor, background = report["spans"]
     assert workflow["span_name"] == "workflow.run"
+    assert workflow["resource_attributes"] == {
+        "service.name": "agent-framework",
+        "service.version": "1.19.0",
+    }
+    assert workflow["instrumentation_scope"] == {
+        "name": "agent_framework",
+        "version": "1.19.0",
+        "attributes": {"scope.role": "workflow"},
+        "dropped_attributes_count": 0,
+    }
     assert workflow["attributes"]["workflow.id"] == "wf-1"
     assert workflow["attributes"]["max_iterations"] == 100
     assert workflow["attributes"]["streaming"] is True
