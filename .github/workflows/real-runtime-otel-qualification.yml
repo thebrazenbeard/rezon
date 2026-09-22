@@ -1,0 +1,51 @@
+name: Real runtime OTLP qualification
+
+on:
+  push:
+    branches:
+      - "qualification/real-runtime-otel-v1-20260922"
+  pull_request:
+    paths:
+      - "src/rezon/otel_genai.py"
+      - "scripts/runtime_otel_support.py"
+      - "scripts/qualify_openai_agents_otel.py"
+      - "scripts/qualify_microsoft_agent_framework_otel.py"
+      - ".github/workflows/real-runtime-otel-qualification.yml"
+      - "docs/qualification/REAL_RUNTIME_OTEL_V1.md"
+
+jobs:
+  openai-agents:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install qualification subject
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install             "openai-agents==0.22.3"             "opentelemetry-sdk"             "opentelemetry-instrumentation-openai-agents==0.62.3"
+      - name: Qualify OpenAI Agents telemetry
+        env:
+          OPENAI_AGENTS_TRACE_INCLUDE_SENSITIVE_DATA: "0"
+          OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "no_content"
+        run: python scripts/qualify_openai_agents_otel.py
+
+  microsoft-agent-framework:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install qualification subject
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install             "agent-framework==1.19.0"             "opentelemetry-sdk"
+      - name: Qualify Microsoft Agent Framework telemetry
+        env:
+          ENABLE_SENSITIVE_DATA: "false"
+          ENABLE_MESSAGE_EVENTS: "false"
+        run: python scripts/qualify_microsoft_agent_framework_otel.py
