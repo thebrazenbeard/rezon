@@ -306,3 +306,22 @@ Next production frontier:
 Implement a Microsoft Agent Framework native-workflow adapter with an explicit
 source-semantics label. It must not synthesize gen_ai.operation.name or imply
 OpenTelemetry GenAI conformance that the source runtime did not emit.
+
+
+### E9 — Qualification-monitor pipeline-status defect
+
+Status: MONITOR HARNESS DEFECT / QUALIFICATION RESULT REPRODUCED
+Run: GitHub Actions 35749057711 / job 106818076971
+
+Observed:
+- Microsoft qualification reproduced the exact recorded FAIL:
+  exporter control = 1, native workflow spans = 7, GenAI keys = none,
+  Rezon GenAI events = none;
+- the observation step used a shell pipeline to tee JSON output;
+- without pipefail, the successful tee process masked the Python probe's non-zero
+  exit and GitHub exposed the step outcome as success;
+- the following assertion correctly rejected that inconsistent monitor state.
+
+Pivot P6:
+Enable shell pipefail for the observation pipeline. No runtime result, adapter
+behavior, or compatibility claim changes.
