@@ -195,3 +195,53 @@ def test_duplicate_otlp_attribute_keys_fail_closed():
 
     with pytest.raises(OTelGenAIIntakeError, match="duplicate attribute"):
         inspect_otel_genai_export(payload)
+
+
+def test_duplicate_attribute_key_rejected_even_when_first_value_is_not_string():
+    payload = _payload()
+    workflow = payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    workflow["attributes"].insert(
+        0,
+        {
+            "key": "gen_ai.operation.name",
+            "value": {"intValue": "1"},
+        },
+    )
+
+    with pytest.raises(OTelGenAIIntakeError, match="duplicate attribute"):
+        inspect_otel_genai_export(payload)
+
+
+def test_schema_binding_is_evaluated_per_genai_event_not_globally():
+    payload = _payload()
+    payload["resourceSpans"][0]["schemaUrl"] = (
+        "https://opentelemetry.io/schemas/1.44.0"
+    )
+    payload["resourceSpans"].append(
+        {
+            "scopeSpans": [
+                {
+                    "spans": [
+                        {
+                            "traceId": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                            "spanId": "ffffffffffffffff",
+                            "name": "invoke_agent unbound",
+                            "status": {"code": 1},
+                            "attributes": [
+                                _attr("gen_ai.operation.name", "invoke_agent"),
+                                _attr("gen_ai.agent.name", "unbound"),
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+
+    report = inspect_otel_genai_export(payload)
+
+    assert report["events"][0]["schema_url"] == (
+        "https://opentelemetry.io/schemas/1.44.0"
+    )
+    assert report["events"][-1]["schema_url"] is None
+    assert "semantic_convention_version:unbound" in report["assurance_gaps"]
