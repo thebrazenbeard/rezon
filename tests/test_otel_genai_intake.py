@@ -154,3 +154,44 @@ def test_invalid_or_duplicate_otlp_span_identity_fails_closed():
 def test_non_otlp_shapes_fail_closed_instead_of_guessing():
     with pytest.raises(OTelGenAIIntakeError, match="resourceSpans"):
         inspect_otel_genai_export({"spans": []})
+
+
+def test_preserves_standard_retrieval_operation_instead_of_silently_ignoring_it():
+    payload = _payload()
+    retrieval = payload["resourceSpans"][0]["scopeSpans"][0]["spans"][3]
+    retrieval["name"] = "retrieval vector-search"
+    retrieval["attributes"] = [
+        _attr("gen_ai.operation.name", "retrieval"),
+        _attr("gen_ai.provider.name", "openai"),
+    ]
+
+    report = inspect_otel_genai_export(payload)
+
+    assert report["ignored_span_count"] == 0
+    assert report["events"][-1]["operation"] == "retrieval"
+    assert report["events"][-1]["provider_name"] == "openai"
+
+
+def test_preserves_custom_genai_operation_without_pretending_it_is_standard():
+    payload = _payload()
+    custom = payload["resourceSpans"][0]["scopeSpans"][0]["spans"][3]
+    custom["name"] = "custom reasoning stage"
+    custom["attributes"] = [
+        _attr("gen_ai.operation.name", "vendor_reasoning_stage"),
+    ]
+
+    report = inspect_otel_genai_export(payload)
+
+    assert report["ignored_span_count"] == 0
+    assert report["events"][-1]["operation"] == "vendor_reasoning_stage"
+
+
+def test_duplicate_otlp_attribute_keys_fail_closed():
+    payload = _payload()
+    workflow = payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    workflow["attributes"].append(
+        _attr("gen_ai.operation.name", "invoke_workflow")
+    )
+
+    with pytest.raises(OTelGenAIIntakeError, match="duplicate attribute"):
+        inspect_otel_genai_export(payload)
