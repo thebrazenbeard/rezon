@@ -1,8 +1,20 @@
+import importlib.util
 import json
 from enum import Enum
+from pathlib import Path
 from types import SimpleNamespace
 
-from scripts.runtime_otel_support import readable_spans_to_otlp_json
+
+def _load_projection():
+    path = Path(__file__).parents[1] / "scripts" / "runtime_otel_support.py"
+    spec = importlib.util.spec_from_file_location("runtime_otel_support", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.readable_spans_to_otlp_json
+
+
+readable_spans_to_otlp_json = _load_projection()
 
 
 class SpanName(str, Enum):
