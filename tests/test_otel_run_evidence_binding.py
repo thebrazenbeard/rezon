@@ -168,3 +168,21 @@ def test_rejects_tampered_evidence_even_when_trace_anchor_is_redigested_to_match
 
     with pytest.raises(otel_genai.OTelGenAIIntakeError, match="verification"):
         _bind(_otel(evidence), evidence)
+
+
+def test_verified_binding_preserves_unresolved_telemetry_assurance_gaps():
+    evidence = _evidence()
+    otel = _otel(evidence)
+    workflow = otel["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    workflow["droppedAttributesCount"] = 1
+
+    binding = _bind(otel, evidence)
+
+    assert binding["binding_status"] == "verified"
+    assert binding["binding_scope"] == "trace_to_verified_artifact"
+    assert "semantic_convention_version:unbound" in (
+        binding["telemetry_assurance_gaps"]
+    )
+    assert "telemetry_attributes:dropped" in binding["telemetry_assurance_gaps"]
+    assert binding["authority"] == "unestablished"
+    assert binding["effect_completion"] == "unestablished"
