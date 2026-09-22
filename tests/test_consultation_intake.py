@@ -186,12 +186,50 @@ def test_missing_or_partial_raw_outputs_are_distinguished():
     assert "raw_outputs:partial" in report["assurance_gaps"]
 
 
-def test_malformed_provider_and_score_shapes_fail_closed():
-    duplicate = _lattice_like()
-    duplicate["providers_consulted"].append("openai")
-    with pytest.raises(ConsultationIntakeError, match="duplicate provider"):
-        inspect_ensemble_consultation(duplicate)
+def test_multiple_models_from_one_provider_do_not_become_independent_sources():
+    payload = _lattice_like()
+    payload["providers_consulted"] = ["jan", "jan"]
+    payload["raw_outputs"] = {
+        "jan/qwen2.5:7b": {
+            "response": "Answer A",
+            "error": None,
+            "tokens_in": 10,
+            "tokens_out": 5,
+            "cost_usd": 0.0,
+            "latency_ms": 50,
+        },
+        "jan/llama3.1:70b": {
+            "response": "Answer B",
+            "error": None,
+            "tokens_in": 10,
+            "tokens_out": 6,
+            "cost_usd": 0.0,
+            "latency_ms": 80,
+        },
+    }
 
+    report = inspect_ensemble_consultation(payload)
+
+    assert report["consultation_member_count"] == 2
+    assert report["provider_count"] == 1
+    assert report["raw_worker_count"] == 2
+    assert report["raw_output_workers"] == [
+        "jan/qwen2.5:7b",
+        "jan/llama3.1:70b",
+    ]
+    assert report["assurance"]["provider_independence"] == "unestablished"
+    assert "provider_diversity:single_provider" in report["assurance_gaps"]
+
+
+def test_consulted_success_cannot_carry_raw_error():
+    payload = _lattice_like(raw=True)
+    payload["raw_outputs"]["openai/gpt-5"]["error"] = "timeout"
+
+    with pytest.raises(ConsultationIntakeError, match="consulted provider.*error"):
+        inspect_ensemble_consultation(payload)
+
+
+def test_malformed_score_and_raw_key_shapes_fail_closed():
     bad_score = _lattice_like()
     bad_score["convergence_score"] = 1.7
     with pytest.raises(ConsultationIntakeError, match="convergence_score"):
