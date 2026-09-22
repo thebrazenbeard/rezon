@@ -304,3 +304,112 @@ def test_resource_schema_does_not_masquerade_as_span_schema_binding():
     )
     assert background["schema_url"] is None
     assert "telemetry_schema:unbound" in report["assurance_gaps"]
+
+
+def test_protojson_numeric_forms_and_base64_bytes_are_decoded():
+    payload = _microsoft_like_payload()
+    workflow = payload["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    workflow["flags"] = "1e0"
+    workflow["droppedAttributesCount"] = "2"
+    workflow["attributes"].extend(
+        [
+            _attr("scientific_int", "intValue", "1e2"),
+            _attr("string_double", "doubleValue", "1.25e2"),
+            _attr("binary_payload", "bytesValue", "aGVsbG8"),
+        ]
+    )
+
+    report = inspect_otel_export(payload)
+    observed = report["spans"][0]
+
+    assert observed["flags"] == 1
+    assert observed["dropped_attributes_count"] == 2
+    assert observed["attributes"]["scientific_int"] == 100
+    assert observed["attributes"]["string_double"] == 125.0
+    assert observed["attributes"]["binary_payload"] == {
+        "bytes_base64": "aGVsbG8"
+    }
+
+
+def test_protojson_numeric_bounds_and_invalid_base64_fail_closed():
+    int_overflow = _microsoft_like_payload()
+    int_overflow["resourceSpans"][0]["scopeSpans"][0]["spans"][0][
+        "attributes"
+    ].append(
+        _attr("overflow", "intValue", str(2**63))
+    )
+    with pytest.raises(OTelIntakeError, match="intValue"):
+        inspect_otel_export(int_overflow)
+
+    invalid_bytes = _microsoft_like_payload()
+    invalid_bytes["resourceSpans"][0]["scopeSpans"][0]["spans"][0][
+        "attributes"
+    ].append(
+        _attr("binary_payload", "bytesValue", "%%%not-base64%%%")
+    )
+    with pytest.raises(OTelIntakeError, match="bytesValue"):
+        inspect_otel_export(invalid_bytes)
+
+    count_overflow = _microsoft_like_payload()
+    count_overflow["resourceSpans"][0]["scopeSpans"][0]["spans"][0][
+        "droppedEventsCount"
+    ] = str(2**32)
+    with pytest.raises(OTelIntakeError, match="droppedEventsCount"):
+        inspect_otel_export(count_overflow)
+
+
+def test_span_timing_event_time_link_flags_and_drop_counts_are_preserved():
+    payload = _microsoft_like_payload()
+    executor = payload["resourceSpans"][0]["scopeSpans"][0]["spans"][1]
+    executor["startTimeUnixNano"] = "100"
+    executor["endTimeUnixNano"] = 200
+    executor["droppedEventsCount"] = "2"
+    executor["droppedLinksCount"] = 1
+    executor["events"][0]["timeUnixNano"] = "150"
+    executor["links"] = [
+        {
+            "traceId": TRACE_B,
+            "spanId": "dddddddddddddddd",
+            "traceState": "vendor=value",
+            "flags": "1",
+            "attributes": [],
+            "droppedAttributesCount": 0,
+        }
+    ]
+
+    report = inspect_otel_export(payload)
+    observed = report["spans"][1]
+
+    assert observed["start_time_unix_nano"] == 100
+    assert observed["end_time_unix_nano"] == 200
+    assert observed["events"][0]["time_unix_nano"] == 150
+    assert observed["links"][0]["flags"] == 1
+    assert observed["dropped_events_count"] == 2
+    assert observed["dropped_links_count"] == 1
+    assert "telemetry_events:dropped" in report["assurance_gaps"]
+    assert "telemetry_links:dropped" in report["assurance_gaps"]
+
+
+def test_invalid_span_timing_fails_closed_and_missing_timing_is_visible():
+    backwards = _microsoft_like_payload()
+    span = backwards["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    span["startTimeUnixNano"] = "200"
+    span["endTimeUnixNano"] = "100"
+
+    with pytest.raises(OTelIntakeError, match="endTimeUnixNano"):
+        inspect_otel_export(backwards)
+
+    report = inspect_otel_export(_microsoft_like_payload())
+    assert "telemetry_timing:unbound" in report["assurance_gaps"]
+
+
+def test_empty_instrumentation_scope_identity_is_valid_unknown_state():
+    payload = _microsoft_like_payload()
+    scope = payload["resourceSpans"][0]["scopeSpans"][0]["scope"]
+    scope["name"] = ""
+    scope["version"] = ""
+
+    report = inspect_otel_export(payload)
+
+    assert report["spans"][0]["instrumentation_scope"]["name"] == ""
+    assert report["spans"][0]["instrumentation_scope"]["version"] == ""
