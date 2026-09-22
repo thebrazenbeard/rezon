@@ -247,3 +247,62 @@ Pivot P5:
 The qualification projection will accept only isinstance(key, str) keys and
 serialize str(key). Non-string keys still fail. Rezon's OTLP/JSON parser remains
 strict and unchanged.
+
+
+### E8 — Final V1 real-runtime result
+
+Status: QUALIFICATION COMPLETE
+Run: GitHub Actions 35748734429
+Head: 2dd9ebfa46df69b5a6a719400b34e84adc6d4f63 plus the
+batch-flush and string-enum projection repairs exercised in the run lineage.
+
+H1 — OpenAI Agents SDK: CONFIRMED.
+The pinned OpenAI Agents 0.22.3 lane repeatedly emitted real OpenTelemetry GenAI
+spans consumable by Rezon without model credentials. Observed operations included
+execute_tool and invoke_agent. Rezon retained its authority/effect/currentness/
+independence gaps.
+
+H2 — Microsoft Agent Framework workflow: FALSIFIED FOR THE TESTED PATH.
+The exporter control succeeded and the credential-free workflow completed with
+output NOZER OLLEH. Seven native Agent Framework spans were captured:
+
+- workflow.build
+- edge_group.process InternalEdgeGroup
+- message.send
+- executor.process upper
+- edge_group.process SingleEdgeGroup
+- executor.process reverse
+- workflow.run
+
+None of those seven spans carried gen_ai.* attributes, and therefore the current
+generic Rezon GenAI intake observed zero events. Calling enable_instrumentation()
+explicitly produced the same seven spans and the same zero GenAI attributes.
+
+This is a compatibility gap, not evidence that either runtime failed to emit
+telemetry. Microsoft Agent Framework emitted native workflow telemetry that the
+generic GenAI adapter intentionally did not reinterpret.
+
+Corroboration:
+Microsoft issue #6626 reports that native workflow spans use workflow.*,
+executor.*, and message attributes without gen_ai.operation.name=invoke_workflow.
+
+H3 — No trust promotion: CONFIRMED on the OpenAI consumable path. The Microsoft
+path never reached a Rezon GenAI event and therefore cannot be counted as a
+second H3 runtime confirmation.
+
+## V1 conclusion
+
+The claim "provider-neutral OTLP/JSON GenAI intake works unchanged across both
+tested runtimes" is REJECTED.
+
+A narrower claim survives:
+Rezon consumes standards-shaped GenAI telemetry from the tested OpenAI Agents
+instrumentation, while Microsoft Agent Framework 1.19.0 native workflow telemetry
+requires an explicit framework-native compatibility adapter if Rezon is to
+preserve those workflow/executor/message observations without fabricating GenAI
+semantic attributes.
+
+Next production frontier:
+Implement a Microsoft Agent Framework native-workflow adapter with an explicit
+source-semantics label. It must not synthesize gen_ai.operation.name or imply
+OpenTelemetry GenAI conformance that the source runtime did not emit.
