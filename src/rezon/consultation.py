@@ -226,10 +226,11 @@ def inspect_ensemble_consultation(payload: object) -> dict[str, object]:
             if item["error"] is None
         )
 
-        for provider, expected_successes in consulted_counts.items():
-            if raw_success_counts[provider] > expected_successes:
+        for provider, observed_successes in raw_success_counts.items():
+            expected_successes = consulted_counts[provider]
+            if observed_successes > expected_successes:
                 raise ConsultationIntakeError(
-                    "raw_outputs reports more successful workers than "
+                    "successful raw worker is not represented by "
                     f"providers_consulted for provider {provider!r}"
                 )
 
@@ -260,6 +261,10 @@ def inspect_ensemble_consultation(payload: object) -> dict[str, object]:
     else:
         raw_binding = "observed"
 
+    raw_failure_count = sum(
+        1 for item in raw_items if item["error"] is not None
+    )
+
     skipped_present = "providers_skipped" in root
     providers_skipped = (
         _strings(root["providers_skipped"], "providers_skipped")
@@ -276,6 +281,8 @@ def inspect_ensemble_consultation(payload: object) -> dict[str, object]:
         "prompt:not_bound",
         "system_prompt:not_bound",
         "request_configuration:not_bound",
+        "synthesis_method:not_bound",
+        "privacy_tier:not_bound",
         "provider_independence:not_demonstrated",
         "semantic_truth:not_established_by_consultation",
         "authority:not_established_by_consultation",
@@ -291,6 +298,8 @@ def inspect_ensemble_consultation(payload: object) -> dict[str, object]:
 
     if providers_failed:
         assurance_gaps.append("provider_failures:reported")
+    if raw_present and raw_failure_count != len(providers_failed):
+        assurance_gaps.append("provider_failures:top_level_mismatch")
 
     if len(providers_consulted) <= 1 and convergence_score is not None:
         assurance_gaps.append(
@@ -313,6 +322,7 @@ def inspect_ensemble_consultation(payload: object) -> dict[str, object]:
         "provider_count": len(set(providers_consulted)),
         "providers_failed": providers_failed,
         "partial_failure_reported": bool(providers_failed),
+        "raw_failure_count": raw_failure_count,
         "providers_skipped": providers_skipped,
         "provider_eligibility_reported": skipped_present,
         "single_provider_reported": single_provider_reported,
