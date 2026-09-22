@@ -71,6 +71,11 @@ def _optional_string(value: object, name: str) -> str | None:
     return value
 
 
+def _schema_url(value: object, name: str) -> str | None:
+    schema = _optional_string(value, name)
+    return schema or None
+
+
 def _valid_trace_id(value: object) -> bool:
     return (
         type(value) is str
@@ -271,20 +276,27 @@ def _decode_attributes(raw: object, name: str) -> dict[str, object]:
     return values
 
 
-def _status(raw: object) -> str:
+def _status(raw: object) -> tuple[str, str | None]:
     if raw is None:
-        return "unset"
+        return "unset", None
     status = _require_dict(raw, "span.status")
     code = status.get("code", 0)
     if type(code) is not int or code not in (0, 1, 2):
         raise OTelIntakeError(
             "span.status.code must be an OTLP integer enum value 0, 1, or 2"
         )
-    return {
-        0: "unset",
-        1: "ok",
-        2: "error",
-    }[code]
+    message = _optional_string(
+        status.get("message"),
+        "span.status.message",
+    )
+    return (
+        {
+            0: "unset",
+            1: "ok",
+            2: "error",
+        }[code],
+        message,
+    )
 
 
 def _span_kind(raw: object) -> int | None:
@@ -410,7 +422,7 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
             raw_resource_spans,
             f"resourceSpans[{resource_index}]",
         )
-        resource_schema = _optional_nonempty_string(
+        resource_schema = _schema_url(
             resource_spans_entry.get("schemaUrl"),
             f"resourceSpans[{resource_index}].schemaUrl",
         )
@@ -453,7 +465,7 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                     f"scopeSpans[{scope_index}]"
                 ),
             )
-            scope_schema = _optional_nonempty_string(
+            scope_schema = _schema_url(
                 scope_spans_entry.get("schemaUrl"),
                 (
                     f"resourceSpans[{resource_index}]."
@@ -614,6 +626,7 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                 if trace_id not in trace_ids:
                     trace_ids.append(trace_id)
 
+                status, status_message = _status(span.get("status"))
                 spans_out.append(
                     {
                         "trace_id": trace_id,
@@ -628,7 +641,8 @@ def inspect_otel_export(payload: object) -> dict[str, object]:
                             f"{span_path}.traceState",
                         ),
                         "flags": _flags(span.get("flags")),
-                        "status": _status(span.get("status")),
+                        "status": status,
+                        "status_message": status_message,
                         "schema_url": scope_schema,
                         "resource_schema_url": resource_schema,
                         "resource_attributes": dict(resource_attributes),
