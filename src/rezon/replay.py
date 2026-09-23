@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -30,16 +31,24 @@ class ReplaySource:
     origin_id: str | None = None
 
     def validate(self) -> None:
-        if not self.source_id:
-            raise ReplayValidationError("source_id is required")
-        if self.source_version is not None and not self.source_version:
-            raise ReplayValidationError("source_version cannot be empty when present")
-        if self.locator is not None and not self.locator:
-            raise ReplayValidationError("locator cannot be empty when present")
-        if self.admission_status is not None and not self.admission_status:
-            raise ReplayValidationError("admission_status cannot be empty when present")
-        if self.origin_id is not None and not self.origin_id:
-            raise ReplayValidationError("origin_id cannot be empty when present")
+        if type(self.source_id) is not str or not self.source_id:
+            raise ReplayValidationError(
+                "source_id must be a non-empty exact string"
+            )
+        for field_name, value in (
+            ("source_version", self.source_version),
+            ("locator", self.locator),
+            ("admission_status", self.admission_status),
+            ("origin_id", self.origin_id),
+        ):
+            if value is not None and (type(value) is not str or not value):
+                raise ReplayValidationError(
+                    f"{field_name} must be a non-empty exact string when present"
+                )
+        if self.is_current is not None and type(self.is_current) is not bool:
+            raise ReplayValidationError(
+                "is_current must be an exact boolean when present"
+            )
 
 
 @dataclass(frozen=True)
@@ -108,10 +117,23 @@ class ReplayCandidate:
                 raise ReplayValidationError(
                     f"{label} must contain only non-empty exact strings"
                 )
-        for key, _value in self.advisory_signals:
+        for key, value in self.advisory_signals:
             if type(key) is not str or not key:
                 raise ReplayValidationError(
                     "advisory signal names must be non-empty exact strings"
+                )
+            if value is not None and type(value) not in (
+                str,
+                int,
+                float,
+                bool,
+            ):
+                raise ReplayValidationError(
+                    "advisory signal value must be a portable JSON scalar"
+                )
+            if type(value) is float and not math.isfinite(value):
+                raise ReplayValidationError(
+                    "advisory signal value must be a finite portable JSON scalar"
                 )
 
 
@@ -235,8 +257,13 @@ class ReplayCase:
         if len(source_ids) != len(set(source_ids)):
             raise ReplayValidationError("source IDs must be unique within a case")
 
-        if any(not violation for violation in self.expected_violations):
-            raise ReplayValidationError("expected_violations cannot contain empty values")
+        if any(
+            type(violation) is not str or not violation
+            for violation in self.expected_violations
+        ):
+            raise ReplayValidationError(
+                "expected_violations must contain only non-empty exact strings"
+            )
 
     def to_strategy_input(self) -> StrategyInput:
         """Project evaluator-owned state into a structurally gold-free input."""
