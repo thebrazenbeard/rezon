@@ -1,6 +1,7 @@
 name: Rezon Benchmark V1 tests
 
 on:
+  pull_request:
   push:
     branches:
       - rezon/benchmark-v1-impl
