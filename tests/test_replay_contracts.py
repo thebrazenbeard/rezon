@@ -287,3 +287,93 @@ def test_required_candidate_identity_fields_require_nonempty_strings(field, valu
     candidate = dataclasses.replace(_candidate(), **{field: value})
     with pytest.raises(ReplayValidationError, match=field):
         candidate.validate()
+
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("answer", ""),
+        ("answer", 7),
+        ("solved_request", ""),
+        ("solved_request", 7),
+        ("failure", ""),
+        ("failure", 7),
+        ("effect_state_claim", ""),
+        ("effect_state_claim", 7),
+    ],
+)
+def test_candidate_semantic_text_fields_require_nonempty_strings_when_present(
+    field,
+    value,
+):
+    candidate = dataclasses.replace(_candidate(), **{field: value})
+    with pytest.raises(ReplayValidationError, match=field):
+        candidate.validate()
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("case_id", 7),
+        ("fixture_version", 7),
+        ("fixture_provenance", 7),
+        ("literal_request", 7),
+        ("primary_candidate_id", 7),
+    ],
+)
+def test_replay_case_required_text_fields_require_exact_strings(field, value):
+    case = _case(**{field: value})
+    with pytest.raises(ReplayValidationError, match=field):
+        case.validate()
+
+
+def test_answer_gold_requires_nonempty_exact_string():
+    with pytest.raises(ReplayValidationError, match="gold_answer"):
+        _case(gold_answer=7).validate()
+
+
+def test_loader_rejects_nonstring_answer_before_strategy_execution(tmp_path):
+    payload = [
+        {
+            "case_id": "case-malformed-answer",
+            "fixture_version": "benchmark-v1.0",
+            "fixture_provenance": "fixture:test",
+            "literal_request": "Is A true?",
+            "primary_candidate_id": "cand-a",
+            "gold_disposition": "ANSWER",
+            "gold_answer": "A",
+            "expected_violations": [],
+            "candidates": [
+                {
+                    "candidate_id": "cand-a",
+                    "worker_id": "worker-a",
+                    "execution_id": "exec-a",
+                    "answer": 7,
+                }
+            ],
+            "sources": [],
+        }
+    ]
+    path = tmp_path / "malformed-answer.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ReplayValidationError, match="answer"):
+        load_replay_cases(path)
+
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("case_id", 7),
+        ("fixture_version", 7),
+        ("literal_request", 7),
+        ("primary_candidate_id", 7),
+    ],
+)
+def test_strategy_input_required_text_fields_require_exact_strings(field, value):
+    strategy_input = _case().to_strategy_input()
+    malformed = dataclasses.replace(strategy_input, **{field: value})
+    with pytest.raises(ReplayValidationError, match=field):
+        malformed.validate()

@@ -79,6 +79,10 @@ class ReplayCandidate:
             ("provider_id", self.provider_id),
             ("prompt_lineage", self.prompt_lineage),
             ("context_lineage", self.context_lineage),
+            ("answer", self.answer),
+            ("solved_request", self.solved_request),
+            ("failure", self.failure),
+            ("effect_state_claim", self.effect_state_claim),
         ):
             if value is not None and (type(value) is not str or not value):
                 raise ReplayValidationError(
@@ -127,11 +131,15 @@ class StrategyInput:
             "literal_request": self.literal_request,
             "primary_candidate_id": self.primary_candidate_id,
         }
-        missing = [name for name, value in required.items() if not value]
-        if missing:
+        malformed = [
+            name
+            for name, value in required.items()
+            if type(value) is not str or not value
+        ]
+        if malformed:
             raise ReplayValidationError(
-                "required strategy input fields are empty: "
-                + ", ".join(sorted(missing))
+                "required strategy input fields must be non-empty exact strings: "
+                + ", ".join(sorted(malformed))
             )
 
         for candidate in self.candidates:
@@ -184,15 +192,22 @@ class ReplayCase:
             "literal_request": self.literal_request,
             "primary_candidate_id": self.primary_candidate_id,
         }
-        missing = [name for name, value in required.items() if not value]
-        if missing:
+        malformed = [
+            name
+            for name, value in required.items()
+            if type(value) is not str or not value
+        ]
+        if malformed:
             raise ReplayValidationError(
-                f"required replay case fields are empty: {', '.join(sorted(missing))}"
+                "required replay case fields must be non-empty exact strings: "
+                + ", ".join(sorted(malformed))
             )
 
         if self.gold_disposition is Disposition.ANSWER:
-            if self.gold_answer is None or self.gold_answer == "":
-                raise ReplayValidationError("ANSWER cases require a non-empty gold_answer")
+            if type(self.gold_answer) is not str or not self.gold_answer:
+                raise ReplayValidationError(
+                    "ANSWER cases require a non-empty exact string gold_answer"
+                )
         elif self.gold_answer is not None:
             raise ReplayValidationError(
                 "ABSTAIN and FAIL_CLOSED cases must not contain gold_answer"
