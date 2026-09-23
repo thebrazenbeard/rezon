@@ -360,3 +360,20 @@ def test_loader_rejects_nonstring_answer_before_strategy_execution(tmp_path):
 
     with pytest.raises(ReplayValidationError, match="answer"):
         load_replay_cases(path)
+
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("case_id", 7),
+        ("fixture_version", 7),
+        ("literal_request", 7),
+        ("primary_candidate_id", 7),
+    ],
+)
+def test_strategy_input_required_text_fields_require_exact_strings(field, value):
+    strategy_input = _case().to_strategy_input()
+    malformed = dataclasses.replace(strategy_input, **{field: value})
+    with pytest.raises(ReplayValidationError, match=field):
+        malformed.validate()
