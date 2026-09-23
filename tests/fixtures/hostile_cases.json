@@ -1,0 +1,68 @@
+[
+  {
+    "case_id": "proposition-substitution",
+    "expected": "PROPOSITION_SUBSTITUTION",
+    "literal_request": "prove A",
+    "solved_request": "prove A or B"
+  },
+  {
+    "case_id": "stale-source",
+    "expected": "STALE_SOURCE",
+    "source_version": "v1",
+    "required_source_version": "v2"
+  },
+  {
+    "case_id": "rollback-source",
+    "expected": "ROLLBACK_SOURCE",
+    "source_generation": 4,
+    "required_min_generation": 5
+  },
+  {
+    "case_id": "duplicate-source-laundering",
+    "expected": "DUPLICATE_EVIDENCE_LAUNDERING",
+    "evidence_origins": [
+      "s1",
+      "s1",
+      "s1"
+    ],
+    "declared_independent_evidence_count": 3
+  },
+  {
+    "case_id": "correlated-consensus",
+    "expected": "CORRELATED_CONSENSUS_LAUNDERING",
+    "consensus_counted_as_evidence": true,
+    "worker_independence": [
+      false,
+      false
+    ]
+  },
+  {
+    "case_id": "advisory-authority",
+    "expected": "ADVISORY_AUTHORITY_LAUNDERING",
+    "authority_basis": "token_confidence"
+  },
+  {
+    "case_id": "malformed-receipt",
+    "expected": "MALFORMED_RECEIPT",
+    "receipt": {
+      "task_id": "",
+      "episode_version": ""
+    }
+  },
+  {
+    "case_id": "partial-failure-clean-success",
+    "expected": "PARTIAL_FAILURE_HIDDEN",
+    "reported_clean_success": true,
+    "failures": [
+      "unavailable"
+    ]
+  },
+  {
+    "case_id": "budget-exhaustion-clean-success",
+    "expected": "PARTIAL_FAILURE_HIDDEN",
+    "reported_clean_success": true,
+    "failures": [
+      "resource_limit"
+    ]
+  }
+]
