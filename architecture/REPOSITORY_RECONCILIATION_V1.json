@@ -1,0 +1,177 @@
+{
+  "schema": "REZON_REPOSITORY_RECONCILIATION_V1",
+  "status": "CANONICALIZATION_CANDIDATE_NOT_MERGED",
+  "generated_date": "2026-09-20",
+  "repository": "thebrazenbeard/rezon",
+  "default_branch": {
+    "name": "main",
+    "head_sha": "e3d7a41eccb49a9f403ef66f511faef677ceec1b",
+    "classification": [
+      "MAIN_BEHIND_ACTIVE_WORK",
+      "PR_STACK_IS_DE_FACTO_PROJECT",
+      "PR_SPRAWL"
+    ]
+  },
+  "canonicalization_candidate": {
+    "branch": "estate/rezon-canonical-baseline-v1-20260920",
+    "source_composition_head_sha": "d9724e769cbb2ba6a658913c603be647e17c839d",
+    "relation_to_main": {
+      "ahead_by": 346,
+      "behind_by": 0
+    },
+    "exact_subjects": [
+      {
+        "kind": "R51_SOURCE",
+        "pr": 79,
+        "sha": "8289914ec500a1392b10fe1a3774dee166e73b40"
+      },
+      {
+        "kind": "BENCHMARK_R4",
+        "pr": 18,
+        "sha": "d7373867d3813d32032cb30463e54a6ddf573025"
+      },
+      {
+        "kind": "CANONICAL_EPISODE_METHOD_BINDING",
+        "pr": 69,
+        "sha": "90e9f7695323f1e8e8add8decbe23a4c183dad87"
+      }
+    ],
+    "merge_resolution": [
+      {
+        "path": ".github/workflows/r3-tests.yml",
+        "resolution": "KEEP_R51_ESTATE_SIDE",
+        "reason": "The only PR69 composition conflict was historical push-branch trigger enumeration. No source/test implementation file conflicted."
+      }
+    ]
+  },
+  "executable_evidence": [
+    {
+      "subject": "8289914ec500a1392b10fe1a3774dee166e73b40",
+      "environment": "Windows / Python 3.12",
+      "full_suite": "275/275 PASS",
+      "compileall": "PASS",
+      "diff_check": "PASS"
+    },
+    {
+      "subject": "R51_8289914_PLUS_BENCHMARK_R4_d7373867_NO_COMMIT",
+      "environment": "Windows / Python 3.12",
+      "full_suite": "334/334 PASS",
+      "benchmark_replay": "PASS",
+      "compileall": "PASS",
+      "staged_diff_check": "PASS",
+      "conflicts": 0
+    },
+    {
+      "subject": "R51_8289914_PLUS_BENCHMARK_R4_PLUS_PR69_90e9f769_NO_COMMIT",
+      "environment": "Windows / Python 3.12",
+      "full_suite": "337/337 PASS",
+      "benchmark_replay": "PASS",
+      "compileall": "PASS",
+      "staged_diff_check": "PASS",
+      "source_conflicts": 0,
+      "workflow_conflicts": 1
+    }
+  ],
+  "open_pr_reconciliation": {
+    "absorbed_into_candidate": [
+      79,
+      74,
+      71,
+      69,
+      26,
+      25,
+      24,
+      23,
+      22,
+      21,
+      20,
+      18,
+      17,
+      16,
+      15,
+      14,
+      12,
+      10,
+      8,
+      4
+    ],
+    "closure_rule": "ABSORBED open PRs are only CLOSURE_CANDIDATE_AFTER_CANONICALIZATION. Do not close them before a separately authorized canonical merge and post-merge verification.",
+    "divergent": [
+      {
+        "pr": 76,
+        "status": "HISTORICAL_QUALIFICATION_ALTERNATIVE",
+        "note": "Parallel R51 implementation from the same R50 base; hosted qualification exists, but it is not an ancestor of the selected later R51 line."
+      },
+      {
+        "pr": 75,
+        "status": "SUPERSEDED_PROVENANCE",
+        "note": "PR discussion explicitly marks this parallel R50 repair superseded by PR74 and current R51 PR79."
+      },
+      {
+        "pr": 19,
+        "status": "EXPERIMENTAL_ALTERNATIVE",
+        "note": "Benchmark R5 typed-support design line; not part of the accepted Benchmark R4 canonicalization candidate."
+      },
+      {
+        "pr": 13,
+        "status": "HISTORICAL_ALTERNATIVE",
+        "note": "Parallel R4 independence-reconciliation branch; not ancestor of candidate."
+      },
+      {
+        "pr": 11,
+        "status": "HISTORICAL_ALTERNATIVE",
+        "note": "Parallel R4 hostile-hardening branch; not ancestor of candidate."
+      },
+      {
+        "pr": 9,
+        "status": "HISTORICAL_ALTERNATIVE",
+        "note": "Parallel R3 current-state hardening branch; not ancestor of candidate."
+      },
+      {
+        "pr": 7,
+        "status": "EXPERIMENTAL_ALTERNATIVE",
+        "note": "Adaptive chat reasoning governor integration; independent feature line."
+      },
+      {
+        "pr": 6,
+        "status": "EXPERIMENTAL_ALTERNATIVE",
+        "note": "Adaptive chat reasoning governor source line; independent feature line."
+      },
+      {
+        "pr": 3,
+        "status": "HISTORICAL_FOUNDATION_ALTERNATIVE",
+        "note": "Early multi-view reasoning foundation design; not ancestor of candidate."
+      },
+      {
+        "pr": 2,
+        "status": "HISTORICAL_FOUNDATION_ALTERNATIVE",
+        "note": "Early reasoning foundation population branch; not ancestor of candidate."
+      },
+      {
+        "pr": 1,
+        "status": "HISTORICAL_FOUNDATION_ALTERNATIVE",
+        "note": "Bootstrap architecture branch; not ancestor of candidate."
+      }
+    ]
+  },
+  "issue_state": {
+    "open_issues": [],
+    "note": "GitHub live issue enumeration found no currently open non-PR issue in Rezon at reconciliation time; historical Issue #5 is closed and is not reopened by this candidate."
+  },
+  "claim_ceiling": [
+    "SOURCE_CANONICALIZATION_CANDIDATE",
+    "LOCAL_EXECUTABLE_TEST_EVIDENCE",
+    "NO_MERGE_AUTHORITY",
+    "NO_DEPLOYMENT_OR_INSTALLATION",
+    "NO_PROVIDER_OR_MODEL_EFFECT",
+    "NO_LEARNED_ROUTING_PROMOTION",
+    "NO_SEMANTIC_TRUTH_OR_OBJECT_ORIGIN_AUTHENTICATION"
+  ],
+  "protected_effects": {
+    "merge_authorized": false,
+    "destructive_pr_closure_authorized": false,
+    "branch_deletion_authorized": false,
+    "deployment_authorized": false
+  },
+  "next_gate": "INDEPENDENT_EXACT_HEAD_REVIEW_OF_CANONICALIZATION_CANDIDATE_THEN_PATRICK_EXACT_MERGE_AUTHORIZATION"
+}
