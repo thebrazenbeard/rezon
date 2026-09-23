@@ -1,0 +1,50 @@
+{
+  "schema": "REZON_CHAT_REASONING_GOVERNOR_V1",
+  "default_mode": "FAST",
+  "modes": {
+    "FAST": {"max_iterations": 1, "max_hypotheses": 1, "retrieval_depth": 1, "independent_check": false},
+    "STRUCTURED": {"max_iterations": 2, "max_hypotheses": 2, "retrieval_depth": 2, "independent_check": false},
+    "DEEP": {"max_iterations": 4, "max_hypotheses": 5, "retrieval_depth": 3, "independent_check": false},
+    "VERIFIED": {"max_iterations": 5, "max_hypotheses": 5, "retrieval_depth": 4, "independent_check": true}
+  },
+  "routing_dimensions": ["complexity", "uncertainty", "freshness", "stakes", "branchiness"],
+  "escalation_triggers": [
+    "conflicting_evidence",
+    "failed_assumption",
+    "failed_test",
+    "stale_or_unpinned_source",
+    "high_impact_or_protected_effect",
+    "multiple_plausible_hypotheses",
+    "answer_changes_with_unresolved_dependency"
+  ],
+  "operators": [
+    "exact_retrieval",
+    "tree_retrieval",
+    "graph_rule_reasoning",
+    "language_semantic_reasoning",
+    "numerical_computation",
+    "simulation_perturbation",
+    "tool_execution"
+  ],
+  "hypothesis_fields": ["support", "contradiction", "dependency_risk", "test_cost", "information_gain"],
+  "state_fields": ["goal", "constraints", "unresolved", "best_plan", "provenance", "halt_criteria"],
+  "halt_when": [
+    "answer_determined",
+    "remaining_branches_cannot_materially_change_answer",
+    "evidence_sufficient_for_stakes",
+    "diminishing_information_gain"
+  ],
+  "verification": {
+    "preserve_conflicts": true,
+    "prefer_exact_fresh_authoritative_evidence": true,
+    "minimal_repair": true,
+    "cross_operator_check_when_brittle": true,
+    "never_claim_hidden_state_or_weight_modification": true
+  },
+  "output": {
+    "expose_hidden_chain_of_thought": false,
+    "prefer": ["result", "decisive_evidence", "uncertainty", "next_action"],
+    "verbosity_independent_of_internal_depth": true
+  },
+  "runtime_invariant": "Fast by default; structured when needed; branch only under genuine ambiguity; verify when failure matters; preserve provenance always."
+}
