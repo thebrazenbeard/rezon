@@ -2,9 +2,9 @@
 
 Review class: independent role-separated assurance pass  
 Reviewed Project Runner branch: `portfolio/advancement-wave-v1-restack-20260924`  
-Reviewed head: `4f43e594b6cb57ce1c8820fd4fafff11e0e11641`  
-Reviewed wave blob: `db4f54d53015d82770d2ff8697d4ba3b8eee2ac1`  
-Public wave subjects: 50 = 48 repositories + 2 workstreams
+Reviewed head: `e09f10c57f50fe39ccef25d398ff15a8fee8c2e5`  
+Reviewed wave blob: `dea2855036232d828d7ac8b0213f190124c3748d`  
+Public wave subjects: 51 = 49 repositories + 2 workstreams
 
 ## Disposition
 
@@ -25,7 +25,7 @@ This is not a merge/deploy recommendation. It means the reviewed public wave sur
 
 ## Portfolio-wide caution
 
-The public wave has 49 QUEUED subjects and 1 HELD subject. "QUEUED" must not be interpreted as permission to execute 49 mutable operations concurrently.
+The public wave has 50 QUEUED subjects and 1 HELD subject. "QUEUED" must not be interpreted as permission to execute 49 mutable operations concurrently.
 
 Project Runner still needs collision, dependency, budget, currentness, and exact-authority gating at actual dispatch time. The wave is a disposition layer, not a replacement for Operator state or effect fences.
 
@@ -39,11 +39,11 @@ In particular:
 
 ## Private corpus ceiling
 
-A complete private execution wave was constructed and validated in the current authorized execution environment for 66 repositories + 15 workstreams. It is intentionally not copied into this public repository.
+A complete private execution wave was constructed and validated in the current authorized execution environment for 67 repositories + 15 workstreams. It is intentionally not copied into this public repository.
 
 Therefore this public review's durable claim ceiling is:
 
-`PUBLIC_48_REPOSITORIES_PLUS_2_WORKSTREAMS_SOURCE_POLICY_SURVIVES__PRIVATE_COMPLETE_WAVE_EXTERNALLY_HELD_NOT_PUBLICLY_ATTESTED`
+`PUBLIC_49_REPOSITORIES_PLUS_2_WORKSTREAMS_SOURCE_POLICY_SURVIVES__PRIVATE_COMPLETE_WAVE_DIGEST_STALE_AFTER_PUBLIC_MEMBERSHIP_GROWTH`
 
 A later public artifact must not upgrade that to exact whole-private-estate currentness without a privacy-safe keyed external binding.
 
@@ -65,3 +65,20 @@ Project Runner PR #35 changes the exact corpus source commit binding from the ea
 The old and new advancement-wave documents are byte-different only in `corpus_binding.commit` / exact source binding metadata; the role assignments, policies, subject membership, dispositions, review gates, and effect ceilings are semantically identical.
 
 Accordingly, this receipt is refreshed to the clean restacked head rather than reusing the stale PR #34 exact-head claim.
+
+
+## 2026-09-24 67-repository refresh
+
+The reviewed public wave now includes `thebrazenbeard/sql-connectome` as a P1
+`language-and-semantics` subject with REZON lead, VOSS review, `SOURCE_ONLY`
+effect ceiling, and exact-head review gate.
+
+The new repository does not alter P0 assurance rules and does not receive database
+or provider effect authority from corpus membership. The public wave remains a
+descriptive/source scheduling surface.
+
+The private coordination mirror still contains the same 18 private repositories
+and 13 private workstreams, but its predecessor full-corpus digest was bound to
+the 66-repository cut. That digest is therefore stale evidence until regenerated
+from the private complete corpus; the public addition must not be folded into a
+fabricated replacement digest.
