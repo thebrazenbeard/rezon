@@ -2,8 +2,8 @@
 
 Reviewed repository: `thebrazenbeard/project-runner`  
 Reviewed pull request: #36  
-Reviewed exact head: `ecb9a084096da8bb741d990a22031defd9ecc288`  
-Reviewed base: `4f43e594b6cb57ce1c8820fd4fafff11e0e11641`  
+Reviewed exact head: `d356ff7e49c3426579ad6448faa65a0a0db1ddb2`  
+Reviewed logical wave base: `e09f10c57f50fe39ccef25d398ff15a8fee8c2e5`  
 Review class: hostile exact-head source review  
 Review disposition: **SURVIVES_SOURCE_ADMISSION_REVIEW**
 
@@ -20,7 +20,7 @@ This disposition is limited to PR #36's declared claim: deterministic, bounded, 
 7. **Family coupling is explicit.** Related repositories can be serialized through `max_per_family` without pretending family membership is equivalent to one durable resource.
 8. **Live regression repair.** The same head also repairs the HC→Transcendence live proof so it snapshots the live HC head before exact-currentness verification rather than freezing a stale source fixture.
 
-At the reviewed head, both push and pull-request CI completed successfully. The push path passed 241 tests, registry validation, GitHub read smoke, recursive restart proof, and the live HC→Transcendence proof.
+At the refreshed reviewed head, Project Runner test workflow `36061039190` completed successfully after the 67-repository / 51-public-subject wave update. The admission-budget, collision, source-only ceiling, and recursive qualification paths remain green.
 
 ## Hostile findings
 
@@ -67,3 +67,15 @@ Required future hardening if new surface types are admitted: introduce explicit 
 ## Next frontier
 
 Bridge only the bound plan into Operator's durable admission path. The bridge must verify both digests, revalidate exact source/currentness and target authority, and acquire a fresh durable lease/fencing token rather than inheriting planner occupancy claims.
+
+
+## 67-repository refresh delta
+
+The admission planner was requalified after the public corpus grew from 48 to 49
+repositories. The new `sql-connectome` subject is admitted through the same
+deterministic budget/collision path and does not change the mechanical claim
+ceiling.
+
+No new dispatch authority is inferred from the refreshed head. Occupied collision
+keys remain planning inputs rather than durable fences, and exact target
+currentness/authority must still be reacquired by the Operator path.
