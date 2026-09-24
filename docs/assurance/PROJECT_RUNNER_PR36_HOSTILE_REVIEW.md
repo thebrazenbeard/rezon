@@ -2,12 +2,12 @@
 
 Reviewed repository: `thebrazenbeard/project-runner`  
 Reviewed pull request: #36  
-Reviewed exact head: `a1aa682510b1f4029bad9d89328f0e0f65af114e`  
+Reviewed exact head: `ecb9a084096da8bb741d990a22031defd9ecc288`  
 Reviewed base: `4f43e594b6cb57ce1c8820fd4fafff11e0e11641`  
 Review class: hostile exact-head source review  
-Review disposition: **SURVIVES_NARROWED**
+Review disposition: **SURVIVES_SOURCE_ADMISSION_REVIEW**
 
-This disposition is limited to PR #36's declared claim: deterministic, bounded, source-only admission planning. It is **not** an approval to feed the current CLI output directly into durable Operator dispatch.
+This disposition is limited to PR #36's declared claim: deterministic, bounded, source-only admission planning with immutable wave/plan bindings. It is **not** an approval to treat the planner's occupancy claims as durable lease/fencing authority.
 
 ## What survives
 
@@ -20,33 +20,17 @@ This disposition is limited to PR #36's declared claim: deterministic, bounded, 
 7. **Family coupling is explicit.** Related repositories can be serialized through `max_per_family` without pretending family membership is equivalent to one durable resource.
 8. **Live regression repair.** The same head also repairs the HC→Transcendence live proof so it snapshots the live HC head before exact-currentness verification rather than freezing a stale source fixture.
 
-At the reviewed head, Project Runner's branch test path passed 241 tests, registry validation, GitHub read smoke, recursive restart proof, and the live HC→Transcendence proof.
+At the reviewed head, both push and pull-request CI completed successfully. The push path passed 241 tests, registry validation, GitHub read smoke, recursive restart proof, and the live HC→Transcendence proof.
 
 ## Hostile findings
 
-### H1 — Admission output is not immutably bound to its source wave
+### H1 — CLOSED at reviewed head: immutable wave/plan binding
 
-The CLI emits selected/deferred subjects and budgets, but it does not emit a digest of the exact wave bytes or a canonical plan digest.
+The reviewed head now emits SHA-256 of the exact wave bytes, wave/corpus binding metadata, and a canonical plan digest over the complete admission payload. Integration tests recompute both digests independently.
 
-Consequence: a durable consumer cannot independently prove that a later admission record came from the same wave bytes that were reviewed.
+### H2 — CLOSED at reviewed head: selected-item review/effect binding
 
-Required before Operator handoff:
-- exact wave SHA-256;
-- wave id / generated-at / corpus binding;
-- deterministic plan digest over all selected/deferred entries plus budget and occupied-key inputs.
-
-### H2 — Selected entries omit review/effect handoff metadata
-
-Selected entries currently omit:
-- `reviewer_identities`;
-- `review_gate`;
-- `effect_ceiling`;
-- `frontier`;
-- `source_status`.
-
-Consequence: a durable consumer would need to reload mutable source context to reconstruct why a subject was admissible and what review/effect ceiling applies.
-
-Required before Operator handoff: bind these fields into each admitted item or into a canonical selected-item fingerprint.
+Selected entries now bind reviewer identities, review gate, effect ceiling, action/activity state, frontier, source status, and collision keys inside the canonical plan digest.
 
 ### H3 — Occupied collision keys are claims, not durable fences
 
@@ -78,8 +62,8 @@ Required future hardening if new surface types are admitted: introduce explicit 
 
 ## Claim ceiling
 
-`PR36_DETERMINISTIC_BOUNDED_SOURCE_ADMISSION_SURVIVES__OPERATOR_HANDOFF_REQUIRES_IMMUTABLE_PLAN_BINDING_AND_DURABLE_FENCE_REACQUISITION`
+`PR36_BOUND_SOURCE_ADMISSION_SURVIVES__OPERATOR_HANDOFF_REQUIRES_DURABLE_FENCE_REACQUISITION_AND_FRESH_CURRENTNESS`
 
 ## Next frontier
 
-Harden Project Runner's admission output with immutable wave/plan bindings and selected-item review/effect metadata. Then bridge only that bound plan into Operator's durable admission path, where leases/fencing/currentness/authority are re-established rather than inherited from the planner.
+Bridge only the bound plan into Operator's durable admission path. The bridge must verify both digests, revalidate exact source/currentness and target authority, and acquire a fresh durable lease/fencing token rather than inheriting planner occupancy claims.
