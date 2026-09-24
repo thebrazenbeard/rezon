@@ -282,3 +282,225 @@ def assure_project_runner_wave(payload: Mapping[str, object]) -> PortfolioWaveAs
         queued_count=queued,
         held_count=held,
     )
+
+
+
+@dataclass(frozen=True)
+class PortfolioAdmissionAssurance:
+    passed: bool
+    findings: tuple[PortfolioWaveFinding, ...]
+    selected_count: int
+    deferred_count: int
+
+
+def assure_project_runner_admission_plan(
+    payload: Mapping[str, object],
+) -> PortfolioAdmissionAssurance:
+    findings: list[PortfolioWaveFinding] = []
+    if payload.get("mode") != "PORTFOLIO_WAVE_ADMISSION_PLAN_V1":
+        findings.append(
+            PortfolioWaveFinding(
+                "ADMISSION_MODE_MISMATCH",
+                "BLOCK",
+                None,
+                "admission payload mode is not the governed V1 plan",
+            )
+        )
+    if payload.get("execution_authority") is not False:
+        findings.append(
+            PortfolioWaveFinding(
+                "ADMISSION_AUTHORITY_LAUNDERING",
+                "BLOCK",
+                None,
+                "admission plan must explicitly deny execution authority",
+            )
+        )
+    if payload.get("protected_effects_authorized") is not False:
+        findings.append(
+            PortfolioWaveFinding(
+                "ADMISSION_EFFECT_AUTHORITY",
+                "BLOCK",
+                None,
+                "admission plan must explicitly deny protected-effect authority",
+            )
+        )
+
+    summary = payload.get("summary")
+    selected_raw = payload.get("selected")
+    deferred_raw = payload.get("deferred")
+    if not isinstance(summary, Mapping):
+        findings.append(
+            PortfolioWaveFinding(
+                "ADMISSION_SUMMARY_MISSING",
+                "BLOCK",
+                None,
+                "admission summary must be an object",
+            )
+        )
+        summary = {}
+    if not isinstance(selected_raw, Sequence) or isinstance(
+        selected_raw, (str, bytes)
+    ):
+        findings.append(
+            PortfolioWaveFinding(
+                "ADMISSION_SELECTED_MISSING",
+                "BLOCK",
+                None,
+                "selected admission items must be an array",
+            )
+        )
+        selected_raw = []
+    if not isinstance(deferred_raw, Sequence) or isinstance(
+        deferred_raw, (str, bytes)
+    ):
+        findings.append(
+            PortfolioWaveFinding(
+                "ADMISSION_DEFERRED_MISSING",
+                "BLOCK",
+                None,
+                "deferred admission items must be an array",
+            )
+        )
+        deferred_raw = []
+
+    try:
+        max_parallel = int(summary.get("max_parallel", 0))
+        max_per_identity = int(summary.get("max_per_identity", 0))
+    except (TypeError, ValueError):
+        max_parallel = 0
+        max_per_identity = 0
+    if max_parallel < 1 or max_per_identity < 1:
+        findings.append(
+            PortfolioWaveFinding(
+                "ADMISSION_BUDGET_INVALID",
+                "BLOCK",
+                None,
+                "admission budgets must be positive",
+            )
+        )
+    if len(selected_raw) > max_parallel:
+        findings.append(
+            PortfolioWaveFinding(
+                "GLOBAL_BUDGET_EXCEEDED",
+                "BLOCK",
+                None,
+                "selected subjects exceed max_parallel",
+            )
+        )
+
+    leads: dict[str, int] = {}
+    collision_owner: dict[str, str] = {}
+    subject_seen: set[tuple[str, str]] = set()
+    for raw in selected_raw:
+        if not isinstance(raw, Mapping):
+            findings.append(
+                PortfolioWaveFinding(
+                    "SELECTED_ITEM_NOT_OBJECT",
+                    "BLOCK",
+                    None,
+                    "selected admission item must be an object",
+                )
+            )
+            continue
+        subject_id = str(raw.get("subject_id", "")).strip()
+        subject_kind = str(raw.get("subject_kind", "")).strip()
+        lead = str(raw.get("lead_identity", "")).strip()
+        identity = (subject_kind, subject_id)
+        if identity in subject_seen:
+            findings.append(
+                PortfolioWaveFinding(
+                    "DUPLICATE_ADMISSION_SUBJECT",
+                    "BLOCK",
+                    subject_id or None,
+                    "subject is selected more than once",
+                )
+            )
+        subject_seen.add(identity)
+        leads[lead] = leads.get(lead, 0) + 1
+        if leads[lead] > max_per_identity:
+            findings.append(
+                PortfolioWaveFinding(
+                    "IDENTITY_BUDGET_EXCEEDED",
+                    "BLOCK",
+                    subject_id or None,
+                    "selected subjects exceed max_per_identity",
+                )
+            )
+
+        raw_keys = raw.get("collision_keys", [])
+        keys = (
+            tuple(str(value).strip().lower() for value in raw_keys)
+            if isinstance(raw_keys, Sequence)
+            and not isinstance(raw_keys, (str, bytes))
+            else ()
+        )
+        if not keys or any(not key for key in keys):
+            findings.append(
+                PortfolioWaveFinding(
+                    "COLLISION_KEY_MISSING",
+                    "BLOCK",
+                    subject_id or None,
+                    "every selected subject needs non-empty collision keys",
+                )
+            )
+        for key in keys:
+            previous = collision_owner.get(key)
+            if previous is not None:
+                findings.append(
+                    PortfolioWaveFinding(
+                        "ADMISSION_COLLISION",
+                        "BLOCK",
+                        subject_id or None,
+                        f"collision key {key} is already selected by {previous}",
+                    )
+                )
+            else:
+                collision_owner[key] = subject_id
+
+    selected_count = len(selected_raw)
+    deferred_count = len(deferred_raw)
+    if summary.get("selected") != selected_count:
+        findings.append(
+            PortfolioWaveFinding(
+                "ADMISSION_SELECTED_COUNT_MISMATCH",
+                "BLOCK",
+                None,
+                "summary selected count does not match payload",
+            )
+        )
+    if summary.get("deferred") != deferred_count:
+        findings.append(
+            PortfolioWaveFinding(
+                "ADMISSION_DEFERRED_COUNT_MISMATCH",
+                "BLOCK",
+                None,
+                "summary deferred count does not match payload",
+            )
+        )
+
+    occupied_raw = summary.get("occupied_collision_keys", [])
+    occupied = {
+        str(value).strip().lower()
+        for value in occupied_raw
+        if str(value).strip()
+    } if isinstance(occupied_raw, Sequence) and not isinstance(
+        occupied_raw, (str, bytes)
+    ) else set()
+    leaked = occupied.intersection(collision_owner)
+    if leaked:
+        findings.append(
+            PortfolioWaveFinding(
+                "OCCUPIED_COLLISION_ADMITTED",
+                "BLOCK",
+                None,
+                "selected work reuses an occupied collision key",
+            )
+        )
+
+    blockers = tuple(item for item in findings if item.severity == "BLOCK")
+    return PortfolioAdmissionAssurance(
+        passed=not blockers,
+        findings=tuple(findings),
+        selected_count=selected_count,
+        deferred_count=deferred_count,
+    )
