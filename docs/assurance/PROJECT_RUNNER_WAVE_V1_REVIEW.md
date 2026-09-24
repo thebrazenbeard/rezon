@@ -1,9 +1,9 @@
 # Rezon Assurance Review — Project Runner Portfolio Advancement Wave V1
 
 Review class: independent role-separated assurance pass  
-Reviewed Project Runner branch: `portfolio/advancement-wave-v1-20260924`  
-Reviewed head: `d9259edab31026b517be0a9f9cd06f56e8bdb39f`  
-Reviewed wave blob: `4739e6d157741bfd3792e0b9b952a65840d90e3d`  
+Reviewed Project Runner branch: `portfolio/advancement-wave-v1-restack-20260924`  
+Reviewed head: `4f43e594b6cb57ce1c8820fd4fafff11e0e11641`  
+Reviewed wave blob: `db4f54d53015d82770d2ff8697d4ba3b8eee2ac1`  
 Public wave subjects: 50 = 48 repositories + 2 workstreams
 
 ## Disposition
@@ -56,3 +56,12 @@ Consume real execution receipts from Project Runner and test whether:
 3. completion evidence is independent of the implementation actor;
 4. a failed or stale frontier is blocked rather than relabeled successful;
 5. Project Runner's execution budget prevents corpus-wide queueing from becoming uncontrolled parallel mutation.
+
+
+## Restack verification
+
+Project Runner PR #35 changes the exact corpus source commit binding from the earlier reviewed wave while preserving the same corpus blob `477541bb7bc742f23c7993e0909fa114434af3a6`.
+
+The old and new advancement-wave documents are byte-different only in `corpus_binding.commit` / exact source binding metadata; the role assignments, policies, subject membership, dispositions, review gates, and effect ceilings are semantically identical.
+
+Accordingly, this receipt is refreshed to the clean restacked head rather than reusing the stale PR #34 exact-head claim.
