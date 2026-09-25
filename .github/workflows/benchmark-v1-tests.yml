@@ -1,0 +1,33 @@
+name: Rezon Benchmark V1 tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - rezon/benchmark-v1-impl
+      - rezon/benchmark-v1-r2-fairness
+      - rezon/benchmark-v1-r3-ambiguity
+      - rezon/benchmark-v1-r4-unknown-currentness
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+          python -m pip install -e .
+      - name: Compile
+        run: python -m compileall -q src scripts
+      - name: Test
+        run: pytest -q
+      - name: Reference benchmark
+        run: python scripts/run_benchmark_v1.py tests/fixtures/benchmark_v1.json tests/fixtures/benchmark_v1_clean_controls.json --seed 20260916 --code-version "$GITHUB_SHA"
+      - name: Diff check
+        run: git diff --check
