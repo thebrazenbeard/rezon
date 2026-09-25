@@ -1,0 +1,458 @@
+{
+  "cases": [
+    {
+      "case_id": "case-001",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "What is the approved retry limit?",
+      "primary_candidate_id": "cand-001-a",
+      "gold_disposition": "ABSTAIN",
+      "expected_violations": ["PROPOSITION_FIDELITY"],
+      "candidates": [
+        {
+          "candidate_id": "cand-001-a",
+          "worker_id": "worker-001-a",
+          "execution_id": "exec-001-a",
+          "answer": "3",
+          "solved_request": "What retry limit appeared in the legacy draft?",
+          "model_id": "model-001",
+          "provider_id": "provider-001",
+          "prompt_lineage": "prompt-001",
+          "context_lineage": "context-001"
+        }
+      ],
+      "sources": []
+    },
+    {
+      "case_id": "case-002",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "What retry limit is current?",
+      "primary_candidate_id": "cand-002-a",
+      "gold_disposition": "ABSTAIN",
+      "expected_violations": ["PROVENANCE_CURRENTNESS"],
+      "candidates": [
+        {
+          "candidate_id": "cand-002-a",
+          "worker_id": "worker-002-a",
+          "execution_id": "exec-002-a",
+          "answer": "3",
+          "solved_request": "What retry limit is current?",
+          "source_refs": ["src-002-a"],
+          "model_id": "model-002",
+          "provider_id": "provider-002"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "src-002-a",
+          "source_version": "v1",
+          "locator": "fixture:policy:001",
+          "admission_status": "ADMITTED",
+          "is_current": false,
+          "origin_id": "origin-002"
+        },
+        {
+          "source_id": "src-002-b",
+          "source_version": "v2",
+          "locator": "fixture:policy:002",
+          "admission_status": "ADMITTED",
+          "is_current": true,
+          "origin_id": "origin-002"
+        }
+      ]
+    },
+    {
+      "case_id": "case-003",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "Which configuration generation governs the task?",
+      "primary_candidate_id": "cand-003-a",
+      "gold_disposition": "ABSTAIN",
+      "expected_violations": ["VALID_PREFIX_ROLLBACK", "PROVENANCE_CURRENTNESS"],
+      "candidates": [
+        {
+          "candidate_id": "cand-003-a",
+          "worker_id": "worker-003-a",
+          "execution_id": "exec-003-a",
+          "answer": "generation-4",
+          "solved_request": "Which configuration generation governs the task?",
+          "source_refs": ["src-003-a"],
+          "model_id": "model-003",
+          "provider_id": "provider-003"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "src-003-a",
+          "source_version": "g4",
+          "locator": "fixture:config:004",
+          "admission_status": "ADMITTED",
+          "is_current": false,
+          "origin_id": "origin-003"
+        },
+        {
+          "source_id": "src-003-b",
+          "source_version": "g5",
+          "locator": "fixture:config:005",
+          "admission_status": "ADMITTED",
+          "is_current": true,
+          "origin_id": "origin-003"
+        }
+      ]
+    },
+    {
+      "case_id": "case-004",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "Is the component safe to promote?",
+      "primary_candidate_id": "cand-004-a",
+      "gold_disposition": "ABSTAIN",
+      "expected_violations": ["DUPLICATE_EVIDENCE", "INDEPENDENCE_CONTAMINATION"],
+      "candidates": [
+        {
+          "candidate_id": "cand-004-a",
+          "worker_id": "worker-004-a",
+          "execution_id": "exec-004-a",
+          "answer": "yes",
+          "solved_request": "Is the component safe to promote?",
+          "evidence_refs": ["summary-004-a"],
+          "model_id": "model-004-a",
+          "provider_id": "provider-004-a",
+          "prompt_lineage": "prompt-004-a",
+          "context_lineage": "context-004-a",
+          "common_evidence_refs": ["evidence-004-root"]
+        },
+        {
+          "candidate_id": "cand-004-b",
+          "worker_id": "worker-004-b",
+          "execution_id": "exec-004-b",
+          "answer": "yes",
+          "solved_request": "Is the component safe to promote?",
+          "evidence_refs": ["summary-004-b"],
+          "model_id": "model-004-b",
+          "provider_id": "provider-004-b",
+          "prompt_lineage": "prompt-004-b",
+          "context_lineage": "context-004-b",
+          "common_evidence_refs": ["evidence-004-root"]
+        }
+      ],
+      "sources": []
+    },
+    {
+      "case_id": "case-005",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "Which hypothesis survives independent review?",
+      "primary_candidate_id": "cand-005-a",
+      "gold_disposition": "ABSTAIN",
+      "expected_violations": ["INDEPENDENCE_CONTAMINATION"],
+      "candidates": [
+        {
+          "candidate_id": "cand-005-a",
+          "worker_id": "worker-005-a",
+          "execution_id": "exec-005-a",
+          "answer": "H1",
+          "solved_request": "Which hypothesis survives independent review?",
+          "model_id": "model-005",
+          "provider_id": "provider-005",
+          "prompt_lineage": "prompt-005",
+          "context_lineage": "context-005"
+        },
+        {
+          "candidate_id": "cand-005-b",
+          "worker_id": "worker-005-b",
+          "execution_id": "exec-005-b",
+          "answer": "H1",
+          "solved_request": "Which hypothesis survives independent review?",
+          "model_id": "model-005",
+          "provider_id": "provider-005",
+          "prompt_lineage": "prompt-005",
+          "context_lineage": "context-005"
+        }
+      ],
+      "sources": []
+    },
+    {
+      "case_id": "case-006",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "What value is established by admitted evidence?",
+      "primary_candidate_id": "cand-006-a",
+      "gold_disposition": "ABSTAIN",
+      "expected_violations": ["ADMISSION_INTEGRITY"],
+      "candidates": [
+        {
+          "candidate_id": "cand-006-a",
+          "worker_id": "worker-006-a",
+          "execution_id": "exec-006-a",
+          "answer": "42",
+          "solved_request": "What value is established by admitted evidence?",
+          "source_refs": ["src-006-a"],
+          "model_id": "model-006",
+          "provider_id": "provider-006"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "src-006-a",
+          "source_version": "v1",
+          "locator": "fixture:retrieval:006",
+          "admission_status": "RETRIEVED_ONLY",
+          "is_current": true,
+          "origin_id": "origin-006"
+        }
+      ]
+    },
+    {
+      "case_id": "case-007",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "Is the proposed effect qualified?",
+      "primary_candidate_id": "cand-007-a",
+      "gold_disposition": "ABSTAIN",
+      "expected_violations": ["AUTHORITY_EFFECT_BOUNDARY"],
+      "candidates": [
+        {
+          "candidate_id": "cand-007-a",
+          "worker_id": "worker-007-a",
+          "execution_id": "exec-007-a",
+          "answer": "yes",
+          "solved_request": "Is the proposed effect qualified?",
+          "model_id": "model-007",
+          "provider_id": "provider-007",
+          "effect_state_claim": "QUALIFIED",
+          "authority_claims": ["high_model_confidence"],
+          "advisory_signals": {
+            "confidence": 0.999,
+            "path_score": 1000.0
+          }
+        }
+      ],
+      "sources": []
+    },
+    {
+      "case_id": "case-008",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "Does the evidence support deployment?",
+      "primary_candidate_id": "cand-008-a",
+      "gold_disposition": "ABSTAIN",
+      "expected_violations": ["CONTRADICTION_OMISSION"],
+      "candidates": [
+        {
+          "candidate_id": "cand-008-a",
+          "worker_id": "worker-008-a",
+          "execution_id": "exec-008-a",
+          "answer": "yes",
+          "solved_request": "Does the evidence support deployment?",
+          "source_refs": ["src-008-a"],
+          "receipt_claims": ["consulted=src-008-a", "available_but_not_consulted=src-008-b"],
+          "model_id": "model-008",
+          "provider_id": "provider-008"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "src-008-a",
+          "source_version": "v1",
+          "locator": "fixture:evidence:008a",
+          "admission_status": "ADMITTED",
+          "is_current": true,
+          "origin_id": "origin-008-a"
+        },
+        {
+          "source_id": "src-008-b",
+          "source_version": "v1",
+          "locator": "fixture:evidence:008b",
+          "admission_status": "ADMITTED",
+          "is_current": true,
+          "origin_id": "origin-008-b"
+        }
+      ]
+    },
+    {
+      "case_id": "case-009",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "What conclusion is supported by the completed workers?",
+      "primary_candidate_id": "cand-009-a",
+      "gold_disposition": "ABSTAIN",
+      "expected_violations": ["FAILURE_VISIBILITY"],
+      "candidates": [
+        {
+          "candidate_id": "cand-009-a",
+          "worker_id": "worker-009-a",
+          "execution_id": "exec-009-a",
+          "answer": "H1",
+          "solved_request": "What conclusion is supported by the completed workers?",
+          "model_id": "model-009-a",
+          "provider_id": "provider-009-a"
+        },
+        {
+          "candidate_id": "cand-009-b",
+          "worker_id": "worker-009-b",
+          "execution_id": "exec-009-b",
+          "answer": null,
+          "solved_request": "What conclusion is supported by the completed workers?",
+          "model_id": "model-009-b",
+          "provider_id": "provider-009-b",
+          "failure": "UNAVAILABLE"
+        }
+      ],
+      "sources": []
+    },
+    {
+      "case_id": "case-010",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "May the answer be released after mandatory verification?",
+      "primary_candidate_id": "cand-010-a",
+      "gold_disposition": "FAIL_CLOSED",
+      "expected_violations": ["MANDATORY_VERIFICATION_UNAVAILABLE", "FAILURE_VISIBILITY"],
+      "candidates": [
+        {
+          "candidate_id": "cand-010-a",
+          "worker_id": "worker-010-a",
+          "execution_id": "exec-010-a",
+          "answer": "release",
+          "solved_request": "May the answer be released after mandatory verification?",
+          "model_id": "model-010-a",
+          "provider_id": "provider-010-a"
+        },
+        {
+          "candidate_id": "cand-010-b",
+          "worker_id": "worker-010-b",
+          "execution_id": "exec-010-b",
+          "answer": null,
+          "solved_request": "May the answer be released after mandatory verification?",
+          "model_id": "model-010-b",
+          "provider_id": "provider-010-b",
+          "failure": "verification_service_unavailable"
+        }
+      ],
+      "sources": []
+    },
+    {
+      "case_id": "case-011",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "Is the candidate receipt semantically sufficient?",
+      "primary_candidate_id": "cand-011-a",
+      "gold_disposition": "FAIL_CLOSED",
+      "expected_violations": ["MALFORMED_RECEIPT"],
+      "candidates": [
+        {
+          "candidate_id": "cand-011-a",
+          "worker_id": "worker-011-a",
+          "execution_id": "exec-011-a",
+          "answer": "yes",
+          "solved_request": "Is the candidate receipt semantically sufficient?",
+          "model_id": "model-011",
+          "provider_id": "provider-011",
+          "receipt_claims": ["verification_status=verified", "verification_target="]
+        }
+      ],
+      "sources": []
+    },
+    {
+      "case_id": "case-012",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "Which hypothesis is established?",
+      "primary_candidate_id": "cand-012-a",
+      "gold_disposition": "ABSTAIN",
+      "expected_violations": ["INSUFFICIENT_EVIDENCE"],
+      "candidates": [
+        {
+          "candidate_id": "cand-012-a",
+          "worker_id": "worker-012-a",
+          "execution_id": "exec-012-a",
+          "answer": null,
+          "solved_request": "Which hypothesis is established?",
+          "model_id": "model-012",
+          "provider_id": "provider-012"
+        }
+      ],
+      "sources": []
+    },
+    {
+      "case_id": "case-013",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "What is the current approved mode?",
+      "primary_candidate_id": "cand-013-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "safe",
+      "expected_violations": [],
+      "candidates": [
+        {
+          "candidate_id": "cand-013-a",
+          "worker_id": "worker-013-a",
+          "execution_id": "exec-013-a",
+          "answer": "safe",
+          "solved_request": "What is the current approved mode?",
+          "source_refs": ["src-013-a"],
+          "model_id": "model-013",
+          "provider_id": "provider-013"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "src-013-a",
+          "source_version": "v3",
+          "locator": "fixture:control:013",
+          "admission_status": "ADMITTED",
+          "is_current": true,
+          "origin_id": "origin-013"
+        }
+      ]
+    },
+    {
+      "case_id": "case-014",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:manual-frozen-corpus:2026-09-16",
+      "literal_request": "What exact numeric value is established?",
+      "primary_candidate_id": "cand-014-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "17",
+      "expected_violations": [],
+      "candidates": [
+        {
+          "candidate_id": "cand-014-a",
+          "worker_id": "worker-014-a",
+          "execution_id": "exec-014-a",
+          "answer": "17",
+          "solved_request": "What exact numeric value is established?",
+          "source_refs": ["src-014-a"],
+          "model_id": "model-014-a",
+          "provider_id": "provider-014-a",
+          "prompt_lineage": "prompt-014-a",
+          "context_lineage": "context-014-a"
+        },
+        {
+          "candidate_id": "cand-014-b",
+          "worker_id": "worker-014-b",
+          "execution_id": "exec-014-b",
+          "answer": "17",
+          "solved_request": "What exact numeric value is established?",
+          "source_refs": ["src-014-a"],
+          "model_id": "model-014-b",
+          "provider_id": "provider-014-b",
+          "prompt_lineage": "prompt-014-b",
+          "context_lineage": "context-014-b"
+        }
+      ],
+      "sources": [
+        {
+          "source_id": "src-014-a",
+          "source_version": "v1",
+          "locator": "fixture:measurement:014",
+          "admission_status": "ADMITTED",
+          "is_current": true,
+          "origin_id": "origin-014"
+        }
+      ]
+    }
+  ]
+}
