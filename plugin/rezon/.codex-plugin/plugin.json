@@ -2,6 +2,9 @@
   "name": "rezon",
   "version": "0.1.0",
   "description": "Structured multi-view reasoning and adversarial verification.",
+  "author": {
+    "name": "thebrazenbeard"
+  },
   "skills": "./skills/",
   "interface": {
     "displayName": "Rezon",
