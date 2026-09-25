@@ -1,0 +1,30 @@
+{
+  "sourceRef": "thebrazenbeard/rezon@b88206929a72ae3d7abc790c8c346cd9d78e4dd9",
+  "version": "0.1.0",
+  "packageName": "rezon",
+  "name": "Rezon",
+  "subtitle": "Reason from multiple views",
+  "description": "Rezon provides repeatable workflows for structured multi-view reasoning, hostile falsification, and evidence reconciliation. It helps users keep claims, evidence, assumptions, uncertainty, provenance, authority, and runtime effects distinct while testing important conclusions against counterexamples and stronger rival explanations. It is a skills-only package and requires no external account, MCP server, or live data connection.",
+  "category": null,
+  "developerName": null,
+  "websiteURL": null,
+  "customerSupportURL": null,
+  "privacyPolicyURL": null,
+  "termsOfServiceURL": null,
+  "capabilities": [
+    "Structured multi-view reasoning",
+    "Adversarial falsification",
+    "Evidence and provenance reconciliation"
+  ],
+  "starterPrompts": [
+    "Use Rezon to analyze this problem from multiple reasoning methods and show what remains unresolved.",
+    "Hostile-review this claim without rewriting it into an easier proposition.",
+    "Reconcile these conflicting sources and separate current evidence from inference."
+  ],
+  "status": "not_ready",
+  "blockers": [
+    "Verified OpenAI developer identity not established by repository evidence.",
+    "Portal category has not been selected against the current supported category list.",
+    "Public website, support, privacy, and terms URLs have not been established."
+  ]
+}
