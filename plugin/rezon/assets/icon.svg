@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Rezon">
+  <g fill="none" stroke="#6D28D9" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 26V12H25"/>
+    <path d="M11 26V12H25" transform="rotate(120 32 32)"/>
+    <path d="M11 26V12H25" transform="rotate(240 32 32)"/>
+  </g>
+  <path d="M32 24L40 32L32 40L24 32Z" fill="#6D28D9"/>
+</svg>
