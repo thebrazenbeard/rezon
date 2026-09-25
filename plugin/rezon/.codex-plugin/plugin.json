@@ -7,6 +7,7 @@
     "displayName": "Rezon",
     "shortDescription": "Reason from multiple views",
     "longDescription": "Use Rezon to decompose difficult questions into explicit propositions, apply multiple reasoning methods, challenge conclusions adversarially, reconcile conflicting evidence and provenance, preserve uncertainty, and report what was actually established without turning consensus into evidence.",
+    "category": "Education & Research",
     "capabilities": [
       "Structured multi-view reasoning",
       "Adversarial falsification",
