@@ -5,7 +5,7 @@
   "name": "Rezon",
   "subtitle": "Reason from multiple views",
   "description": "Rezon provides repeatable workflows for structured multi-view reasoning, hostile falsification, and evidence reconciliation. It helps users keep claims, evidence, assumptions, uncertainty, provenance, authority, and runtime effects distinct while testing important conclusions against counterexamples and stronger rival explanations. It is a skills-only package and requires no external account, MCP server, or live data connection.",
-  "category": null,
+  "category": "Education & Research",
   "developerName": null,
   "websiteURL": null,
   "customerSupportURL": null,
@@ -23,8 +23,7 @@
   ],
   "status": "not_ready",
   "blockers": [
-    "Verified OpenAI developer identity not established by repository evidence.",
-    "Portal category has not been selected against the current supported category list.",
-    "Public website, support, privacy, and terms URLs have not been established."
+    "Verified OpenAI developer identity is not established by repository evidence.",
+    "Public website, support, privacy, and terms URLs are not established; they are not required for a skills-only local package but should be resolved before serious public-directory preparation."
   ]
 }
