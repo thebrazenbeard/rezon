@@ -1,0 +1,23 @@
+{
+  "name": "rezon",
+  "version": "0.1.0",
+  "description": "Structured multi-view reasoning and adversarial verification.",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Rezon",
+    "shortDescription": "Reason from multiple views",
+    "longDescription": "Use Rezon to decompose difficult questions into explicit propositions, apply multiple reasoning methods, challenge conclusions adversarially, reconcile conflicting evidence and provenance, preserve uncertainty, and report what was actually established without turning consensus into evidence.",
+    "capabilities": [
+      "Structured multi-view reasoning",
+      "Adversarial falsification",
+      "Evidence and provenance reconciliation"
+    ],
+    "defaultPrompt": [
+      "Use Rezon to analyze this problem from multiple reasoning methods and show what remains unresolved.",
+      "Hostile-review this claim without rewriting it into an easier proposition.",
+      "Reconcile these conflicting sources and separate current evidence from inference."
+    ],
+    "logo": "./assets/logo-light.svg",
+    "composerIcon": "./assets/icon.svg"
+  }
+}
