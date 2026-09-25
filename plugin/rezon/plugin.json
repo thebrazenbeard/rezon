@@ -1,0 +1,10 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "rezon",
+  "version": "0.1.0",
+  "description": "Structured multi-view reasoning, adversarial falsification, and evidence reconciliation.",
+  "author": {
+    "name": "thebrazenbeard"
+  },
+  "repository": "https://github.com/thebrazenbeard/rezon"
+}
