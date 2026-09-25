@@ -3,12 +3,15 @@
 ## Subject
 
 - Repository: `thebrazenbeard/rezon`
-- Conversion source: PR #92 head `b88206929a72ae3d7abc790c8c346cd9d78e4dd9`
-- Plugin branch: `plugin/rezon-v1-20260925`
+- Discovery/conversion source: PR #92 head `b88206929a72ae3d7abc790c8c346cd9d78e4dd9`
+- Current source base after PR #92 squash merge: `main@ff6d34ca283d977d4f9ce48ec006f37fd06f7d9a`
+- Plugin branch: `plugin/rezon-v1-main-20260925`
 - Package: `plugin/rezon`
 - Package version: `0.1.0`
 
-The conversion is source-only. It does not merge PR #92, install or publish a plugin, activate a provider, deploy a runtime, or establish reasoning superiority.
+This plugin work did not merge PR #92. PR #92 was squash-merged while conversion was in progress, so the plugin package was restacked onto the resulting current `main` without rewriting the original conversion branch.
+
+The conversion is source-only. It does not install or publish a plugin, activate a provider, deploy a runtime, or establish reasoning superiority.
 
 ## Discovery and product boundary
 
@@ -36,13 +39,13 @@ Directory category: `Education & Research`.
 
 ## Validation
 
-Exact package content at source branch head `3552186b6344c66f0915913de6c16eea3fc37b9a`:
+Exact package content after rebinding the directory pack to `main@ff6d34ca283d977d4f9ce48ec006f37fd06f7d9a`:
 
 - custom deterministic structural/package validation: **PASS**;
 - Skills detected: `rezon-analysis`, `rezon-evidence-reconciliation`, `rezon-hostile-review`;
 - two independently built ZIPs were byte-identical;
-- package ZIP SHA-256: `7d7f9b1715242754b270bbf82e7444c2883b35d2e5a284f61bbc685ba0347128`;
-- clean archive extraction preserved the same package surface.
+- package ZIP SHA-256: `3056e203533ee1341fc361578902bc92204acb7cac93a7a639e8fd3da30faa1e`;
+- clean archive extraction preserved the package surface before the source-ref-only directory-pack rebinding.
 
 The bundled Autopilot validator has two Windows-host portability defects in this environment: fd-based directory enumeration is unavailable and Git checkout converts Skill newlines to CRLF while its parser requires LF. A local compatibility copy changed only those platform checks. With those compatibility changes, Autopilot preflight detects all three Skills and reports one remaining semantic submission error: `interface.developerName is required`.
 
@@ -50,7 +53,7 @@ That error is intentionally not bypassed. The verified OpenAI developer/business
 
 ## Repository regression
 
-On the plugin branch:
+On the restacked plugin branch with the repository source path exposed:
 
 ```text
 PYTHONPATH=src
@@ -59,7 +62,7 @@ PYTHONPATH=src
 
 Without `PYTHONPATH=src`, the suite reports `3 failed, 334 passed`; each failure is in `tests/test_benchmark_v1_runner.py` because the benchmark subprocess exits with `ModuleNotFoundError: No module named 'rezon'`.
 
-The exact conversion source `b88206929a72ae3d7abc790c8c346cd9d78e4dd9` reproduces the same `3 failed, 334 passed` result and the same import failure. The plugin changes therefore do not introduce that regression.
+The exact discovery source `b88206929a72ae3d7abc790c8c346cd9d78e4dd9` reproduces the same `3 failed, 334 passed` result and the same import failure. The plugin changes therefore do not introduce that regression.
 
 ## Remaining gates
 
