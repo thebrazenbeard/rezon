@@ -11,6 +11,7 @@
   "customerSupportURL": null,
   "privacyPolicyURL": null,
   "termsOfServiceURL": null,
+  "availability": null,
   "capabilities": [
     "Structured multi-view reasoning",
     "Adversarial falsification",
@@ -21,9 +22,21 @@
     "Hostile-review this claim without rewriting it into an easier proposition.",
     "Reconcile these conflicting sources and separate current evidence from inference."
   ],
+  "reviewerMaterial": {
+    "positiveTestCases": 5,
+    "negativeTestCases": 3,
+    "goldenPromptSet": "./submission/golden-prompts.json",
+    "reviewerTests": "./submission/reviewer-tests.json",
+    "releaseNotes": "./submission/release-notes.md"
+  },
   "status": "not_ready",
   "blockers": [
-    "Verified OpenAI developer identity is not established by repository evidence.",
-    "Public website, support, privacy, and terms URLs are not established; they are not required for a skills-only local package but should be resolved before serious public-directory preparation."
+    "Verified OpenAI developer or business identity is not established.",
+    "Public website URL is not established.",
+    "Public customer support URL is not established.",
+    "Public privacy policy URL is not established.",
+    "Public terms of service URL is not established.",
+    "Country or region availability has not been selected.",
+    "Runtime discovery behavior has not been tested from an installed copy."
   ]
 }
