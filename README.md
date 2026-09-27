@@ -11,7 +11,7 @@ The project deliberately separates four things that are often collapsed together
 3. **State and identity** — what subject is being reasoned about, what changed, what persisted, and what evidence supports continuity.
 4. **Execution** — provider/model adapters, worker routing, receipts, provenance, resource constraints, and runtime behavior.
 
-Rezon is intended to become runnable from the beginning, but the first population is knowledge-first: the architecture is being made explicit before implementation hardens accidental assumptions into interfaces.
+Rezon is already runnable on `main`: the architecture documents and executable reasoning kernel live together so implementation remains constrained by explicit contracts rather than hardening accidental assumptions into interfaces.
 
 ## Core direction
 
@@ -56,10 +56,9 @@ A stronger model is never automatically an authority source. A reasoning node ma
 
 ## Current status
 
-`work/rezon-kernel-v0-r5-independence` contains the current provider-independent Kernel V0 R5 candidate. Executable payload `d32cca38606e767813d9e0797681d1ab00e0b0b8`, tree `fbe4a4eca7251144306b4ba301fd7f3c9d9d9f8f`, passed the hosted Python 3.12 qualification surface with **91/91 tests passing** after a test-first repair of Mune's exact-head R4 pairwise-independence blocker.
+`main` contains the executable Rezon kernel, benchmark/evaluation surfaces, provider-independent orchestration primitives, assurance/provenance machinery, and their deterministic test suite under `src/` and `tests/`.
 
-R5 preserves all R4 controls and additionally rejects strong pairwise-independence claims when workers share any executor, model, provider, prompt lineage, context lineage, or declared common evidence. Exact RED head `289e89b8a2be526349aba893c09fa301f41011d4` reproduced **3 failed / 88 passed** before the repair, matching the three R4 correlation bypasses identified by Mune. See `docs/qualification/KERNEL_V0_ACCEPTANCE.md`.
+On 2026-09-27, the canonical executable tree was exercised on Lappy with CPython 3.12.10 after editable installation: **337/337 tests passed**. Open branches and pull requests may contain later research or candidate work, but they are not canonical merely because they are newer or have their own local evidence.
 
-Masa's R1/R2 `CHANGES_REQUESTED` dispositions and Mune's R2/R3/R4 `CHANGES_REQUESTED` dispositions remain preserved as historical exact-subject evidence. R5 repairs the currently known executable/source blockers but does **not** self-award independent R5 qualification. Fresh exact-head Mune and Masa rereview is required before R5 is promoted into the P0 integration subject or predecessor PRs are advanced.
-
+Historical Masa/Mune review dispositions remain evidence for the exact subjects they reviewed; they do not automatically qualify later heads.
 This remains source/build/test candidate evidence only. It does not establish reasoning superiority, live-provider/tool correctness, deployment, installation, activation, or downstream behavioral qualification.
