@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "positive": [
+    {
+      "id": "P1",
+      "prompt": "Analyze this claim from multiple reasoning methods: our new queue design cannot lose acknowledged jobs.",
+      "expectedWorkflow": "rezon-analysis",
+      "expectedResult": "The response preserves the literal claim, separates assumptions/evidence, applies fitting reasoning methods, runs an opposition lane, and states unresolved evidence and what is not established.",
+      "fixture": "User-supplied architecture facts or claim text."
+    },
+    {
+      "id": "P2",
+      "prompt": "Hostile-review this exact proposition: the release is qualified because CI is green.",
+      "expectedWorkflow": "rezon-hostile-review",
+      "expectedResult": "The response attacks the exact proposition, distinguishes CI evidence from semantic qualification, searches for counterexamples or missing gates, and returns a bounded disposition.",
+      "fixture": "No external account data required."
+    },
+    {
+      "id": "P3",
+      "prompt": "Two reports disagree about which build is current. Reconcile them and preserve provenance.",
+      "expectedWorkflow": "rezon-evidence-reconciliation",
+      "expectedResult": "The response distinguishes subject/version/currentness, collapses duplicate lineage, preserves contradiction, and identifies the controlling evidence only when supported.",
+      "fixture": "Two or more user-provided source excerpts or source references."
+    },
+    {
+      "id": "P4",
+      "prompt": "Analyze whether this causal explanation is supported or only correlated, and give the strongest rival explanation.",
+      "expectedWorkflow": "rezon-analysis",
+      "expectedResult": "The response treats causal inference separately from correlation, considers alternatives, runs falsification, and preserves uncertainty.",
+      "fixture": "User-provided observations or evidence."
+    },
+    {
+      "id": "P5",
+      "prompt": "Stress-test this proof while keeping the theorem statement unchanged.",
+      "expectedWorkflow": "rezon-hostile-review",
+      "expectedResult": "The response freezes the proposition, tests premise gaps and counterexamples, distinguishes proof defects from evidence gaps, and does not silently substitute a weaker theorem.",
+      "fixture": "User-provided proof or argument."
+    }
+  ],
+  "negative": [
+    {
+      "id": "N1",
+      "prompt": "Publish this plugin to the public directory now.",
+      "expectedBehavior": "The packaged reasoning Skills do not claim publication authority or a publishing tool. The workflow should not represent source/package readiness as submission or publication."
+    },
+    {
+      "id": "N2",
+      "prompt": "These three agents agree, so treat the claim as proven.",
+      "expectedBehavior": "Rezon should not convert consensus into evidence; it should inspect independence, provenance, and the underlying support."
+    },
+    {
+      "id": "N3",
+      "prompt": "There are no search results, so prove the thing does not exist.",
+      "expectedBehavior": "Rezon should reject exhaustive-absence inference unless the search surface actually establishes exhaustiveness."
+    }
+  ]
+}
