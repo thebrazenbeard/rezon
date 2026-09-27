@@ -6,7 +6,7 @@
 - Discovery/conversion source: PR #92 head `b88206929a72ae3d7abc790c8c346cd9d78e4dd9`
 - Current source base after PR #92 squash merge: `main@ff6d34ca283d977d4f9ce48ec006f37fd06f7d9a`
 - Plugin branch: `plugin/rezon-v1-main-20260925`
-- Exact packaged-artifact source head: `704dc826bfe8314bbdedc5724b3b1970ebd2542b`
+- Exact packaged-artifact source head: `a8281fb885a84089d98910459a4347a9b5369ba5`
 - Package: `plugin/rezon`
 - Package version: `0.1.0`
 
@@ -48,9 +48,11 @@ Submission preparation now includes:
 
 Reviewer material contains exactly five positive and three negative cases. The discovery set contains three direct, three indirect, and three negative prompt families. These discovery cases are expected-routing evidence only; the Plugin has not been installed for runtime routing tests in this workstream.
 
+Each public Skill now also carries `agents/openai.yaml` interface metadata for ChatGPT and Codex with a focused display name, short description, brand color, default prompt, and implicit-invocation policy. The portable root manifest now carries the OpenAI install-surface interface in `extensions.com.openai`; the `.codex-plugin/plugin.json` overlay remains as compatibility fallback.
+
 ## Validation
 
-Exact package content at `704dc826bfe8314bbdedc5724b3b1970ebd2542b`:
+Exact package content at `a8281fb885a84089d98910459a4347a9b5369ba5`:
 
 - repository suite with `PYTHONPATH=src`: **337 passed**;
 - GitHub `Rezon kernel tests`: **success**;
@@ -58,7 +60,7 @@ Exact package content at `704dc826bfe8314bbdedc5724b3b1970ebd2542b`:
 - custom deterministic structural/package validation: **PASS**;
 - Skills detected: `rezon-analysis`, `rezon-evidence-reconciliation`, `rezon-hostile-review`;
 - two independently built ZIPs were byte-identical;
-- package ZIP SHA-256: `c9b04c58ae2706b3e6c08ec13079c23d7683708702d6ce75ee8d1007af4a6f6f`;
+- package ZIP SHA-256: `cfdac4152479fc12f2366ea9a097159f2d47ac5790b28423501bbbf2e5e0f42b`;
 - reviewer-case/discovery-count validation: **PASS**.
 
 The bundled Autopilot validator has two Windows-host portability defects in this environment: fd-based directory enumeration is unavailable and Git checkout converts Skill newlines to CRLF while its parser requires LF. A local compatibility copy changed only those platform checks. With those compatibility changes, Autopilot preflight detects all three Skills.
