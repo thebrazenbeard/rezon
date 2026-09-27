@@ -1,0 +1,10 @@
+interface:
+  display_name: "Rezon Analysis"
+  short_description: "Analyze from multiple reasoning views"
+  brand_color: "#6D28D9"
+  default_prompt: "Analyze this problem with Rezon and show what survives opposition."
+policy:
+  products:
+    - CHAT
+    - CODEX
+  allow_implicit_invocation: true
