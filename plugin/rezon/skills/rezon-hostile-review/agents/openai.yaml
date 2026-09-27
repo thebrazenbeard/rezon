@@ -1,0 +1,10 @@
+interface:
+  display_name: "Rezon Hostile Review"
+  short_description: "Falsify an exact claim without drift"
+  brand_color: "#6D28D9"
+  default_prompt: "Hostile-review this exact claim without rewriting it into an easier proposition."
+policy:
+  products:
+    - CHAT
+    - CODEX
+  allow_implicit_invocation: true
