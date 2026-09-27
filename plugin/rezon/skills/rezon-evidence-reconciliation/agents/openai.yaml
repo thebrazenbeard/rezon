@@ -1,0 +1,10 @@
+interface:
+  display_name: "Rezon Evidence Reconciliation"
+  short_description: "Reconcile conflicting evidence"
+  brand_color: "#6D28D9"
+  default_prompt: "Reconcile these sources while preserving provenance, currentness, and uncertainty."
+policy:
+  products:
+    - CHAT
+    - CODEX
+  allow_implicit_invocation: true
