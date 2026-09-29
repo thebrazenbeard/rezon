@@ -64,10 +64,35 @@ class ReplayCandidate:
     advisory_signals: tuple[tuple[str, JsonScalar], ...] = ()
 
     def validate(self) -> None:
-        if not self.candidate_id or not self.worker_id or not self.execution_id:
+        for field_name, value in (
+            ("candidate_id", self.candidate_id),
+            ("worker_id", self.worker_id),
+            ("execution_id", self.execution_id),
+        ):
+            if type(value) is not str or not value:
+                raise ReplayValidationError(
+                    f"{field_name} must be a non-empty exact string"
+                )
+
+        for field_name, value in (
+            ("model_id", self.model_id),
+            ("provider_id", self.provider_id),
+            ("prompt_lineage", self.prompt_lineage),
+            ("context_lineage", self.context_lineage),
+        ):
+            if value is not None and (type(value) is not str or not value):
+                raise ReplayValidationError(
+                    f"{field_name} must be a non-empty exact string when present"
+                )
+
+        if (
+            self.saw_other_answer is not None
+            and type(self.saw_other_answer) is not bool
+        ):
             raise ReplayValidationError(
-                "candidate_id, worker_id, and execution_id are required"
+                "saw_other_answer must be an exact boolean when present"
             )
+
         for label, values in (
             ("source_refs", self.source_refs),
             ("evidence_refs", self.evidence_refs),
@@ -75,11 +100,15 @@ class ReplayCandidate:
             ("receipt_claims", self.receipt_claims),
             ("authority_claims", self.authority_claims),
         ):
-            if any(not value for value in values):
-                raise ReplayValidationError(f"{label} cannot contain empty values")
+            if any(type(value) is not str or not value for value in values):
+                raise ReplayValidationError(
+                    f"{label} must contain only non-empty exact strings"
+                )
         for key, _value in self.advisory_signals:
-            if not key:
-                raise ReplayValidationError("advisory signal names cannot be empty")
+            if type(key) is not str or not key:
+                raise ReplayValidationError(
+                    "advisory signal names must be non-empty exact strings"
+                )
 
 
 @dataclass(frozen=True)
