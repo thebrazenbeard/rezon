@@ -127,3 +127,35 @@ def test_cli_fails_closed_for_invalid_file(tmp_path, capsys):
     assert main(["verify-evidence", str(path)]) == 2
     report = json.loads(capsys.readouterr().err)
     assert report["valid"] is False
+
+@pytest.mark.parametrize(
+    "trace_episode_version",
+    ("forged-episode-version", "other@1", "portable@999"),
+)
+def test_redigested_trace_episode_version_mismatch_is_rejected(trace_episode_version):
+    evidence = _evidence()
+    evidence["executions"][0]["episode_version"] = trace_episode_version
+    _redigest(evidence)
+
+    with pytest.raises(RunEvidenceError, match="episode version"):
+        verify_run_evidence(evidence)
+
+def test_redigested_trace_episode_versions_cannot_move_backward():
+    evidence = _evidence()
+    first = evidence["executions"][0]
+    second = json.loads(json.dumps(first))
+    second["execution_id"] = "portable-task:exec:2:echo_hypothesis"
+    first["episode_version"] = "portable@2"
+    second["episode_version"] = "portable@1"
+    evidence["executions"].append(second)
+    evidence["receipt"]["execution_ids"].append(second["execution_id"])
+    evidence["receipt"]["execution_output_digests"].append(
+        [second["execution_id"], second["canonical_output_digest"]]
+    )
+    evidence["receipt"]["execution_producer_ids"].append(
+        [second["execution_id"], second["canonical_producer_execution_id"]]
+    )
+    _redigest(evidence)
+
+    with pytest.raises(RunEvidenceError, match="episode version"):
+        verify_run_evidence(evidence)
