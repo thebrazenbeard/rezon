@@ -10,7 +10,9 @@ on:
       - "rezon/**"
       - "improve/**"
       - "feature/**"
-      - "fix/**"
+
+permissions:
+  contents: read
 
 jobs:
   test:
