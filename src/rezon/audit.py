@@ -51,6 +51,23 @@ def _optional_string(value: object, name: str) -> str | None:
     return _require_string(value, name)
 
 
+def _episode_version_ref(value: object, name: str) -> tuple[str, int]:
+    ref = _require_string(value, name)
+    episode_id, separator, version_text = ref.rpartition("@")
+    if (
+        not separator
+        or not episode_id
+        or not version_text
+        or not version_text.isascii()
+        or not version_text.isdigit()
+    ):
+        raise RunEvidenceError(f"{name} must be a canonical episode version")
+    version = int(version_text)
+    if str(version) != version_text:
+        raise RunEvidenceError(f"{name} must be a canonical episode version")
+    return episode_id, version
+
+
 def _string_list(value: object, name: str) -> tuple[str, ...]:
     if type(value) is not list:
         raise RunEvidenceError(f"{name} must be an exact list")
@@ -120,7 +137,17 @@ def verify_run_evidence(payload: object) -> dict[str, object]:
         raise RunEvidenceError("evidence digest does not match canonical body")
 
     _require_string(receipt["task_id"], "receipt.task_id")
-    _require_string(receipt["episode_version"], "receipt.episode_version")
+    receipt_episode_version = _require_string(
+        receipt["episode_version"],
+        "receipt.episode_version",
+    )
+    receipt_episode_id: str | None = None
+    receipt_episode_number: int | None = None
+    if executions_raw:
+        receipt_episode_id, receipt_episode_number = _episode_version_ref(
+            receipt_episode_version,
+            "receipt.episode_version",
+        )
     if receipt["accepted_claim_ids"] != [] or receipt["rejected_claim_ids"] != []:
         raise RunEvidenceError("portable run evidence cannot assert claim disposition")
     unresolved = _string_list(receipt["unresolved"], "receipt.unresolved")
@@ -153,6 +180,7 @@ def verify_run_evidence(payload: object) -> dict[str, object]:
     trace_failures: list[str] = []
     expected_outputs: list[tuple[str, str]] = []
     expected_producers: list[tuple[str, str]] = []
+    previous_episode_number = -1
 
     for index, raw_record in enumerate(executions_raw):
         record = _require_dict(raw_record, f"executions[{index}]")
@@ -162,10 +190,19 @@ def verify_run_evidence(payload: object) -> dict[str, object]:
             f"executions[{index}].execution_id",
         )
         node_id = _require_string(record["node_id"], f"executions[{index}].node_id")
-        _require_string(
+        record_episode_id, record_episode_number = _episode_version_ref(
             record["episode_version"],
             f"executions[{index}].episode_version",
         )
+        if (
+            record_episode_id != receipt_episode_id
+            or record_episode_number > receipt_episode_number
+            or record_episode_number < previous_episode_number
+        ):
+            raise RunEvidenceError(
+                "trace episode version is inconsistent with final receipt"
+            )
+        previous_episode_number = record_episode_number
         for field in (
             "visible_proposition_ids",
             "blinded_proposition_ids",
