@@ -6,6 +6,10 @@ from pathlib import Path
 import sys
 
 from .audit import verify_run_evidence
+from .consultation import (
+    ConsultationIntakeError,
+    inspect_ensemble_consultation,
+)
 from .interop import RunEvidenceError
 from .otel import OTelIntakeError, inspect_otel_export
 from .otel_genai import (
@@ -27,6 +31,12 @@ def _parser() -> argparse.ArgumentParser:
         help="verify a rezon.run-evidence.v1 JSON artifact",
     )
     verify.add_argument("path", type=Path)
+
+    inspect_consultation = commands.add_parser(
+        "inspect-consultation",
+        help="inspect external ensemble consultation without trust promotion",
+    )
+    inspect_consultation.add_argument("path", type=Path)
 
     inspect_generic_otel = commands.add_parser(
         "inspect-otel",
@@ -59,6 +69,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "verify-evidence":
             report = verify_run_evidence(_load_json(args.path))
+        elif args.command == "inspect-consultation":
+            report = inspect_ensemble_consultation(_load_json(args.path))
         elif args.command == "inspect-otel":
             report = inspect_otel_export(_load_json(args.path))
         elif args.command == "inspect-otel-genai":
@@ -74,6 +86,7 @@ def main(argv: list[str] | None = None) -> int:
         OSError,
         json.JSONDecodeError,
         RunEvidenceError,
+        ConsultationIntakeError,
         OTelIntakeError,
         OTelGenAIIntakeError,
     ) as exc:

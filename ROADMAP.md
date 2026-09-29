@@ -27,6 +27,8 @@ The current improvement stack adds:
 - independently verifiable serialized Rezon run evidence;
 - a minimal CLI for evidence verification;
 - generic current-branch / pull-request CI;
+- dependency-free external ensemble-consultation inspection that quarantines
+  reported convergence/confidence from evidence and authority;
 - dependency-free generic OTLP/JSON structural trace inspection;
 - GenAI trace inspection as a derived semantic projection;
 - fail-closed duplicate-key and malformed semantic-metadata handling;
@@ -54,7 +56,8 @@ failures rather than merely parse real telemetry?
 
 Freeze held-out cases covering:
 
-- correlated workers presented as independent consensus;
+- correlated workers presented as independent consensus, including external
+  ensemble reports with provider/model diversity but no independence proof;
 - stale or version-ambiguous evidence;
 - hidden or dropped telemetry;
 - evidence-artifact substitution;
