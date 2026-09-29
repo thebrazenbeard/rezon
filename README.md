@@ -1,5 +1,3 @@
-> **License:** Source-visible, not open source. Original material is proprietary. Commercial use, redistribution, hosted-service use, and commercial derivative products require written permission. See [LICENSE](LICENSE) and [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md). Separately identified third-party components retain their own licenses.
-
 # Rezon
 
 Rezon is an executable multi-faceted reasoning project: a place to study, formalize, test, and eventually run heterogeneous reasoning as a coordinated system rather than treating one model invocation as the whole reasoning process.
@@ -56,10 +54,4 @@ A stronger model is never automatically an authority source. A reasoning node ma
 
 ## Current status
 
-`work/rezon-kernel-v0-r5-independence` contains the current provider-independent Kernel V0 R5 candidate. Executable payload `d32cca38606e767813d9e0797681d1ab00e0b0b8`, tree `fbe4a4eca7251144306b4ba301fd7f3c9d9d9f8f`, passed the hosted Python 3.12 qualification surface with **91/91 tests passing** after a test-first repair of Mune's exact-head R4 pairwise-independence blocker.
-
-R5 preserves all R4 controls and additionally rejects strong pairwise-independence claims when workers share any executor, model, provider, prompt lineage, context lineage, or declared common evidence. Exact RED head `289e89b8a2be526349aba893c09fa301f41011d4` reproduced **3 failed / 88 passed** before the repair, matching the three R4 correlation bypasses identified by Mune. See `docs/qualification/KERNEL_V0_ACCEPTANCE.md`.
-
-Masa's R1/R2 `CHANGES_REQUESTED` dispositions and Mune's R2/R3/R4 `CHANGES_REQUESTED` dispositions remain preserved as historical exact-subject evidence. R5 repairs the currently known executable/source blockers but does **not** self-award independent R5 qualification. Fresh exact-head Mune and Masa rereview is required before R5 is promoted into the P0 integration subject or predecessor PRs are advanced.
-
-This remains source/build/test candidate evidence only. It does not establish reasoning superiority, live-provider/tool correctness, deployment, installation, activation, or downstream behavioral qualification.
+This branch is a foundation / knowledge population. It does **not** claim a working runtime, provider deployment, model bridge, or Vera installation.
