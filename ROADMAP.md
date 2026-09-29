@@ -27,7 +27,8 @@ The current improvement stack adds:
 - independently verifiable serialized Rezon run evidence;
 - a minimal CLI for evidence verification;
 - generic current-branch / pull-request CI;
-- dependency-free OTLP/JSON GenAI trace inspection;
+- dependency-free generic OTLP/JSON structural trace inspection;
+- GenAI trace inspection as a derived semantic projection;
 - fail-closed duplicate-key and malformed semantic-metadata handling;
 - per-event telemetry schema visibility and dropped-attribute gaps;
 - exact trace-to-Rezon-evidence digest/schema cross-binding;
@@ -37,13 +38,21 @@ The current improvement stack adds:
 
 This remains source/build/test candidate work until separately integrated.
 
-## Next — real-runtime qualification
+## Real-runtime qualification status
 
-The next question is empirical: does this boundary catch useful failures on real
-external traces rather than merely validating synthetic fixtures?
+The boundary has now been exercised against two independent runtime subjects:
 
-Use at least two independent agent/workflow runtimes and freeze held-out cases
-covering:
+- OpenAI Agents SDK 0.22.3: GenAI semantic intake PASS for the credential-free
+  native tracing probe.
+- Microsoft Agent Framework 1.19.0: native workflow telemetry observed, generic
+  structural intake PASS, GenAI semantic intake FAIL for the tested
+  credential-free workflow because the runtime emitted no gen_ai.* operation
+  attributes.
+
+The next question is empirical: does this boundary catch useful epistemic
+failures rather than merely parse real telemetry?
+
+Freeze held-out cases covering:
 
 - correlated workers presented as independent consensus;
 - stale or version-ambiguous evidence;

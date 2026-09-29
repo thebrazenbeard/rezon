@@ -7,6 +7,7 @@ import sys
 
 from .audit import verify_run_evidence
 from .interop import RunEvidenceError
+from .otel import OTelIntakeError, inspect_otel_export
 from .otel_genai import (
     OTelGenAIIntakeError,
     bind_otel_genai_to_run_evidence,
@@ -26,6 +27,12 @@ def _parser() -> argparse.ArgumentParser:
         help="verify a rezon.run-evidence.v1 JSON artifact",
     )
     verify.add_argument("path", type=Path)
+
+    inspect_generic_otel = commands.add_parser(
+        "inspect-otel",
+        help="inspect generic OTLP/JSON telemetry without semantic promotion",
+    )
+    inspect_generic_otel.add_argument("path", type=Path)
 
     inspect_otel = commands.add_parser(
         "inspect-otel-genai",
@@ -52,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "verify-evidence":
             report = verify_run_evidence(_load_json(args.path))
+        elif args.command == "inspect-otel":
+            report = inspect_otel_export(_load_json(args.path))
         elif args.command == "inspect-otel-genai":
             report = inspect_otel_genai_export(_load_json(args.path))
         elif args.command == "bind-otel-evidence":
@@ -65,6 +74,7 @@ def main(argv: list[str] | None = None) -> int:
         OSError,
         json.JSONDecodeError,
         RunEvidenceError,
+        OTelIntakeError,
         OTelGenAIIntakeError,
     ) as exc:
         print(
