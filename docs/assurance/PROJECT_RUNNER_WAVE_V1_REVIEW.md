@@ -1,5 +1,47 @@
 # Rezon Assurance Review — Project Runner Portfolio Advancement Wave V1
 
+## 2026-09-29 current-head refresh
+
+Current Project Runner subject:
+
+- branch: `portfolio/advancement-wave-v1-restack-20260924`;
+- exact head: `1f55c09a7bb670cce2371f9ec85784122488def2`;
+- current public wave blob: `8c67f8f8732890237388046478b23af69de59b8c`;
+- current public corpus blob: `4112da68dcf9e008f042c3284653b006d081f1e3`;
+- corpus counts: **71 total repositories / 53 public / 18 private count-only**;
+- public wave: **55 subjects = 53 repositories + 2 workstreams**;
+- current execution states: **54 QUEUED / 1 HELD**.
+
+Delta from the previously reviewed `e09f10c57f50fe39ccef25d398ff15a8fee8c2e5` / `dea2855036232d828d7ac8b0213f190124c3748d` wave is additive only:
+
+- `thebrazenbeard/axle`;
+- `thebrazenbeard/ingest`;
+- `thebrazenbeard/lgcm`;
+- `thebrazenbeard/pro-run`.
+
+No previously reviewed subject was removed or modified. The wave ID, identity-role contract, and policy object are unchanged.
+
+Fresh Rezon execution on this exact current public wave:
+
+```text
+passed: true
+subject_count: 55
+queued_count: 54
+held_count: 1
+findings: []
+```
+
+Current disposition therefore remains:
+
+**SURVIVES_SOURCE_POLICY_REVIEW_WITH_EXECUTION_BUDGET_WARNING**
+
+Current claim ceiling:
+
+`PUBLIC_53_REPOSITORIES_PLUS_2_WORKSTREAMS_SOURCE_POLICY_SURVIVES__PRIVATE_MEMBERSHIP_REMAINS_COUNT_ONLY__DISPATCH_STILL_REQUIRES_LIVE_DEPENDENCY_COLLISION_BUDGET_CURRENTNESS_AND_EFFECT_GATES`
+
+This refresh does not authorize execution, merge, deployment, credential/permission changes, destructive cleanup, or any protected effect. The earlier review below remains historical provenance for the exact earlier wave.
+
+
 Review class: independent role-separated assurance pass  
 Reviewed Project Runner branch: `portfolio/advancement-wave-v1-restack-20260924`  
 Reviewed head: `e09f10c57f50fe39ccef25d398ff15a8fee8c2e5`  
