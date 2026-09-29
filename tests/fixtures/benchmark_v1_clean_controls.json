@@ -1,0 +1,124 @@
+{
+  "cases": [
+    {
+      "case_id": "case-015",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:r2-clean-controls:2026-09-16",
+      "literal_request": "What is the current approved timeout?",
+      "primary_candidate_id": "cand-015-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "30",
+      "expected_violations": [],
+      "candidates": [{"candidate_id":"cand-015-a","worker_id":"worker-015-a","execution_id":"exec-015-a","answer":"30","solved_request":"What is the current approved timeout?","source_refs":["src-015-a"],"model_id":"model-015","provider_id":"provider-015","prompt_lineage":"prompt-015","context_lineage":"context-015"}],
+      "sources": [{"source_id":"src-015-a","source_version":"v1","locator":"fixture:control:015","admission_status":"ADMITTED","is_current":true,"origin_id":"origin-015"}]
+    },
+    {
+      "case_id": "case-016",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:r2-clean-controls:2026-09-16",
+      "literal_request": "What is the current release channel?",
+      "primary_candidate_id": "cand-016-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "stable",
+      "expected_violations": [],
+      "candidates": [{"candidate_id":"cand-016-a","worker_id":"worker-016-a","execution_id":"exec-016-a","answer":"stable","solved_request":"What is the current release channel?","source_refs":["src-016-a"],"model_id":"model-016","provider_id":"provider-016","prompt_lineage":"prompt-016","context_lineage":"context-016"}],
+      "sources": [{"source_id":"src-016-a","source_version":"v2","locator":"fixture:control:016","admission_status":"ADMITTED","is_current":true,"origin_id":"origin-016"}]
+    },
+    {
+      "case_id": "case-017",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:r2-clean-controls:2026-09-16",
+      "literal_request": "What is the exact current policy state?",
+      "primary_candidate_id": "cand-017-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "enabled",
+      "expected_violations": [],
+      "candidates": [{"candidate_id":"cand-017-a","worker_id":"worker-017-a","execution_id":"exec-017-a","answer":"enabled","solved_request":"What is the exact current policy state?","source_refs":["src-017-a"],"model_id":"model-017","provider_id":"provider-017","prompt_lineage":"prompt-017","context_lineage":"context-017"}],
+      "sources": [{"source_id":"src-017-a","source_version":"v4","locator":"fixture:control:017","admission_status":"ADMITTED","is_current":true,"origin_id":"origin-017"}]
+    },
+    {
+      "case_id": "case-018",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:r2-clean-controls:2026-09-16",
+      "literal_request": "What is the approved retry backoff?",
+      "primary_candidate_id": "cand-018-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "5",
+      "expected_violations": [],
+      "candidates": [{"candidate_id":"cand-018-a","worker_id":"worker-018-a","execution_id":"exec-018-a","answer":"5","solved_request":"What is the approved retry backoff?","source_refs":["src-018-a"],"model_id":"model-018","provider_id":"provider-018","prompt_lineage":"prompt-018","context_lineage":"context-018"}],
+      "sources": [{"source_id":"src-018-a","source_version":"v1","locator":"fixture:control:018","admission_status":"ADMITTED","is_current":true,"origin_id":"origin-018"}]
+    },
+    {
+      "case_id": "case-019",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:r2-clean-controls:2026-09-16",
+      "literal_request": "What is the current schema version?",
+      "primary_candidate_id": "cand-019-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "v3",
+      "expected_violations": [],
+      "candidates": [{"candidate_id":"cand-019-a","worker_id":"worker-019-a","execution_id":"exec-019-a","answer":"v3","solved_request":"What is the current schema version?","source_refs":["src-019-a"],"model_id":"model-019","provider_id":"provider-019","prompt_lineage":"prompt-019","context_lineage":"context-019"}],
+      "sources": [{"source_id":"src-019-a","source_version":"v3","locator":"fixture:control:019","admission_status":"ADMITTED","is_current":true,"origin_id":"origin-019"}]
+    },
+    {
+      "case_id": "case-020",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:r2-clean-controls:2026-09-16",
+      "literal_request": "What is the current owner mode?",
+      "primary_candidate_id": "cand-020-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "manual",
+      "expected_violations": [],
+      "candidates": [{"candidate_id":"cand-020-a","worker_id":"worker-020-a","execution_id":"exec-020-a","answer":"manual","solved_request":"What is the current owner mode?","source_refs":["src-020-a"],"model_id":"model-020","provider_id":"provider-020","prompt_lineage":"prompt-020","context_lineage":"context-020"}],
+      "sources": [{"source_id":"src-020-a","source_version":"v5","locator":"fixture:control:020","admission_status":"ADMITTED","is_current":true,"origin_id":"origin-020"}]
+    },
+    {
+      "case_id": "case-021",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:r2-clean-controls:2026-09-16",
+      "literal_request": "What exact stored count is current?",
+      "primary_candidate_id": "cand-021-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "8",
+      "expected_violations": [],
+      "candidates": [{"candidate_id":"cand-021-a","worker_id":"worker-021-a","execution_id":"exec-021-a","answer":"8","solved_request":"What exact stored count is current?","source_refs":["src-021-a"],"model_id":"model-021","provider_id":"provider-021","prompt_lineage":"prompt-021","context_lineage":"context-021"}],
+      "sources": [{"source_id":"src-021-a","source_version":"v1","locator":"fixture:control:021","admission_status":"ADMITTED","is_current":true,"origin_id":"origin-021"}]
+    },
+    {
+      "case_id": "case-022",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:r2-clean-controls:2026-09-16",
+      "literal_request": "What is the current feature state?",
+      "primary_candidate_id": "cand-022-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "off",
+      "expected_violations": [],
+      "candidates": [{"candidate_id":"cand-022-a","worker_id":"worker-022-a","execution_id":"exec-022-a","answer":"off","solved_request":"What is the current feature state?","source_refs":["src-022-a"],"model_id":"model-022","provider_id":"provider-022","prompt_lineage":"prompt-022","context_lineage":"context-022"}],
+      "sources": [{"source_id":"src-022-a","source_version":"v2","locator":"fixture:control:022","admission_status":"ADMITTED","is_current":true,"origin_id":"origin-022"}]
+    },
+    {
+      "case_id": "case-023",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:r2-clean-controls:2026-09-16",
+      "literal_request": "What is the approved threshold?",
+      "primary_candidate_id": "cand-023-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "0.8",
+      "expected_violations": [],
+      "candidates": [{"candidate_id":"cand-023-a","worker_id":"worker-023-a","execution_id":"exec-023-a","answer":"0.8","solved_request":"What is the approved threshold?","source_refs":["src-023-a"],"model_id":"model-023","provider_id":"provider-023","prompt_lineage":"prompt-023","context_lineage":"context-023"}],
+      "sources": [{"source_id":"src-023-a","source_version":"v7","locator":"fixture:control:023","admission_status":"ADMITTED","is_current":true,"origin_id":"origin-023"}]
+    },
+    {
+      "case_id": "case-024",
+      "fixture_version": "benchmark-v1.0",
+      "fixture_provenance": "benchmark-v1.0:r2-clean-controls:2026-09-16",
+      "literal_request": "What is the current routing mode?",
+      "primary_candidate_id": "cand-024-a",
+      "gold_disposition": "ANSWER",
+      "gold_answer": "weighted",
+      "expected_violations": [],
+      "candidates": [{"candidate_id":"cand-024-a","worker_id":"worker-024-a","execution_id":"exec-024-a","answer":"weighted","solved_request":"What is the current routing mode?","source_refs":["src-024-a"],"model_id":"model-024","provider_id":"provider-024","prompt_lineage":"prompt-024","context_lineage":"context-024"}],
+      "sources": [{"source_id":"src-024-a","source_version":"v1","locator":"fixture:control:024","admission_status":"ADMITTED","is_current":true,"origin_id":"origin-024"}]
+    }
+  ]
+}
