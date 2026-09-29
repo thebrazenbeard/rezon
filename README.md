@@ -1,5 +1,3 @@
-> **License:** Source-visible, not open source. Original material is proprietary. Commercial use, redistribution, hosted-service use, and commercial derivative products require written permission. See [LICENSE](LICENSE) and [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md). Separately identified third-party components retain their own licenses.
-
 # Rezon
 
 Rezon is an executable multi-faceted reasoning project: a place to study, formalize, test, and eventually run heterogeneous reasoning as a coordinated system rather than treating one model invocation as the whole reasoning process.
@@ -11,7 +9,7 @@ The project deliberately separates four things that are often collapsed together
 3. **State and identity** — what subject is being reasoned about, what changed, what persisted, and what evidence supports continuity.
 4. **Execution** — provider/model adapters, worker routing, receipts, provenance, resource constraints, and runtime behavior.
 
-Rezon is already runnable on `main`: the architecture documents and executable reasoning kernel live together so implementation remains constrained by explicit contracts rather than hardening accidental assumptions into interfaces.
+Rezon is intended to become runnable from the beginning, but the first population is knowledge-first: the architecture is being made explicit before implementation hardens accidental assumptions into interfaces.
 
 ## Core direction
 
@@ -56,9 +54,4 @@ A stronger model is never automatically an authority source. A reasoning node ma
 
 ## Current status
 
-`main` contains the executable Rezon kernel, benchmark/evaluation surfaces, provider-independent orchestration primitives, assurance/provenance machinery, and their deterministic test suite under `src/` and `tests/`.
-
-On 2026-09-27, the canonical executable tree was exercised on Lappy with CPython 3.12.10 after editable installation: **337/337 tests passed**. Open branches and pull requests may contain later research or candidate work, but they are not canonical merely because they are newer or have their own local evidence.
-
-Historical Masa/Mune review dispositions remain evidence for the exact subjects they reviewed; they do not automatically qualify later heads.
-This remains source/build/test candidate evidence only. It does not establish reasoning superiority, live-provider/tool correctness, deployment, installation, activation, or downstream behavioral qualification.
+This branch is a foundation / knowledge population. It does **not** claim a working runtime, provider deployment, model bridge, or Vera installation.
