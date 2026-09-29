@@ -1,5 +1,13 @@
 # Rezon Hostile Exact-Head Review — Vera PR #206
 
+## 2026-09-29 upstream currentness refresh
+
+- Vera PR #206 remains open/draft/mergeable at the exact reviewed head `be3d11a5b4d3a9880c18e03522f0d4e341b71f99` on base `a267e7d555e2c15e51a2e578c1e08095091552f0`. The core hostile-review subject therefore remains current.
+- Project Runner PR #43, cited below as auxiliary portfolio evidence at `848c2172e6fa98cdab722b43d1ff4817990c5968`, has advanced to `7dc5edf9622614795e6818add3eb9ab7bc5eee96`.
+- The older Project Runner SHA remains immutable historical evidence for what this review actually inspected. It must not be presented as the current Project Runner PR #43 head.
+- This refresh does not extend the review disposition to the newer Project Runner delta and does not alter the Vera #206 disposition.
+
+
 Reviewed repository: `thebrazenbeard/vera`  
 Reviewed pull request: #206  
 Reviewed exact head: `be3d11a5b4d3a9880c18e03522f0d4e341b71f99`  
