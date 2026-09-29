@@ -49,8 +49,12 @@ def audit_hostile_case(case: Mapping[str, Any]) -> tuple[HostileViolation, ...]:
         violations.append(HostileViolation.DUPLICATE_EVIDENCE_LAUNDERING)
 
     independence = case.get("worker_independence")
-    if case.get("consensus_counted_as_evidence") and independence is not None:
-        if not independence or not all(value is True for value in independence):
+    if case.get("consensus_counted_as_evidence"):
+        if (
+            independence is None
+            or not independence
+            or not all(value is True for value in independence)
+        ):
             violations.append(HostileViolation.CORRELATED_CONSENSUS_LAUNDERING)
 
     if case.get("authority_basis") in _ADVISORY_AUTHORITY_BASES:

@@ -170,6 +170,7 @@ def rezon_guarded(
     guards: GuardConfig = ALL_GUARDS,
 ) -> ReplayStrategyOutcome:
     """Apply explicit replay governance controls before deterministic integration."""
+    strategy_input.validate()
     sources = _source_map(strategy_input)
     rejected: set[str] = set()
     violations: list[str] = []

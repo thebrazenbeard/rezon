@@ -17,6 +17,21 @@ class VisibilityPolicy:
     blind_ids: tuple[str, ...] = ()
 
 
+def visibility_policy_contract_is_exact(policy) -> bool:
+    if type(policy) is not VisibilityPolicy:
+        return False
+    for kinds in (policy.allow_kinds, policy.blind_kinds):
+        if (
+            type(kinds) is not tuple
+            or any(type(kind) is not PropositionKind for kind in kinds)
+        ):
+            return False
+    for ids in (policy.allow_ids, policy.blind_ids):
+        if type(ids) is not tuple or any(type(value) is not str for value in ids):
+            return False
+    return True
+
+
 def build_execution_view(
     execution_id: str,
     snapshot: EpisodeSnapshot,
@@ -31,7 +46,11 @@ def build_execution_view(
     allow_kinds = set(policy.allow_kinds)
     blind_kinds = set(policy.blind_kinds)
     for proposition in snapshot.current_propositions:
-        allowed = (not allow_ids and not allow_kinds) or proposition.proposition_id in allow_ids or proposition.kind in allow_kinds
+        allowed = (
+            (not allow_ids and not allow_kinds)
+            or proposition.proposition_id in allow_ids
+            or proposition.kind in allow_kinds
+        )
         blocked = proposition.proposition_id in blind_ids or proposition.kind in blind_kinds
         if allowed and not blocked:
             visible.append(proposition)
@@ -43,7 +62,12 @@ def build_execution_view(
     blinded_relations = []
     for relation in snapshot.current_relations:
         refs = {participant.ref_id for participant in relation.participants}
-        if refs.issubset(visible_ids | {r.relation_id for r in visible_relations}):
+        dependencies_visible = refs.issubset(
+            visible_ids | {r.relation_id for r in visible_relations}
+        )
+        id_allowed = not allow_ids or relation.relation_id in allow_ids
+        id_blocked = relation.relation_id in blind_ids
+        if dependencies_visible and id_allowed and not id_blocked:
             visible_relations.append(relation)
         else:
             blinded_relations.append(relation.relation_id)
@@ -57,4 +81,9 @@ def build_execution_view(
         blinded_relation_ids=tuple(blinded_relations),
         independence=independence or IndependenceMetadata(),
         task_envelope=task_envelope,
+        task_specification=(
+            task_envelope.to_task_specification()
+            if task_envelope is not None
+            else None
+        ),
     )

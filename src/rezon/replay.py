@@ -91,6 +91,41 @@ class StrategyInput:
     candidates: tuple[ReplayCandidate, ...]
     sources: tuple[ReplaySource, ...]
 
+    def validate(self) -> None:
+        required = {
+            "case_id": self.case_id,
+            "fixture_version": self.fixture_version,
+            "literal_request": self.literal_request,
+            "primary_candidate_id": self.primary_candidate_id,
+        }
+        missing = [name for name, value in required.items() if not value]
+        if missing:
+            raise ReplayValidationError(
+                "required strategy input fields are empty: "
+                + ", ".join(sorted(missing))
+            )
+
+        for candidate in self.candidates:
+            candidate.validate()
+        for source in self.sources:
+            source.validate()
+
+        candidate_ids = [candidate.candidate_id for candidate in self.candidates]
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise ReplayValidationError(
+                "candidate IDs must be unique within a strategy input"
+            )
+        if self.primary_candidate_id not in set(candidate_ids):
+            raise ReplayValidationError(
+                "primary_candidate_id must name a candidate"
+            )
+
+        source_ids = [source.source_id for source in self.sources]
+        if len(source_ids) != len(set(source_ids)):
+            raise ReplayValidationError(
+                "source IDs must be unique within a strategy input"
+            )
+
 
 @dataclass(frozen=True)
 class ReplayCase:

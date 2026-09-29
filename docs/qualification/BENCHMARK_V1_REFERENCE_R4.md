@@ -14,6 +14,9 @@ R4 is a narrow provenance/currentness hardening delta over R3. It preserves the 
 - R4 RED tree: `48456bc59570f92f22e6379542160aab277ceb4e`
 - R4 executable/GREEN head: `dd29350f9396cf8a7b10cba0485eca4cf617577b`
 - R4 executable/GREEN tree: `bf0c6b5173073bcf3bf780ddab22b6278df9026d`
+- Mune inspected R4 documentation head: `8f21876098dc4a2f56d55418e4d1f4f2fab0b28e`
+- StrategyInput structural RED head: `61c955e11339ad9e7e33f74546bf6c32d707981c`
+- StrategyInput structural GREEN head: `fb5281f26a6bd9abab63ae92b6c1a44c39aa2265`
 - adverse fixture SHA-256: `a6244ff59da30bb2f6571b1e5abf89f2121d158af5a84d4b090891c7dc4039c4`
 - clean-control SHA-256: `2bd93ec82fb9c8bd281c4d3e19d7708fa325f6f5494a7b8ca132873d62481925`
 - composite fixture-manifest SHA-256: `9a6d277f80d3bea4552aad745cb6204538ecf0b150590bc5965dcaa73498087c`
@@ -67,6 +70,67 @@ Operationally, the guard now rejects when a referenced known source has `is_curr
 
 This does not make the currentness guard responsible for missing source IDs; missing references remain the `admission_integrity` guard's responsibility. It also does not require every answer to cite a source: the replay contract does not yet have a typed support-requirement model capable of distinguishing source-grounded claims from valid calculations, tests, formal derivations, or other support classes.
 
+## Public StrategyInput structural hardening
+
+Mune's bounded hostile review of exact head `8f21876098dc4a2f56d55418e4d1f4f2fab0b28e` found that direct callers could construct `StrategyInput` with duplicate source IDs. `rezon_guarded()` then built a dict with:
+
+```text
+{source.source_id: source for source in strategy_input.sources}
+```
+
+so duplicate source identity collapsed last-wins. The same two source objects could therefore produce different guarded outcomes solely from ordering.
+
+This did not falsify the frozen 24-case benchmark metrics because `ReplayCase.validate()` already rejects duplicate source IDs before `to_strategy_input()`. It did show that the public governed `StrategyInput` boundary was not fail-closed.
+
+### Frozen RED evidence
+
+A direct-boundary regression was frozen before repair.
+
+- initial source-collision RED head: `47517691ee0fb32c03d081a53984b168ebc723f8`;
+- expanded structural RED head: `61c955e11339ad9e7e33f74546bf6c32d707981c`;
+- CPython 3.12.10 targeted result: **3 failed / 0 passed**.
+
+The three failures covered:
+
+1. duplicate source IDs in both source orders;
+2. duplicate candidate IDs;
+3. a missing `primary_candidate_id` target.
+
+### Repair
+
+`StrategyInput.validate()` now enforces the non-gold structural invariants needed by the guarded public surface:
+
+- required strategy identity/request fields are non-empty;
+- every candidate and source validates itself;
+- candidate IDs are unique;
+- `primary_candidate_id` names an existing candidate;
+- source IDs are unique.
+
+`rezon_guarded()` invokes this validation before building the source map. Invalid direct inputs now raise `ReplayValidationError` before governance/integration logic can observe last-wins collisions.
+
+The baseline strategies were intentionally left unchanged; this repair is scoped to the governed public path that Mune identified.
+
+### GREEN evidence and benchmark preservation
+
+Exact executable head `fb5281f26a6bd9abab63ae92b6c1a44c39aa2265` was checked under CPython 3.12.10:
+
+- targeted structural regressions: **3 passed**;
+- `python -m compileall -q src scripts`: PASS;
+- full pytest: **105 passed / 0 failed**;
+- balanced 24-case reference benchmark: PASS;
+- `git diff --check`: PASS;
+- tracked/staged diffs: clean.
+
+The frozen benchmark evidence remained unchanged:
+
+- strategy-input digest: `56b31ca66fe52425840626a8eab190fbc2114201b62748ac005cbda1c6e1a43a`;
+- `rezon_guarded`: 21/24 disposition-correct;
+- 2 false accepts;
+- 174 operations;
+- 9/15 evaluator-required violation labels detected.
+
+Therefore the public-boundary repair hardens direct governed input without improving or rewriting the frozen benchmark result.
+
 ## Exact GREEN reproduction
 
 GitHub Actions freshly checked out exact executable head `dd29350f9396cf8a7b10cba0485eca4cf617577b` on Ubuntu 24.04.5 / CPython 3.12.14 and passed:
@@ -117,4 +181,4 @@ Known Layer 1 limitations remain, including:
 
 ## Remaining gate
 
-R4 remains `INDEPENDENT_QUALIFICATION_PENDING`. Independent hostile review must verify the exact R4 documentation head/tree once frozen, the RED-to-GREEN transition, the explicit-True currentness rule, guard-ablation isolation, unchanged frozen replay evidence, and whether another unknown/missing provenance state can still be silently promoted.
+R4 remains `INDEPENDENT_QUALIFICATION_PENDING`. Independent hostile review must verify the exact current documentation head/tree once frozen, both RED-to-GREEN transitions, the explicit-True currentness rule, direct `StrategyInput` structural fail-closed behavior, guard-ablation isolation, unchanged frozen replay evidence, and whether another unknown/missing provenance state can still be silently promoted.

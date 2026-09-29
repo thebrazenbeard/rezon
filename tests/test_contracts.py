@@ -99,21 +99,19 @@ def test_subject_binding_requires_association_evidence():
     assert binding.association_evidence_refs == ("receipt:association",)
 
 
-def test_result_receipt_keeps_unresolved_failures_and_effect_state_visible():
+def test_result_receipt_keeps_unresolved_failures_visible_without_lifecycle_promotion():
     receipt = ResultReceipt(
         task_id="t1",
         episode_version="v7",
-        accepted_claim_ids=("p1",),
-        rejected_claim_ids=("p2",),
         unresolved=("conflict:r4",),
         failures=(FailureState.INSUFFICIENT_EVIDENCE,),
-        effect_state=EffectState.SOURCE_VERIFIED,
+        effect_state=EffectState.PLAN,
         source_versions=("repo@abc",),
         execution_ids=("exec1",),
     )
     assert receipt.unresolved
     assert receipt.failures == (FailureState.INSUFFICIENT_EVIDENCE,)
-    assert receipt.effect_state is EffectState.SOURCE_VERIFIED
+    assert receipt.effect_state is EffectState.PLAN
 
 
 def test_result_receipt_requires_exact_task_and_episode_subject():
@@ -145,3 +143,12 @@ def test_pairwise_independence_rejects_shared_model_provider_lineage():
     assert a.is_demonstrably_independent
     assert b.is_demonstrably_independent
     assert not a.demonstrably_independent_from(b)
+
+
+def test_generic_result_receipt_cannot_assert_claim_disposition_complete():
+    with pytest.raises(ValueError):
+        ResultReceipt(
+            task_id="t-no-disposition-authority",
+            episode_version="e1@0",
+            claim_disposition_complete=True,
+        )
