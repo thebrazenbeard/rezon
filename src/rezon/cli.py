@@ -7,6 +7,11 @@ import sys
 
 from .audit import verify_run_evidence
 from .interop import RunEvidenceError
+from .otel_genai import (
+    OTelGenAIIntakeError,
+    bind_otel_genai_to_run_evidence,
+    inspect_otel_genai_export,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -15,23 +20,53 @@ def _parser() -> argparse.ArgumentParser:
         description="Rezon portable reasoning-evidence utilities",
     )
     commands = parser.add_subparsers(dest="command", required=True)
+
     verify = commands.add_parser(
         "verify-evidence",
         help="verify a rezon.run-evidence.v1 JSON artifact",
     )
     verify.add_argument("path", type=Path)
+
+    inspect_otel = commands.add_parser(
+        "inspect-otel-genai",
+        help="inspect OTLP/JSON GenAI telemetry without trust promotion",
+    )
+    inspect_otel.add_argument("path", type=Path)
+
+    bind_otel = commands.add_parser(
+        "bind-otel-evidence",
+        help="bind OTLP/JSON workflow telemetry to verified Rezon evidence",
+    )
+    bind_otel.add_argument("trace_path", type=Path)
+    bind_otel.add_argument("evidence_path", type=Path)
     return parser
+
+
+def _load_json(path: Path) -> object:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    if args.command != "verify-evidence":
-        return 2
 
     try:
-        payload = json.loads(args.path.read_text(encoding="utf-8"))
-        report = verify_run_evidence(payload)
-    except (OSError, json.JSONDecodeError, RunEvidenceError) as exc:
+        if args.command == "verify-evidence":
+            report = verify_run_evidence(_load_json(args.path))
+        elif args.command == "inspect-otel-genai":
+            report = inspect_otel_genai_export(_load_json(args.path))
+        elif args.command == "bind-otel-evidence":
+            report = bind_otel_genai_to_run_evidence(
+                _load_json(args.trace_path),
+                _load_json(args.evidence_path),
+            )
+        else:
+            return 2
+    except (
+        OSError,
+        json.JSONDecodeError,
+        RunEvidenceError,
+        OTelGenAIIntakeError,
+    ) as exc:
         print(
             json.dumps({"valid": False, "error": str(exc)}, sort_keys=True),
             file=sys.stderr,
