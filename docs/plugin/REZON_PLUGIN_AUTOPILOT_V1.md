@@ -1,5 +1,15 @@
 # Rezon Plugin Autopilot V1
 
+## 2026-09-29 reconciliation
+
+- Current PR base: `main@d429426fe41a76bd27c98fc8a6cc38cef16fddb1`.
+- Current reconciled PR head before this documentation-only refresh: `18482e42674843ce822e52e2ac08855901f265cb`.
+- The `plugin/rezon` package tree is unchanged from validated artifact head `a8281fb885a84089d98910459a4347a9b5369ba5`; the commits added after that head changed repository documentation/ancestry only, not package files.
+- Therefore the validated package ZIP SHA-256 `cfdac4152479fc12f2366ea9a097159f2d47ac5790b28423501bbbf2e5e0f42b` remains the artifact hash for the unchanged package.
+- `DIRECTORY_PACK.json.sourceRef` remains intentionally bound to the original conversion source `ff6d34ca283d977d4f9ce48ec006f37fd06f7d9a`; it is provenance, not a claim that this is the current `main` head.
+- Public-submission blockers remain unchanged. This reconciliation does not install, submit, publish, approve, or activate the Plugin.
+
+
 ## Subject
 
 - Repository: `thebrazenbeard/rezon`
