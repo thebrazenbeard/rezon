@@ -1,64 +1,41 @@
-> **License:** Source-visible, not open source. Original material is proprietary. Commercial use, redistribution, hosted-service use, and commercial derivative products require written permission. See [LICENSE](LICENSE) and [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md). Separately identified third-party components retain their own licenses.
-
 # Rezon
 
-Rezon is an executable multi-faceted reasoning project: a place to study, formalize, test, and eventually run heterogeneous reasoning as a coordinated system rather than treating one model invocation as the whole reasoning process.
+Rezon is an experimental heterogeneous reasoning fabric.
 
-The project deliberately separates four things that are often collapsed together:
+Its goal is to combine human-style reasoning operations with AI-native, symbolic, statistical, retrieval, simulation, and tool-based computation without collapsing them into one opaque chain-of-thought or a committee of differently prompted agents.
 
-1. **Reasoning methods** — deduction, induction, abduction, causality, counterfactuals, planning, analogy, probabilistic inference, semantic reasoning, adversarial challenge, and more.
-2. **Reasoning topology** — how several reasoning processes cooperate, oppose, verify, retrieve, route, and integrate.
-3. **State and identity** — what subject is being reasoned about, what changed, what persisted, and what evidence supports continuity.
-4. **Execution** — provider/model adapters, worker routing, receipts, provenance, resource constraints, and runtime behavior.
+The working architectural thesis is:
 
-Rezon is already runnable on `main`: the architecture documents and executable reasoning kernel live together so implementation remains constrained by explicit contracts rather than hardening accidental assumptions into interfaces.
+> Rezon dynamically composes partially independent computational processes over a provenance-preserving temporal epistemic hypergraph, allocating additional reasoning according to uncertainty, contradiction, information value, cost, and verification need.
 
-## Core direction
+## Status
 
-A working Rezon system should eventually support a flow like:
+Architecture bootstrap. No behavioral qualification is claimed yet.
 
-```text
-TaskEnvelope
-  -> Decomposer / Planner
-  -> Heterogeneous Reasoning Nodes
-  -> Opposition / Falsification Lane
-  -> Retrieval + Semantic / Provenance Verification
-  -> Integrator
-  -> ResultReceipt
-```
+This repository distinguishes design, implementation, experiment results, and verified runtime behavior. Documentation or green tests alone do not prove improved reasoning.
 
-Cross-cutting state substrates:
+## Core principles
 
-```text
-Persistent Subject / Identity Track
-Multi-View State Graph / Hypergraph
-Evidence + Provenance Ledger
-```
+- Evidence, inference, hypothesis, assumption, observation, question, test result, and decision are different semantic objects.
+- Repetition or model consensus does not promote a hypothesis into evidence.
+- A reasoning node is defined by its constrained epistemic operation, accepted inputs, forbidden information, executor, output contract, resource profile, and verification requirements—not merely by a persona label.
+- Rezon should support heterogeneous executors: LLMs, symbolic reasoners, numerical code, retrieval systems, simulations, causal models, search, and external tools.
+- The shared reasoning state must support typed many-to-many relations and temporal evolution; a typed temporal epistemic hypergraph is the current target.
+- Routing allocates computation. Routing, arbitration, confidence, and truth are distinct concepts.
+- One verified counterexample may outweigh broad generative consensus.
+- Reasoning should be inspectable through provenance, structured intermediate artifacts, and execution traces without claiming access to hidden model-internal chain-of-thought.
+- Fast and slow reasoning loops should be separable.
+- Expensive reasoning should be targeted by unresolved uncertainty, contradiction, expected information value, or verification need rather than invoked uniformly.
 
-A stronger model is never automatically an authority source. A reasoning node may be more capable, more expensive, or more specialized without being entitled to promote identity, consent, facts, deployment state, or governance claims.
+## First bounded target
 
-## Documents
+The first executable kernel should be able to:
 
-- `docs/FOUNDATION.md` — project principles and scope
-- `docs/REASONING_TAXONOMY.md` — reasoning families worth modeling
-- `docs/HUMAN_AI_REASONING_SYNTHESIS.md` — transferable human/AI reasoning mechanisms
-- `docs/IDENTITY_TRACKING.md` — persistent identity under discontinuous observations
-- `docs/MULTIVIEW_HYPERGRAPH_STATE.md` — many-to-many, multi-view state representation
-- `docs/HIERARCHICAL_DISTRIBUTED_REASONING.md` — slow/fast and heterogeneous worker topology
-- `docs/ADVERSARIAL_COLLABORATION.md` — literal-proposition hostile review method
-- `docs/RETRIEVAL_CONTEXT.md` — reasoning-based retrieval and context selection
-- `docs/SEMANTIC_PROVENANCE.md` — knowledge graphs, ontologies, provenance, repair
-- `docs/WORKER_ROUTING_ULTRA.md` — optional high-reasoning worker routing
-- `docs/EVALUATION_AND_FALSIFICATION.md` — how Rezon should try to prove itself wrong
-- `docs/SOURCE_TRANSFER_MATRIX.md` — source-by-source transfer analysis
-- `docs/EXECUTABLE_FRAMEWORK_DIRECTION.md` — runnable system direction
-- `docs/VERA_ADOPTION_CANDIDATES.md` — mechanisms that may be promoted into Vera later
+1. represent a reasoning episode as typed epistemic state;
+2. invoke heterogeneous reasoning operators under explicit contracts;
+3. preserve provenance, uncertainty, contradiction, and execution traces;
+4. route work dynamically while supporting isolation and blinding between operators;
+5. compare single-model and multi-node reasoning on correctness, calibration, cost, latency, and error discovery;
+6. experimentally evaluate an HCAE-inspired episode hyperconnectome encoder as a transient structural-perception subsystem.
 
-## Current status
-
-`main` contains the executable Rezon kernel, benchmark/evaluation surfaces, provider-independent orchestration primitives, assurance/provenance machinery, and their deterministic test suite under `src/` and `tests/`.
-
-On 2026-09-27, the canonical executable tree was exercised on Lappy with CPython 3.12.10 after editable installation: **337/337 tests passed**. Open branches and pull requests may contain later research or candidate work, but they are not canonical merely because they are newer or have their own local evidence.
-
-Historical Masa/Mune review dispositions remain evidence for the exact subjects they reviewed; they do not automatically qualify later heads.
-This remains source/build/test candidate evidence only. It does not establish reasoning superiority, live-provider/tool correctness, deployment, installation, activation, or downstream behavioral qualification.
+See `docs/architecture/REZON_ARCHITECTURE_V0.md`, `docs/contracts/`, and `docs/research/` for the current design basis.
