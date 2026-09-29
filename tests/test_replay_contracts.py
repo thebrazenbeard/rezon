@@ -377,3 +377,48 @@ def test_strategy_input_required_text_fields_require_exact_strings(field, value)
     malformed = dataclasses.replace(strategy_input, **{field: value})
     with pytest.raises(ReplayValidationError, match=field):
         malformed.validate()
+
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("source_id", ""),
+        ("source_id", 7),
+        ("source_version", ""),
+        ("source_version", 7),
+        ("locator", ""),
+        ("locator", 7),
+        ("admission_status", ""),
+        ("admission_status", 7),
+        ("origin_id", ""),
+        ("origin_id", 7),
+    ],
+)
+def test_replay_source_text_fields_require_nonempty_exact_strings(field, value):
+    source = dataclasses.replace(_source(), **{field: value})
+    with pytest.raises(ReplayValidationError, match=field):
+        source.validate()
+
+
+@pytest.mark.parametrize("value", ["true", 0, 1, []])
+def test_replay_source_currentness_requires_exact_boolean_or_none(value):
+    source = dataclasses.replace(_source(), is_current=value)
+    with pytest.raises(ReplayValidationError, match="is_current"):
+        source.validate()
+
+
+@pytest.mark.parametrize("value", [[], {}, object(), float("nan"), float("inf")])
+def test_advisory_signal_values_require_portable_json_scalars(value):
+    candidate = dataclasses.replace(
+        _candidate(),
+        advisory_signals=(("confidence", value),),
+    )
+    with pytest.raises(ReplayValidationError, match="advisory signal value"):
+        candidate.validate()
+
+
+def test_expected_violations_require_nonempty_exact_strings():
+    case = _case(expected_violations=("PROVENANCE_CURRENTNESS", 7))
+    with pytest.raises(ReplayValidationError, match="expected_violations"):
+        case.validate()
