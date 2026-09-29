@@ -115,6 +115,13 @@ class StrategyInput:
             raise ReplayValidationError(
                 "candidate IDs must be unique within a strategy input"
             )
+        execution_ids = [
+            candidate.execution_id for candidate in self.candidates
+        ]
+        if len(execution_ids) != len(set(execution_ids)):
+            raise ReplayValidationError(
+                "execution IDs must be unique within a strategy input"
+            )
         if self.primary_candidate_id not in set(candidate_ids):
             raise ReplayValidationError(
                 "primary_candidate_id must name a candidate"
@@ -170,6 +177,13 @@ class ReplayCase:
         candidate_ids = [candidate.candidate_id for candidate in self.candidates]
         if len(candidate_ids) != len(set(candidate_ids)):
             raise ReplayValidationError("candidate IDs must be unique within a case")
+        execution_ids = [
+            candidate.execution_id for candidate in self.candidates
+        ]
+        if len(execution_ids) != len(set(execution_ids)):
+            raise ReplayValidationError(
+                "execution IDs must be unique within a case"
+            )
         if self.primary_candidate_id not in set(candidate_ids):
             raise ReplayValidationError("primary_candidate_id must name a candidate")
 

@@ -151,6 +151,7 @@ def _correlated_candidates(candidates: tuple[ReplayCandidate, ...]) -> set[str]:
             same_lineage = any(
                 left_value is not None and left_value == right_value
                 for left_value, right_value in (
+                    (left.worker_id, right.worker_id),
                     (left.model_id, right.model_id),
                     (left.provider_id, right.provider_id),
                     (left.prompt_lineage, right.prompt_lineage),
