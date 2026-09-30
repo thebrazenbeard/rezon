@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "status": "planned_not_runtime_executed",
+  "direct": [
+    {
+      "prompt": "Use Rezon to analyze whether this migration plan is actually safe.",
+      "expectedSkill": "rezon-analysis",
+      "expectedBehavior": "Freeze the proposition, separate evidence from assumptions, apply multiple relevant reasoning methods, run opposition, and return a bounded result receipt."
+    },
+    {
+      "prompt": "Use Rezon hostile review on this architecture claim.",
+      "expectedSkill": "rezon-hostile-review",
+      "expectedBehavior": "Attack the exact proposition without strengthening or weakening it, identify decisive falsification routes, and return an evidence-bounded disposition."
+    },
+    {
+      "prompt": "Use Rezon to reconcile these two conflicting audit reports.",
+      "expectedSkill": "rezon-evidence-reconciliation",
+      "expectedBehavior": "Build an evidence ledger, preserve version/currentness and lineage distinctions, retain contradictions, and state what remains unresolved."
+    }
+  ],
+  "indirect": [
+    {
+      "prompt": "I have a complicated conclusion with several assumptions. Analyze it from different reasoning methods and tell me what survives.",
+      "expectedSkill": "rezon-analysis"
+    },
+    {
+      "prompt": "Try as hard as possible to falsify this exact claim, and do not rewrite it into an easier one.",
+      "expectedSkill": "rezon-hostile-review"
+    },
+    {
+      "prompt": "These sources disagree and some are older copies of the same upstream report. Which evidence actually controls?",
+      "expectedSkill": "rezon-evidence-reconciliation"
+    }
+  ],
+  "negative": [
+    {
+      "prompt": "Translate this sentence into Spanish.",
+      "expectedBehavior": "Do not activate a Rezon Skill solely for translation."
+    },
+    {
+      "prompt": "Write a limerick about a lighthouse.",
+      "expectedBehavior": "Do not activate a Rezon Skill solely for creative writing."
+    },
+    {
+      "prompt": "What is 17 times 23?",
+      "expectedBehavior": "Do not activate a Rezon Skill for trivial arithmetic that does not benefit from the Rezon workflow."
+    }
+  ],
+  "notes": [
+    "These are discovery expectations derived from Skill metadata and instructions.",
+    "They are not evidence of actual ChatGPT/Codex routing because the plugin has not been installed or runtime-tested in this workstream."
+  ]
+}
