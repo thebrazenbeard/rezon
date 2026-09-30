@@ -1,129 +1,97 @@
 # Roadmap
 
-Rezon’s goal is a runnable reasoning framework, but promotion from research to runtime should be evidence-driven.
+Rezon has moved past its original knowledge-foundation phase. The near-term goal
+is to turn the existing kernel into a useful assurance component that can sit
+beside real agent and workflow runtimes.
 
-## Phase 0 — knowledge foundation
+## Completed foundation
 
-Current pass.
+The repository now contains:
+
+- a provider-independent executable Kernel V0 lineage;
+- typed task, node, proposition, relation, receipt, trace, and admission contracts;
+- exact source-version and provenance binding;
+- independence and contamination controls;
+- canonical Episode mutation and rollback controls;
+- deterministic producer/output identity binding;
+- frozen replay benchmarks and hostile cases;
+- deterministic run-evidence export.
+
+The estate reconciliation candidate records 337 passing tests on the composed
+R51 + Benchmark R4 + canonical Episode-method subject.
+
+## Current frontier — portable assurance
 
 Deliverables:
 
-- reasoning taxonomy;
-- human/AI mechanism synthesis;
-- identity-track model;
-- multi-view hypergraph-state model;
-- hierarchical/multi-node reasoning topology;
-- adversarial collaboration method;
-- retrieval/context strategy;
-- semantic/provenance verification strategy;
-- worker-routing/Ultra research boundary;
-- source transfer matrix;
-- evaluation/falsification principles;
-- Vera adoption candidates.
+- independently verify serialized Rezon run evidence;
+- expose verification through a minimal CLI;
+- run CI on current branches and pull requests rather than historical branch
+  names only;
+- define Rezon's role as an epistemic assurance layer rather than a competing
+  general-purpose orchestrator.
 
-Success: repository contains enough explicit architecture that first code is constrained by semantics rather than improvisation.
+Success: another process can retain a Rezon evidence artifact and validate its
+internal bindings later without rerunning the original reasoning job.
 
-## Phase 1 — executable core
+## Next — external runtime adapters
 
-Build the smallest provider-independent runtime with:
+Define a dependency-light adapter contract for completed execution events from
+external agent/workflow systems.
 
-- TaskEnvelope;
-- Proposition typing;
-- ReasoningNode interface;
-- deterministic/mock workers;
-- planner/decomposer;
-- opposition node;
-- integrator;
-- ResultReceipt;
-- hostile tests.
+First adapters should prove the shape before multiplying integrations. Candidate
+surfaces include:
 
-No external model dependency is required to pass the core suite.
+- agent SDK traces;
+- explicit workflow runtimes;
+- MCP tool activity;
+- A2A task exchanges.
 
-## Phase 2 — evidence and retrieval
+Adapters must preserve identity, provenance, source version/currentness,
+executor lineage, failures, and authority/effect boundaries. Text-only
+flattening is not acceptable.
 
-Add:
+## Next — cross-runtime adversarial qualification
 
-- source/provenance objects;
-- structural/tree retrieval;
-- exact retrieval;
-- semantic retrieval adapter;
-- evidence conflict handling;
-- source-version pinning.
+Build fixtures where simpler orchestration traces look healthy while the
+epistemic state is not:
 
-Prototype PageIndex-style hierarchical retrieval on a real technical corpus.
+- correlated workers presented as independent consensus;
+- stale or version-ambiguous evidence;
+- hidden execution failures;
+- output/producer substitution;
+- tool success misrepresented as authorization;
+- receipt summaries that conceal trace failures.
 
-## Phase 3 — persistent subject state
+Compare Rezon assurance against simpler baselines on detection accuracy, false
+blocks, runtime overhead, and evidence size.
 
-Add:
+## Later — adaptive routing
 
-- subject track;
-- observation epochs;
-- hard/soft association evidence;
-- ambiguity/conflict states;
-- state trajectory;
-- multi-view graph/hypergraph representation.
+Only after the external assurance boundary is useful should Rezon promote
+learned or adaptive routing experiments.
 
-Do not add learned identity scoring until hard association semantics are already tested.
+Candidate work:
 
-## Phase 4 — heterogeneous reasoning adapters
+- cost/latency/information-gain scheduling;
+- heterogeneous provider/model capability discovery;
+- HCAE/HyPER/hyperbolic structural signals as advisory routing inputs;
+- dynamic rerun and starvation controls;
+- durable checkpoint/resume semantics where Rezon itself owns the state.
 
-Add bounded adapters for:
-
-- deterministic numerical/symbolic operations;
-- graph/ontology reasoning;
-- simulation;
-- one or more LLM providers;
-- optional local models.
-
-Use capability discovery rather than hardcoding model prestige into routing.
-
-## Phase 5 — semantic verifier
-
-Prototype:
-
-- canonical graph identity;
-- constraint/ontology validation;
-- contradiction diagnosis;
-- asserted vs inferred state;
-- repair candidates + independent re-verification.
-
-## Phase 6 — resource-aware distributed scheduling
-
-Add:
-
-- concurrency/dependency graph;
-- resource leases;
-- parent/child budget inheritance;
-- idempotent invocation IDs;
-- ambiguous completion reconciliation;
-- cost/latency/information-gain routing.
-
-## Phase 7 — optional high-reasoning workers
-
-If supported callable surfaces exist, integrate high-cost workers (including any future verified Ultra path) as optional specialists.
-
-Requirements:
-
-- no runtime dependency on undocumented provider internals;
-- no authority promotion by model rank;
-- exact capability/readback evidence;
-- resource and privacy limits;
-- independent verification of important outputs.
-
-## Phase 8 — Vera integration candidates
-
-Promote only mechanisms that have survived Rezon prototypes and hostile tests. Likely candidates are listed in `VERA_ADOPTION_CANDIDATES.md`.
-
-Each Vera integration is separately governed and must distinguish source, installation, runtime consumption, effect, and qualification.
+Learned signals remain advisory unless separately governed. They do not gain
+provenance, currentness, authority, or effect rights by improving benchmark
+scores.
 
 ## Continuous research questions
 
-- What is the minimal useful representation for a reasoning graph?
-- When is a hyperedge materially better than explicit n-ary relation objects?
-- How should worker independence be quantified?
-- How can expected information gain be estimated cheaply enough for scheduling?
-- Which reasoning operations are best deterministic vs model-based?
-- How can semantic equivalence tests resist lexical bypasses?
-- How should persistent subject tracks represent branching/merging histories?
-- Which state dimensions should remain hard symbolic facts and which benefit from learned latent representations?
-- What provider capability discovery can be made portable across model vendors?
+- Which external trace fields are sufficient to reconstruct a trustworthy Rezon
+  execution record?
+- How should independence be measured when workers share providers, prompts,
+  retrieval corpora, or upstream generated context?
+- Which epistemic controls produce measurable gains rather than ceremonial
+  complexity?
+- When does multi-agent deliberation improve truth-seeking, and when does it
+  merely increase correlated confidence?
+- What is the smallest portable evidence format that remains reconstructible and
+  independently auditable?
