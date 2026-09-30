@@ -65,3 +65,36 @@ Intermediate repair head `70511b2ddfb71fcff33839195d13b32f7ad21be9` failed integ
 ## Claim ceiling
 
 `VCP_PR147_83EDA677_SURVIVES_NARROWED__V3_SINGLE_ACTIVATION_POLICY_AUTHORITY__NO_AUTO_BIND_PRESERVED__PRIVATE_COUNT_ONLY__IMMUTABLE_CUT_SEPARATE_FROM_FRESHNESS__SOURCE_ONLY`
+
+## Current-main successor requalification — VCP PR #151
+
+The VCP base advanced independently from `5ea58cfc2dd184ef916532d3b4e2bd13b99c2709` to `b86143e50ba41d05eab19d5a300662afeda60d6e`.
+
+The intervening main changes touched eight paths and had zero changed-path collision with the eleven files in reviewed PR #147. A fresh branch was therefore built from current main by copying all eleven reviewed PR #147 blobs byte-for-byte, with no policy-file regeneration and no force update of the reviewed branch.
+
+Current-main successor:
+
+- VCP PR: #151
+- exact head: `92aeff1021eddcff5d2bfbadac139227e855e66a`
+- exact base: `b86143e50ba41d05eab19d5a300662afeda60d6e`
+- source policy payload: byte-identical to reviewed PR #147 head `83eda677f6daa95a4ebe494f4cadacb9a8d4a2a9`
+- changed-path collision with intervening main delta: none
+
+Exact-head GitHub qualification on PR #151:
+
+- `VCP Vera Runtime Source Binding V3` run 36784576459: PASS
+- `Control-plane consolidation validation` run 36784576560: PASS
+- `VCP integrity` run 36784576350: PASS
+
+The H1 repair remains present in the copied blobs: the legacy runtime-source registry remains historical-only and V3 remains the single activation-disposition authority. NO_AUTO_BIND, private count-only publication, immutable-cut/freshness separation, and exact Vera #206 / Rezon #95 bindings remain unchanged.
+
+Current disposition:
+
+`SURVIVES_NARROWED_CURRENT_MAIN_RESTACK`
+
+Current claim ceiling:
+
+`VCP_PR151_92AEFF10_CURRENT_MAIN_RESTACK__BYTE_IDENTICAL_REVIEWED_POLICY__CI_PASS__SOURCE_ONLY`
+
+This extension is still source-recorded Rezon hostile-review evidence. It does not claim a separately executed external-model review, merge, installation, runtime activation, or protected effect.
+
