@@ -216,3 +216,80 @@ Restack VCP `NO_AUTO_BIND` enforcement against exact Vera successor
 `be3d11a5b4d3a9880c18e03522f0d4e341b71f99`, preserving the 24 deferred VCP
 provenance rows as the migration input rather than reviving PR #200's embedded
 control-plane mirror.
+
+
+## 2026-09-30 exact-head requalification
+
+Reviewed Vera PR #206 exact head:
+`dff171a8cee0b2dd3c6fd4627499330800499fdd`
+
+Reviewed Vera base:
+`a267e7d555e2c15e51a2e578c1e08095091552f0`
+
+Previous reviewed Vera #206 subject:
+`be3d11a5b4d3a9880c18e03522f0d4e341b71f99`
+
+Exact compare from the previous reviewed subject to the new subject is two commits,
+zero behind, and changes exactly one path:
+
+`.github/workflows/portfolio-public-successor-v2.yml`
+
+No portfolio manifest, migration binding, absorbed runtime, public-cut, or provenance
+byte changed between the previously reviewed head and this exact subject.
+
+### Executed successor qualification
+
+Dedicated GitHub Actions workflow
+`Vera Portfolio Public-Safe Successor V2` completed successfully on the exact
+`dff171a8...` push subject.
+
+The executed gate established:
+
+- focused public-safe successor tests: PASS;
+- absorbed runtime tests: PASS;
+- absorbed runtime + builder compile: PASS;
+- first live rebuild may refresh mutable public-head evidence;
+- immutable `cut_sha256` remains unchanged across that refresh;
+- a second rebuild over the same observed heads produces the identical working-tree diff;
+- focused tests pass again after the live freshness refresh;
+- `git diff --check`: PASS.
+
+The earlier assumption that a fresh rebuild must leave the committed tree clean was
+rejected as too strong. Live repository heads are explicitly a mutable freshness
+layer and are not part of the immutable membership-cut digest.
+
+### Immutable-cut/public-safety readback
+
+The exact Vera vendored Project Runner corpus is byte-identical to
+`thebrazenbeard/project-runner@848c2172e6fa98cdab722b43d1ff4817990c5968`
+`portfolio/corpus.public.json`, Git blob
+`886e9be586c37584c17afdc540c38a1d95deaaa6`.
+
+The reviewed Vera artifacts still establish:
+
+- immutable observed cut: 67 total / 49 public / 18 private;
+- all 49 public repositories enumerated;
+- private membership: `COUNT_ONLY_PUBLIC_V1`;
+- private exact membership publicly committed: false;
+- public head refresh: separate mutable evidence layer;
+- public PR #200 predecessor bindings: 41 total;
+- active exact bindings: 17;
+- deferred public VCP provenance: 24;
+- active + deferred = 41;
+- all deferred public rows are `thebrazenbeard/vera-control-plane`;
+- deferred rows carry no activation effect;
+- private donor mechanism custody remains anonymized.
+
+### Requalified disposition
+
+`SURVIVES_NARROWED_PUBLIC_SAFE_SUCCESSOR`
+
+Claim ceiling:
+
+`VERA_PR206_DFF171A8_PUBLIC_SAFE_IMMUTABLE_67_CUT__49_PUBLIC__PRIVATE_COUNT_ONLY__PR200_PUBLIC_PROVENANCE_CONSERVED__MUTABLE_FRESHNESS_SEPARATE__SOURCE_ONLY`
+
+This review does not authorize merge, install, Project replacement, provider mutation,
+credential/permission changes, private membership publication, or runtime/effect claims.
+
+The downstream VCP `NO_AUTO_BIND` restack must bind this exact Vera subject (or a
+later independently requalified successor), not the older `be3d11a5...` head.
