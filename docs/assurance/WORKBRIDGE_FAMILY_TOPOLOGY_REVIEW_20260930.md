@@ -77,3 +77,46 @@ No. The observed overlap establishes provenance/duplication, not which product/r
 Claim ceiling:
 
 `WORKBRIDGE_FAMILY_20260930__EXACT_SOURCE_TOPOLOGY_AND_PROVENANCE_ONLY__NO_ALIAS__NO_DEPLOYMENT__NO_RUNTIME_EFFECT`
+
+## Merged standalone WorkBridge current-main requalification — 2026-10-01
+
+Standalone `thebrazenbeard/workbridge` PR #4 has since merged.
+
+Current exact main:
+
+`e88e14ea25f25abd723bb50909b3e25e67f889fd`
+
+The merged main carries the deny-by-default caller-argument authority boundary and the separately versioned `WorkBridgeRelay 0.1.0-0003` candidate.
+
+Exact-main hosted qualification:
+
+- `WorkBridge source checks` run `36792749209`: PASS
+- `WorkBridgeRelay ARMv7 SPK` run `36792749216`: PASS
+
+This closes the prior source/build/package qualification gap for the standalone current main. It does **not** establish installation on a NAS, a live listener, workstation attachment, remote endpoint reachability, or downstream effect.
+
+### Refreshed exact blob topology
+
+At:
+
+- `WorkBridgeMCP@f091f6be6e85f489e3e7839e10612204b89a4a9e`
+- `workbridgecommander@c2b95be79ca011a539c20bfee60fcbc46cfea177`
+- `workbridge@e88e14ea25f25abd723bb50909b3e25e67f889fd`
+
+the exact overlap is:
+
+| Pair | Files A/B | Common paths | Identical same-path blobs | Shared blob SHA at any path |
+| --- | ---: | ---: | ---: | ---: |
+| WorkBridgeMCP ↔ workbridgecommander | 70 / 59 | 4 | 0 | 0 |
+| WorkBridgeMCP ↔ workbridge | 70 / 65 | 25 | 8 | 8 |
+| workbridgecommander ↔ workbridge | 59 / 65 | 4 | 0 | 0 |
+
+The standalone lineage now shares fewer exact blobs with WorkBridgeMCP than at the earlier review cut. That supports the existing hostile finding: provenance does not create automatic patch propagation, synchronization, or runtime aliasing.
+
+### Updated disposition
+
+`SURVIVES_NARROWED_AS_THREE_DISTINCT_SOURCE_ROLES__STANDALONE_WORKBRIDGE_CURRENT_MAIN_SOURCE_BUILD_PACKAGE_QUALIFIED`
+
+Updated claim ceiling:
+
+`WORKBRIDGE_FAMILY_20261001__EXACT_SOURCE_TOPOLOGY__STANDALONE_MAIN_SOURCE_BUILD_PACKAGE_PASS__NO_ALIAS__NO_INSTALL__NO_RUNTIME_EFFECT`
