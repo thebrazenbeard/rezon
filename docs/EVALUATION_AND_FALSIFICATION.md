@@ -47,6 +47,8 @@ Two reviewers are not independent merely because they have different labels.
 Record and test:
 
 - same model/provider;
+- same product surface;
+- same reasoning label;
 - same prompt lineage;
 - same context;
 - whether one saw the other’s answer;
@@ -102,19 +104,69 @@ Rezon should eventually maintain benchmark suites for:
 - multi-view state drift;
 - multi-node independence;
 - resource-aware routing;
-- integration under partial worker failure.
+- integration under partial worker failure;
+- cross-surface escalation and fallback;
+- same-task reasoning-surface comparison.
+
+## Same-task cross-surface evaluation
+
+When comparing reasoning tiers or product surfaces, preserve as many variables as possible:
+
+- literal prompt;
+- exact repository/source head;
+- machine/runtime build where local execution is involved;
+- tool availability;
+- context package;
+- time window;
+- authority/effect ceiling;
+- instrumentation method.
+
+Record differences instead of smoothing them away. In particular:
+
+- a different final repository head is a confound;
+- concurrent browser/desktop runs can contaminate transport counts;
+- process/socket counts do not equal agent counts;
+- cloud worker topology is not inferable from local browser TLS sessions;
+- two differently labeled workers are not automatically independent.
+
+A useful comparison receipt should include both **work-product evidence** and **orchestration evidence**:
+
+```text
+SurfaceBenchmarkReceipt {
+  literal_task
+  exact_subject_version
+  product_surface
+  model_label?
+  reasoning_label?
+  runtime_version?
+  started_at
+  completed_at
+  process_observations?
+  transport_observations?
+  artifacts[]
+  tests_or_checks[]
+  findings[]
+  limitations[]
+}
+```
+
+The 2026-10-07 High / Work Ultra / Work Max study is the first concrete Rezon example of this benchmark class. See `REASONING_SURFACE_EVIDENCE_20261007.md`.
 
 ## Broken reference implementations
 
 Every important verifier should be tested against intentionally broken implementations. Examples:
 
 - planner that always chooses the largest model;
+- router that infers reasoning tier from socket or process count;
+- escalation adapter that claims a requested tier without observing the callable surface;
 - identity tracker that uses only embedding similarity;
 - evidence store where newest always wins;
 - budget system with check-then-reserve races;
 - hash chain that accepts valid-prefix rollback;
 - adversarial reviewer that rewrites the proposition before attacking it;
-- integrator that converts missing workers into votes for consensus.
+- integrator that converts missing workers into votes for consensus;
+- result cache that ignores changed capability requirements;
+- dispatch attempt replay that is mistaken for fresh execution ownership.
 
 If the evaluation suite cannot reliably break these, it is not yet trusted.
 
