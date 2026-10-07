@@ -4,7 +4,7 @@
 
 Rezon is intended to become a runnable reasoning framework, not only a research archive. The framework should remain small enough that its abstractions can still be falsified and changed.
 
-The first implementation should be provider-agnostic and executable with deterministic/mock workers. External model providers, Work/Ultra, local models, symbolic engines, retrieval systems, and graph stores should enter through adapters.
+The first implementation should be provider-agnostic and executable with deterministic/mock workers. External model providers, Work/Ultra/Max product surfaces, local models, symbolic engines, retrieval systems, and graph stores should enter through adapters.
 
 ## Candidate core interfaces
 
@@ -22,8 +22,13 @@ TaskEnvelope {
   privacy_scope?
   resource_budget?
   context_refs[]
+  reasoning_requirements[]?
+  surface_constraints[]?
+  independence_requirements[]?
 }
 ```
+
+A reasoning requirement describes needed capability such as independent hostile review. It does not fabricate a provider model entitlement.
 
 ### Proposition
 
@@ -89,6 +94,8 @@ ResultReceipt {
 }
 ```
 
+Each model-backed `worker_run` should preserve the observed product surface, model/reasoning label when available, callable adapter, exact subject binding, context manifest, and evidence ceiling. Runtime process/network observations belong in diagnostic provenance, not in the semantic worker identity.
+
 ## Proposed modules
 
 ```text
@@ -101,6 +108,7 @@ rezon/
   planning/
     decomposer
     scheduler
+    escalation
   nodes/
     base
     deterministic
@@ -126,6 +134,7 @@ rezon/
   evaluation/
     harness
     hostile_cases
+    surface_benchmarks
 ```
 
 This is a direction, not a frozen directory contract.
@@ -136,7 +145,9 @@ This is a direction, not a frozen directory contract.
 INGEST
   -> TYPE_PROPOSITIONS
   -> PLAN
+  -> DISCOVER_ELIGIBLE_WORKERS
   -> RESERVE_RESOURCES
+  -> BIND_DISPATCHES
   -> EXECUTE_NODES
   -> OPPOSE
   -> VERIFY
@@ -147,6 +158,8 @@ INGEST
 ```
 
 Loops are allowed between VERIFY/RECONCILE and PLAN when new evidence or a revised subproblem is needed.
+
+Cross-surface escalation uses the same lifecycle. A coordinator remains the coordinator; a higher-cost specialist receives a bounded dispatch and returns a structured artifact. See `REASONING_ESCALATION_BRIDGE.md`.
 
 ## State and identity integration
 
@@ -168,19 +181,22 @@ Parallelism should require explicit independence and data-dependency analysis. A
 
 Resource use should eventually support leases/reservations for scarce model/provider capacity. Child work inherits bounded resource authority rather than implicitly getting a new budget.
 
+A resource reservation does not imply provider entitlement. The adapter must still verify that the requested product surface is actually supported and callable.
+
 ## Error model
 
-Errors should remain typed. Exceptions are implementation details; system state should expose semantics such as `UNAVAILABLE`, `CONFLICT`, `INVALID_SUBJECT`, `INSUFFICIENT_EVIDENCE`, `RESOURCE_LIMIT`, and `ATTEMPTED_UNKNOWN`.
+Errors should remain typed. Exceptions are implementation details; system state should expose semantics such as `UNAVAILABLE`, `CONFLICT`, `INVALID_SUBJECT`, `INSUFFICIENT_EVIDENCE`, `RESOURCE_LIMIT`, `ATTEMPTED_UNKNOWN`, and `SURFACE_UNAVAILABLE`.
 
 ## Non-goals for the first executable version
 
 - no universal autonomous agent;
 - no requirement for a graph database;
 - no requirement for distributed network services;
-- no dependency on an internal Ultra worker;
+- no dependency on an internal or undocumented Ultra/Max worker;
 - no neural embedding required for identity;
 - no claim of human-like consciousness or continuous subjective state;
-- no large plugin ecosystem before the core receipts and tests work.
+- no large plugin ecosystem before the core receipts and tests work;
+- no connection/process manipulation to change provider reasoning tier.
 
 ## Promotion rule
 
