@@ -89,18 +89,44 @@ Logical consistency is not equivalent to governance correctness or domain truth.
 
 ## Candidate 7 — Optional high-reasoning specialist worker
 
-**Status:** CONDITIONAL / PROVIDER CAPABILITY UNRESOLVED
+**Status:** EMPIRICALLY SUPPORTED SURFACE / PROGRAMMATIC CALLABILITY UNRESOLVED
 
-If a stable Ultra/very-high-reasoning callable becomes available, Vera could use it as an optional specialist for hostile review, architecture challenge, difficult synthesis, and proof checking.
+The 2026-10-07 comparison materially advances this candidate.
+
+Observed:
+
+- Desktop High and Desktop Work Ultra showed sharply different local orchestration behavior under the same repository stress-test prompt;
+- Ultra produced substantial MXC/process and Codex connection fanout while High did not;
+- Work Ultra and Work Max independently converged on central Portal execution-control defects;
+- local telemetry could not observe Max's server-side cloud worker topology.
+
+This supports an architectural role for high-reasoning specialists, but **not** a claim that Vera can programmatically invoke a hidden Ultra/Max worker today.
+
+Preferred pattern:
+
+```text
+Vera / High coordinator
+  -> exact-bound escalation request
+  -> supported Work Ultra or Work Max specialist surface
+  -> structured artifacts + execution receipt
+  -> verification
+  -> Vera integration
+```
 
 It must remain:
 
 - optional;
 - capability-discovered at runtime;
+- invoked only through supported callable surfaces;
 - resource bounded;
 - evidence checked;
+- exact-subject bound;
+- independence metadata recorded;
 - no stronger authority because of model rank;
-- not required for identity or baseline behavior.
+- not required for identity or baseline behavior;
+- never inferred from socket/process count.
+
+See `REASONING_SURFACE_EVIDENCE_20261007.md` and `REASONING_ESCALATION_BRIDGE.md`.
 
 ## Candidate 8 — Evidence / decision graph
 
@@ -118,7 +144,8 @@ The likely lowest-risk/highest-value order is:
 4. structured retrieval;
 5. multi-view hypergraph state;
 6. hierarchical worker scheduler;
-7. semantic reasoner/repair service;
-8. optional Ultra/high-cost worker adapter when a callable surface actually exists.
+7. reasoning escalation bridge with mock/deterministic adapter;
+8. semantic reasoner/repair service;
+9. supported high-reasoning product-surface adapter when one is actually callable and testable.
 
 This ordering is provisional and should be re-evaluated after Rezon prototypes produce evidence.

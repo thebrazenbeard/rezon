@@ -35,6 +35,8 @@ Evidence + Provenance Ledger
 
 A stronger model is never automatically an authority source. A reasoning node may be more capable, more expensive, or more specialized without being entitled to promote identity, consent, facts, deployment state, or governance claims.
 
+A stronger reasoning surface is also not created by reproducing its observed connection pattern. Rezon treats product surface, model/reasoning label, process topology, and transport behavior as separate observations. Cross-surface escalation is explicit delegation through an authorized callable surface, with exact-subject binding and a result receipt.
+
 ## Documents
 
 - `docs/FOUNDATION.md` — project principles and scope
@@ -46,7 +48,9 @@ A stronger model is never automatically an authority source. A reasoning node ma
 - `docs/ADVERSARIAL_COLLABORATION.md` — literal-proposition hostile review method
 - `docs/RETRIEVAL_CONTEXT.md` — reasoning-based retrieval and context selection
 - `docs/SEMANTIC_PROVENANCE.md` — knowledge graphs, ontologies, provenance, repair
-- `docs/WORKER_ROUTING_ULTRA.md` — optional high-reasoning worker routing
+- `docs/WORKER_ROUTING_ULTRA.md` — high-reasoning worker routing and evidence ceiling
+- `docs/REASONING_SURFACE_EVIDENCE_20261007.md` — controlled High / Work Ultra / Work Max observations
+- `docs/REASONING_ESCALATION_BRIDGE.md` — provider-safe coordinator-to-specialist delegation contract
 - `docs/EVALUATION_AND_FALSIFICATION.md` — how Rezon should try to prove itself wrong
 - `docs/SOURCE_TRANSFER_MATRIX.md` — source-by-source transfer analysis
 - `docs/EXECUTABLE_FRAMEWORK_DIRECTION.md` — runnable system direction
@@ -55,3 +59,5 @@ A stronger model is never automatically an authority source. A reasoning node ma
 ## Current status
 
 This branch is a foundation / knowledge population. It does **not** claim a working runtime, provider deployment, model bridge, or Vera installation.
+
+The 2026-10-07 reasoning-surface study adds empirical constraints for worker routing: Desktop Work Ultra exhibited substantial local MXC/process and Codex connection fanout while High Chat did not, but those observations are diagnostic evidence rather than an invocation mechanism or capability grant. Work Max cloud topology remained unobservable from the local machine. The practical architecture is explicit specialist delegation, not connection-pattern imitation.

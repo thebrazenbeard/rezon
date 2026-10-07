@@ -4,21 +4,50 @@
 
 A more capable or more expensive worker should be treated as a specialized computational resource, not as an authority source and not as the architecture itself.
 
-Rezon should therefore support runtime-discovered worker capabilities and route tasks according to task semantics, resource constraints, and expected information gain.
+Rezon should therefore support runtime-discovered worker capabilities and route tasks according to task semantics, resource constraints, expected information gain, and evidence about what callable surface actually exists.
 
-## Ultra / Work discovery status
+## Current empirical status
 
-A Vera/Work experiment observed a GPT-5.6 Sol Max configuration and an execution trace reporting that an internal GPT-5.6 Sol Ultra worker had been instantiated. The important limitation is that no stable, transferable invocation descriptor was recovered before Work quota exhaustion.
+Earlier Rezon notes recorded an experiment in which Work appeared to instantiate an Ultra worker internally but no stable transferable invocation descriptor was recovered. That historical observation remains useful, but the 2026-10-07 same-prompt comparison provides a stronger boundary.
 
-Therefore the current defensible claim is:
+The task was:
 
-> Work can apparently internally delegate to an Ultra worker under some conditions.
+```text
+Stress test this repo: https://github.com/thebrazenbeard/portal
+```
+
+Observed surfaces:
+
+- Desktop Chat — GPT-5.6 Sol High reasoning
+- ChatGPT Desktop Work — Ultra reasoning
+- Firefox cloud Work — Max reasoning
+
+On the same WorkLaptop and same Desktop runtime generation, the companion process/network tracer observed:
+
+- High: 0 MXC launches and 2 new established Codex TLS connections during the controlled window;
+- Desktop Work Ultra: 59 MXC launches and 73 new established Codex TLS connections during the controlled window.
+
+That is strong evidence that the large local MXC/socket fanout belonged to the Desktop Work execution path in that runtime. It is **not** evidence that opening more connections creates Ultra reasoning, that each socket is an agent, or that a High chat can be promoted by imitating the transport pattern.
+
+Firefox Work Max executed remotely. Local telemetry could observe browser-side traffic but could not count server-side workers or infer cloud model topology.
+
+See `REASONING_SURFACE_EVIDENCE_20261007.md`.
+
+## Defensible capability claim
+
+The current defensible claim is:
+
+> Distinct ChatGPT surfaces can expose materially different reasoning/orchestration behavior and work products, and Rezon can model them as separate worker capabilities when a supported callable surface is available.
 
 Not:
 
-> ordinary Sol chats have a supported reusable Ultra connector.
+> ordinary High chats have a reusable hidden Ultra connector.
 
-Rezon must not depend on an unverified internal provider mechanism.
+And not:
+
+> transport/process fanout is a mechanism for changing reasoning tier.
+
+A user-selectable product surface may be observable and usable interactively while still lacking a stable programmatic adapter that Rezon can invoke. Rezon must preserve that distinction.
 
 ## Routing abstraction
 
@@ -27,7 +56,8 @@ WorkerDescriptor {
   worker_id
   operator_types[]
   provider
-  model
+  product_surface?
+  model?
   reasoning_level?
   callable_surface
   tool_capabilities[]
@@ -39,7 +69,24 @@ WorkerDescriptor {
 }
 ```
 
-The `authority_ceiling` is explicit because capability must not be confused with permission.
+Observed runtime facts should be recorded separately:
+
+```text
+WorkerObservation {
+  worker_id
+  product_surface
+  model_label?
+  reasoning_label?
+  observed_runtime_version?
+  observed_process_topology?
+  observed_transport_summary?
+  evidence_class
+  observed_at
+  expires_at?
+}
+```
+
+The `authority_ceiling` is explicit because capability must not be confused with permission. `WorkerObservation` is explicit because capability must not be inferred from incidental telemetry.
 
 ## Routing signals
 
@@ -53,9 +100,14 @@ A scheduler can consider:
 - cost budget;
 - context size;
 - provider availability;
+- product surface availability;
+- requested reasoning class;
 - privacy constraints;
 - reproducibility requirements;
-- whether a deterministic worker can solve the task more reliably than an LLM.
+- whether a deterministic worker can solve the task more reliably than an LLM;
+- expected information gain from escalation.
+
+Hard eligibility constraints are evaluated before score optimization.
 
 ## Dynamic routing pattern
 
@@ -68,14 +120,33 @@ Rezon can generalize the pattern:
 ```text
 reasoning request
    -> classify operator + constraints
+   -> discover supported callable surfaces
    -> score eligible workers
    -> reserve resource / capability lease
+   -> bind exact subject + context + authority
    -> invoke selected worker
-   -> verify response envelope
+   -> verify response envelope and artifacts
    -> settle resource receipt
 ```
 
-The routing model should never select a worker that is ineligible under hard privacy, authority, tool, or subject constraints even if it is faster.
+The routing model should never select a worker that is ineligible under hard privacy, authority, tool, subject, entitlement, or supported-surface constraints even if it is faster or more capable.
+
+## Escalation instead of mutation
+
+The useful architecture for a High coordinator is:
+
+```text
+High coordinator
+   -> bounded escalation request
+   -> authorized Work Ultra / Work Max specialist
+   -> structured result + evidence
+   -> verifier
+   -> High coordinator integration
+```
+
+This gives the coordinator access to a separate specialist reasoning product. It does not mutate the High session's model.
+
+See `REASONING_ESCALATION_BRIDGE.md`.
 
 ## SGR / n8n transfer
 
@@ -107,15 +178,17 @@ Scarce workers should use leases/reservations rather than a boolean “quota oka
 
 This is applicable to provider quotas, not a recommendation to evade them.
 
-## Ultra as optional opposition lane
+## Ultra / Max as optional opposition lanes
 
-If a stable Ultra callable is eventually discovered, a particularly valuable use is independent hostile review:
+If supported callable surfaces are available, high-cost reasoning workers are especially valuable for independent hostile review:
 
 ```text
-Sol coordinator -> candidate
-Ultra opposition worker -> strongest falsification attempt
-Verifier -> check evidence and proposition fidelity
-Sol coordinator -> integrate
+coordinator -> candidate
+specialist opposition worker -> strongest falsification attempt
+verifier -> check evidence, exact subject, and proposition fidelity
+coordinator -> integrate
 ```
 
-Ultra does not decide by rank. It supplies a high-cost independent reasoning product that still passes through evidence and governance checks.
+The 2026-10-07 Portal study supports this use: Desktop Work Ultra and Firefox Work Max independently converged on central control failures even though their reports differed in breadth and exact tested head.
+
+A higher reasoning tier does not decide by rank. It supplies a reasoning product that still passes through evidence, independence, and governance checks.
