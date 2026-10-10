@@ -151,8 +151,10 @@ class IndependenceVerificationEvidence:
             self.verification_refs,
         )):
             raise ValueError("independence verification evidence must be complete")
-        if not _has_governed_basis_identity(self.basis_ref):
-            raise ValueError("independence verification basis must have a governed namespace and identity")
+        # Preserve construction of untrusted claims for downstream rejection;
+        # the exact verification predicate applies the stricter identity check.
+        if not self.basis_ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES):
+            raise ValueError("independence verification basis must use a governed namespace")
         if any(not ref for ref in self.verification_refs):
             raise ValueError("independence verification refs must be non-empty")
         for refs in (self.common_evidence_refs, self.consumed_evidence_refs):
