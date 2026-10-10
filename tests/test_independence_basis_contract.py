@@ -1,6 +1,6 @@
 import pytest
 
-from rezon.receipts import IndependenceMetadata, IndependenceVerificationEvidence
+from rezon.receipts import IndependenceMetadata, IndependenceVerificationEvidence, IndependenceVerificationPolicy
 
 
 def _metadata(basis):
@@ -24,10 +24,19 @@ def test_complete_namespace_ref_can_be_checked_by_policy():
 
 
 def test_verification_evidence_rejects_empty_governed_reference():
-    with pytest.raises(ValueError, match="namespace|basis"):
-        IndependenceVerificationEvidence(
-            basis_ref="policy:",
-            executor_id="host2", model_id="m2", provider_id="p2",
-            prompt_lineage="prompt2", context_lineage="context2",
-            verification_refs=("v-1",),
-        )
+    # Untrusted evidence is constructible so its forged claims can be inspected,
+    # but it cannot qualify even properly formed independent metadata.
+    valid = _metadata("policy:independent-review-42")
+    forged = IndependenceVerificationEvidence(
+        basis_ref="policy:",
+        executor_id=valid.executor_id,
+        model_id=valid.model_id,
+        provider_id=valid.provider_id,
+        prompt_lineage=valid.prompt_lineage,
+        context_lineage=valid.context_lineage,
+        verification_refs=("v-1",),
+        saw_other_answer=False,
+        common_evidence_refs=(),
+        consumed_evidence_refs=(),
+    )
+    assert IndependenceVerificationPolicy((forged,)).verify(valid) is False
