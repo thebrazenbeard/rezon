@@ -36,6 +36,13 @@ class AdmissionStatus(str, Enum):
 
 _TRUSTED_INDEPENDENCE_BASIS_PREFIXES = ("policy:", "receipt:", "review:", "runtime:")
 
+def _has_governed_basis_identity(ref: object) -> bool:
+    return type(ref) is str and any(
+        ref.startswith(prefix) and bool(ref[len(prefix):].strip())
+        for prefix in _TRUSTED_INDEPENDENCE_BASIS_PREFIXES
+    )
+
+
 
 def _is_exact_nonempty_str(value) -> bool:
     return type(value) is str and bool(value)
@@ -95,10 +102,8 @@ class IndependenceMetadata:
             return False
         if self.common_evidence_refs:
             return False
-        return all(
-            ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES)
-            for ref in self.independence_basis_refs
-        )
+        return all(_has_governed_basis_identity(ref)
+                   for ref in self.independence_basis_refs)
 
     def demonstrably_independent_from(self, other: "IndependenceMetadata") -> bool:
         if type(self) is not IndependenceMetadata or type(other) is not IndependenceMetadata:
@@ -146,8 +151,8 @@ class IndependenceVerificationEvidence:
             self.verification_refs,
         )):
             raise ValueError("independence verification evidence must be complete")
-        if not self.basis_ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES):
-            raise ValueError("independence verification basis must use a governed namespace")
+        if not _has_governed_basis_identity(self.basis_ref):
+            raise ValueError("independence verification basis must have a governed namespace and identity")
         if any(not ref for ref in self.verification_refs):
             raise ValueError("independence verification refs must be non-empty")
         for refs in (self.common_evidence_refs, self.consumed_evidence_refs):
@@ -172,7 +177,7 @@ def _is_exact_independence_verification_evidence(
         )
     ):
         return False
-    if not evidence.basis_ref.startswith(_TRUSTED_INDEPENDENCE_BASIS_PREFIXES):
+    if not _has_governed_basis_identity(evidence.basis_ref):
         return False
     if not _is_exact_str_tuple(evidence.verification_refs, require_nonempty=True):
         return False
