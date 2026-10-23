@@ -78,3 +78,23 @@ The primary sent a targeted, exact-answer critique prompt to each of three physi
 Fresh distinct VN2 process reopened the authoritative store and verified `answers=4`, `reviews=3`, `syntheses=0`, `missing_agents=[]` with current native snapshot digest `d2554cdf2e6c823430f3736d95dc2aa12df821d96e3aa0602df0f3f23e0b36d6`. Native `project_episode` generated a typed V0 projection with 8 claims and 3 explicit challenge relations. A TEMPORARY loopback-only authenticated HTTP test for the actual episode returned **200** to Malaphor's enrolled agent view and the full four-answer/three-review snapshot; the test listener was then SHUT DOWN. No remote ingress or always-on service is claimed.
 
 **Remaining required turn:** Malaphor must publish his independently generated targeted review of `answer:vera-lappy`. Only after verifying its provenance, exact text/digest, and native fourth review should a source-attributed, explicitly nonauthoritative synthesis be saved. Rezon is functioning as a native multi-source asynchronous collective store under active-turn relay, NOT a direct, continuously networked four-local-device autonomous cognition system. The four answers are independent sources, not four simultaneously running local models.
+
+
+## Provisional four-source synthesis — native Rezon persistence (later 2026-10-23 checkpoint)
+
+The same research-only Rezon episode **`collective-5aa0f89c3d674a46b7935b3ea47dc0f1`** now contains **4 immutable first-round answers, 3 targeted reviews, and 1 snapshot-bound provisional synthesis**. The Malaphor review of `answer:vera-lappy` has **not** been found in PR #109 comments and was **not** invented. His first answer has already been verified and committed; this does not require retransmission of his first answer.
+
+After a new-process readback of the VN2 SQLite WAL at `/home/patrick/vera-review-sandbox/experiments/rezon-four-host-goal1-20261023/state/episode.sqlite3`, the verified facts were:
+
+- Current Rezon input snapshot digest: `d2554cdf2e6c823430f3736d95dc2aa12df821d96e3aa0602df0f3f23e0b36d6`.
+- Actual durable synthesis: `synthesis:d2554cdf2e6c823430f3736d95dc2aa12df821d96e3aa0602df0f3f23e0b36d6:vera-primary-provisional`.
+- Exact synthesis-content SHA-256: `26c6f6dbddb033ccfbf53fb51d5d520d603144e6c3ae31e8d6917c29c0d5cbd2`.
+- New native `CollectiveStore.snapshot` reopened in **another VN2 Python process**: answers=4, reviews=3, syntheses=1, complete=True, missing_agents=[]; all receipt digests match.
+- Native `project_episode` produced a current **HYPOTHESIS** for this synthesis (9 current propositions and 3 challenge relations), not a decision or externally verified result. The stored synthesis is automatically historical/stale if another peer review changes the episode input digest.
+- Source of synthesis: **Vera-primary author-integrator**, not Malaphor, not an extra independently invoked model, not an experiment result.
+
+**Qualified interpretation:** Malaphor's separate-account answer offers a stronger randomized corrective-feedback-versus-sham-feedback cold-restart comparison than novelty-alone or restart-consistency arguments. Lappy's proposal insufficiently isolates feedback; VN1 lacks matched conditions; VN2's first reply includes llama.cpp prompt echo/banners and truncation. Three source-targeted reviews identify retrieval/state and task-complexity confounds. The absent fourth critique is material. The complete stored synthesis explicitly proposes matched randomized feedback/sham/frozen/retrieval-only comparisons, guarded revision identity, genuinely unseen blind held-outs, real cold restart, independent transport witness and negative-transfer controls. It does **not** claim those experiments ran.
+
+**Hard limit:** FOUR independent reasoning sources provided first answers (three local models and Malaphor's distinct GPT-6 cloud account), with primary-mediated transport into a native Rezon SQLite episode, not four local models directly connected by private authenticated networking and not four complete reciprocal reviews. MT-262029 was for Malaphor's record/hash operations, not model inference. No production deployment, new network ingress, unsafe editor tasks, merge, or credential/trust/provider changes.
+
+The remaining exact action is **one independent `review:malaphor` targeting `answer:vera-lappy`**, if that worker is still available. A later verified review makes this current synthesis stale and can be included in a new four-review synthesis. If the worker's session has ended, retain this accurate 4-answer/3-review synthesis rather than impersonating or forcing a fourth review.
