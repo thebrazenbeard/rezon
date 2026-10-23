@@ -136,6 +136,24 @@ are **unattested**, and ambiguous network writes are marked
 `OUTCOME_UNKNOWN`, never automatically retried. This does **not** qualify a
 four-machine inference episode or permanently connected worker mesh.
 
+## Read-only gateway readiness probe
+
+The optional standard-library
+[`scripts/collective_gateway_probe.py`](scripts/collective_gateway_probe.py)
+checks the Rezon health schema and separately checks authorized episode access
+using a pre-provisioned worker token **from the operator's local environment**:
+
+```sh
+python scripts/collective_gateway_probe.py --url https://vn2.tail86ea75.ts.net --episode collective-REPLACE_WITH_REAL_ID --token-env REZON_WORKER_TOKEN
+```
+
+It never provisions, prints or retrieves credentials, sends a POST, executes a
+model, or grants access. Remote HTTP is rejected; redirected requests are
+rejected rather than forwarding a bearer to another destination. A reachable
+gateway or bearer-authorized episode is **not** physical host or model
+attestation. Without a previously enrolled token and episode this probe cannot
+qualify remote participation.
+
 ## Current status
 
 Kernel V0 and the opt-in collective V1 are executable and covered by automated
