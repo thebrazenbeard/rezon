@@ -142,6 +142,70 @@ class TkalNetworkTests(unittest.TestCase):
                                    challenge_id="late", target="lappy",
                                    question="Must remain closed")
 
+    def test_waived_proposer_questions_cannot_sustain(self):
+        self.seal_reviews()
+        self.open()
+        for lens, reviewer in LENSES.items():
+            cid="waived-"+lens
+            self.network.challenge(self.episode, reviewer=reviewer,
+                                   challenge_id=cid, target="lappy",
+                                   question="A critical "+lens+" objection")
+            self.network.resolve(self.episode, challenge_id=cid,
+                                 disposition="WAIVED", rationale="Chair says waive")
+        with self.assertRaises(CollectiveConflict):
+            self.network.determine(self.episode, verdict="SUSTAIN",
+                                   rationale="Chair waivers cannot replace peer replies")
+
+    def test_three_proposer_defenses_cannot_sustain_without_peer_dialogue(self):
+        self.seal_reviews()
+        self.open()
+        for lens, reviewer in LENSES.items():
+            cid="proposer-"+lens
+            self.network.challenge(self.episode, reviewer=reviewer,
+                                   challenge_id=cid, target="lappy",
+                                   question="Challenge the proposer")
+            self.network.defend(self.episode, challenge_id=cid, defender="lappy",
+                                response="Proposer replies", evidence_ref="synthetic:only")
+            self.network.resolve(self.episode, challenge_id=cid,
+                                 disposition="ANSWERED", rationale="Response recorded")
+        with self.assertRaises(CollectiveConflict):
+            self.network.determine(self.episode, verdict="SUSTAIN",
+                                   rationale="Need actual peer-to-peer scrutiny")
+
+    def test_three_distinct_targeted_peer_replies_allow_sustain(self):
+        self.seal_reviews()
+        self.open()
+        cycle=(("vn1","vn2"),("vn2","malaphor"),("malaphor","vn1"))
+        for reviewer, target in cycle:
+            cid="cross-"+reviewer
+            self.network.challenge(self.episode, reviewer=reviewer,
+                                   challenge_id=cid, target=target,
+                                   question="Your strongest evidence?")
+            self.network.defend(self.episode, challenge_id=cid, defender=target,
+                                response="Reply from "+target,
+                                evidence_ref="synthetic:reply:"+target)
+            self.network.resolve(self.episode, challenge_id=cid,
+                                 disposition="ANSWERED", rationale="Response was logged")
+        closed=self.network.determine(self.episode, verdict="SUSTAIN",
+                                      rationale="Three directed exchanges recorded")
+        self.assertEqual(closed.verdict, "SUSTAIN")
+        self.assertFalse(closed.to_dict()["independence_verified"])
+
+    def test_late_collective_review_marks_hearing_stale(self):
+        self.seal_answers()
+        for reviewer in ("vn1","vn2","malaphor"):
+            self.store.submit_review(self.episode, reviewer,
+                                     "first peer review from "+reviewer,
+                                     ("answer:lappy",))
+        opened=self.open()
+        self.store.submit_review(self.episode, "lappy", "late additional peer review",
+                                 ("answer:vn1",))
+        self.assertTrue(self.network.snapshot(self.episode).stale)
+        with self.assertRaises(CollectiveConflict):
+            self.network.challenge(self.episode, reviewer="vn1",
+                                   challenge_id="new-late", target="vn2",
+                                   question="New evidence?")
+
     def test_bad_roster_and_stale_digest_blocked(self):
         self.seal_reviews()
         with self.assertRaises(CollectiveConflict):
