@@ -25,7 +25,7 @@ def _load_config(path: Path) -> dict:
 def _model(spec: dict):
     if type(spec) is not dict or not {"provider", "agent_id", "model", "base_url", "api_key_env"}.issubset(spec):
         raise ValueError("invalid model specification")
-    if set(spec) - {"provider", "agent_id", "model", "base_url", "api_key_env", "allow_insecure_http"}:
+    if set(spec) - {"provider", "agent_id", "model", "base_url", "api_key_env", "allow_insecure_http", "timeout_seconds", "max_tokens", "reasoning_effort"}:
         raise ValueError("unexpected model specification fields")
     if type(spec["api_key_env"]) is not str or not spec["api_key_env"]:
         raise ValueError("API key environment-variable name required")
@@ -36,10 +36,15 @@ def _model(spec: dict):
     if type(insecure) is not bool:
         raise ValueError("allow_insecure_http must be boolean")
     args = (spec["agent_id"], spec["model"], spec["base_url"], secret)
+    timeout = spec.get("timeout_seconds", 30.0)
     if spec["provider"] == "openai_compatible":
-        return OpenAICompatibleModel(*args, allow_insecure_http=insecure)
+        return OpenAICompatibleModel(*args, allow_insecure_http=insecure,
+            timeout_seconds=timeout, max_tokens=spec.get("max_tokens"),
+            reasoning_effort=spec.get("reasoning_effort"))
     if spec["provider"] == "anthropic":
-        return AnthropicModel(*args, allow_insecure_http=insecure)
+        if "max_tokens" in spec or "reasoning_effort" in spec:
+            raise ValueError("unsupported Anthropic model options")
+        return AnthropicModel(*args, allow_insecure_http=insecure, timeout_seconds=timeout)
     raise ValueError("unknown provider type")
 
 

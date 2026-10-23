@@ -103,6 +103,8 @@ class OpenAICompatibleModel:
     api_key: str
     timeout_seconds: float = 30.0
     allow_insecure_http: bool = False
+    max_tokens: int | None = None
+    reasoning_effort: str | None = None
 
     def __post_init__(self):
         _agent(self.agent_id)
@@ -110,15 +112,23 @@ class OpenAICompatibleModel:
             raise ValueError("model is required")
         if type(self.api_key) is not str or not self.api_key:
             raise ValueError("API key is required")
-        if not 0 < self.timeout_seconds <= 300:
+        if type(self.timeout_seconds) not in (int, float) or not 0 < self.timeout_seconds <= 300:
             raise ValueError("invalid timeout")
+        if self.max_tokens is not None and (type(self.max_tokens) is not int or not 1 <= self.max_tokens <= 16384):
+            raise ValueError("invalid max tokens")
+        if self.reasoning_effort is not None and (type(self.reasoning_effort) is not str or not 1 <= len(self.reasoning_effort) <= 32):
+            raise ValueError("invalid reasoning effort")
         _endpoint(self.base_url, "/chat/completions", self.allow_insecure_http)
 
     def complete(self, messages: tuple[dict[str, str], ...]) -> str:
+        body = {"model": self.model, "messages": _messages(messages), "stream": False}
+        if self.max_tokens is not None:
+            body["max_tokens"] = self.max_tokens
+        if self.reasoning_effort is not None:
+            body["reasoning_effort"] = self.reasoning_effort
         response = _request(
             _endpoint(self.base_url, "/chat/completions", self.allow_insecure_http),
-            {"Authorization": f"Bearer {self.api_key}"},
-            {"model": self.model, "messages": _messages(messages), "stream": False},
+            {"Authorization": f"Bearer {self.api_key}"}, body,
             self.timeout_seconds,
         )
         try:
