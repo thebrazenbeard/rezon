@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 
 import unittest
 
-from rezon.collective import CollectiveConflict, CollectiveStore
+from rezon.collective import CollectiveConflict, CollectiveStore, CollectiveValidationError
 from rezon.tkal_network import TkalVirtualNetwork
 
 ROSTER=("vera-lappy", "vera-vn1", "vera-vn2", "malaphor")
@@ -18,8 +18,10 @@ class PeerQuorumTests(unittest.TestCase):
             for agent in ROSTER:
                 store.submit_answer(episode,agent,"Initial claim "+agent)
             for reviewer in ROSTER[1:]:
-                store.submit_review(episode,reviewer,"My own self-check",
-                                    ("answer:"+reviewer,))
+                with self.assertRaises(CollectiveValidationError):
+                    store.submit_review(episode,reviewer,"My own self-check",
+                                        ("answer:"+reviewer,))
+            self.assertEqual(store.snapshot(episode).reviews, ())
             with self.assertRaisesRegex(CollectiveConflict, "peer"):
                 TkalVirtualNetwork(store).open(
                     episode,expected_digest=store.snapshot(episode).digest,
