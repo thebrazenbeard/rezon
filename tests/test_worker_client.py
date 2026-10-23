@@ -149,6 +149,42 @@ class WorkerClientTests(unittest.TestCase):
             self.assertIn("OUTCOME_UNKNOWN", str(found.exception))
             self.assertEqual(opener.return_value.open.call_count, 1)
 
+    def test_post_201_with_malformed_body_is_outcome_unknown(self):
+        with patch("rezon.worker_client.build_opener") as opener:
+            response = opener.return_value.open.return_value.__enter__.return_value
+            response.status = 201
+            response.read.return_value = b"{malformed"
+            with self.assertRaises(OutcomeUnknown):
+                _request("https://example.com",
+                         "/v1/episodes/collective-" + "a"*32 + "/answers",
+                         "safe-test-token-1234567890", method="POST",
+                         body={"content": "hypothesis"})
+            self.assertEqual(opener.return_value.open.call_count, 1)
+
+    def test_post_502_is_unknown_not_safe_to_retry(self):
+        from urllib.error import HTTPError
+        with patch("rezon.worker_client.build_opener") as opener:
+            opener.return_value.open.side_effect = HTTPError(
+                "https://example.com", 502, "provider-error-secret", {}, None)
+            with self.assertRaises(OutcomeUnknown):
+                _request("https://example.com",
+                         "/v1/episodes/collective-" + "a"*32 + "/answers",
+                         "safe-test-token-1234567890", method="POST",
+                         body={"content": "hypothesis"})
+
+    @patch("rezon.worker_client.OpenAICompatibleModel", FakeModel)
+    def test_mismatched_post_receipt_is_outcome_unknown(self):
+        episode = "collective-" + "a"*32
+        with patch("rezon.worker_client._request", side_effect=[
+            {"episode_id": episode, "agent_id": "vn1", "prompt": "Test claim",
+             "answer_submitted": False},
+            {"contribution_id": "answer:someone-else"},
+        ]):
+            with self.assertRaises(OutcomeUnknown):
+                run("answer", "https://vn2.tail86ea75.ts.net", episode,
+                    "safe-test-token-1234567890", model_id="test-model",
+                    model_api_key="local-placeholder")
+
     def test_cli_errors_do_not_print_secret(self):
         old = "secret-token-for-test-only-abcdefgh"
         with patch("rezon.worker_client.os.environ", {"REZON_WORKER_TOKEN": old}), \
