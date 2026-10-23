@@ -45,5 +45,11 @@ class WorkspaceStartupSafetyTests(unittest.TestCase):
         )
 
 
+    def test_disguised_executable_asset_not_in_proposed_checkout(self):
+        self.assertFalse(
+            (ROOT / "public" / "fonts" / "fa-solid.lkf").exists(),
+            "obfuscated executable payload must be absent from the working tree",
+        )
+
 if __name__ == "__main__":
     unittest.main()
