@@ -18,7 +18,7 @@ from .collective import (
 
 LENSES = ("purist_logic", "pragmatism", "bridge")
 RESOLUTIONS = ("ANSWERED", "CONCEDED", "WAIVED", "PARTLY_ANSWERED", "UNRESOLVED")
-VERDICTS = ("SUSTAIN", "REFINE", "WITHDRAW")
+VERDICTS = ("SUSTAIN", "REFINE")
 
 
 @dataclass(frozen=True)
@@ -150,9 +150,7 @@ class TkalVirtualNetwork:
                 if (not snap.complete or snap.digest != expected_digest
                         or set(snap.agents) != {proposer, *lenses.values()}):
                     raise CollectiveConflict("incomplete or stale four-worker episode")
-                # A review of one's own answer is not peer examination.
-                # CollectiveStore has already validated that all targets
-                # exist in the sealed first-answer snapshot.
+                # A self-review cannot qualify a peer lens.
                 actual_reviewers = {
                     r.agent_id for r in snap.reviews
                     if any(target != "answer:" + r.agent_id
@@ -184,7 +182,8 @@ class TkalVirtualNetwork:
             matches = [lens for lens, agent in view.lenses.items() if agent == reviewer]
             if not matches or target == reviewer or target not in {view.proposer, *view.lenses.values()}:
                 raise CollectiveValidationError("reviewer/target identity mismatch")
-            if any(c["disposition"] is None for c in view.challenges):
+            if any(c["disposition"] in (None, "PARTLY_ANSWERED", "UNRESOLVED")
+                   for c in view.challenges):
                 raise CollectiveConflict("only one unresolved challenge at a time")
             if any(c["challenge_id"] == challenge_id for c in view.challenges):
                 raise CollectiveConflict("challenge ID replay")
@@ -207,12 +206,23 @@ class TkalVirtualNetwork:
             if not matches or matches[0]["target"] != defender:
                 raise CollectiveValidationError("only challenged worker may defend")
             c = matches[0]
-            if c["response"] is not None or c["disposition"] is not None:
-                raise CollectiveConflict("defense already provided or resolved")
+            if c["disposition"] not in (None, "PARTLY_ANSWERED", "UNRESOLVED"):
+                raise CollectiveConflict("defense already finally resolved")
+            next_response, next_ref = response, evidence_ref
+            if c["response"] is not None:
+                if c["disposition"] not in ("PARTLY_ANSWERED", "UNRESOLVED"):
+                    raise CollectiveConflict("defense already provided")
+                # Preserve original words and references within the record.
+                # This is a continuation, not a silent replacement.
+                next_response = c["response"] + "\n[CONTINUATION]\n" + response
+                next_ref = c["response_ref"] + "; " + evidence_ref
+                if len(next_response) > 8192 or len(next_ref) > 2048:
+                    raise CollectiveValidationError("continuation exceeds bounded defense")
             conn.execute(
-                "UPDATE tkal_challenges SET response=?,response_ref=? "
+                "UPDATE tkal_challenges SET response=?,response_ref=?,"
+                "disposition=NULL,rationale=NULL "
                 "WHERE episode_id=? AND challenge_id=?",
-                (response, evidence_ref, episode_id, challenge_id),
+                (next_response, next_ref, episode_id, challenge_id),
             )
             return self._view(conn, episode_id)
 
@@ -229,8 +239,8 @@ class TkalVirtualNetwork:
             if not matches or matches[0]["disposition"] is not None:
                 raise CollectiveConflict("missing/already resolved challenge")
             c = matches[0]
-            if disposition == "ANSWERED" and not c["response"]:
-                raise CollectiveConflict("answer must exist before answered disposition")
+            if disposition in ("ANSWERED", "CONCEDED") and not c["response"]:
+                raise CollectiveConflict("attributed defense required before answered/conceded disposition")
             conn.execute(
                 "UPDATE tkal_challenges SET disposition=?,rationale=? "
                 "WHERE episode_id=? AND challenge_id=?",
@@ -253,10 +263,42 @@ class TkalVirtualNetwork:
             if any(c["disposition"] not in ("ANSWERED", "CONCEDED", "WAIVED")
                    for c in view.challenges):
                 raise CollectiveConflict("unanswered/partial/unresolved challenge")
+            if verdict == "SUSTAIN":
+                # A chair's unilateral WAIVED resolution (or three
+                # proposer-only answers) cannot stand in for reciprocal
+                # peer examination. Required: all three lenses challenge
+                # and all three peer lenses supply attributable responses.
+                answered = [c for c in view.challenges
+                            if c["disposition"] in ("ANSWERED", "CONCEDED")
+                            and c["response"] and c["response_ref"]
+                            and c["target"] in view.lenses.values()
+                            and c["reviewer"] != c["target"]]
+                challengers = {c["lens"] for c in answered}
+                respondents = {
+                    lens for c in answered for lens, peer in view.lenses.items()
+                    if peer == c["target"]
+                }
+                if challengers != set(LENSES) or respondents != set(LENSES):
+                    raise CollectiveConflict(
+                        "SUSTAIN requires directed, attributed peer exchanges across all lenses"
+                    )
             conn.execute(
                 "UPDATE tkal_hearings SET verdict=?,rationale=? WHERE episode_id=?",
                 (verdict, rationale, episode_id),
             )
             return self._view(conn, episode_id)
 
+        return self._mutate(episode_id, apply)
+
+    def withdraw(self, episode_id: str, *, proposer: str, reason: str) -> HearingView:
+        """Proposer-authored withdrawal, not an administrator determination."""
+        _agent(proposer); _text(reason, 4096, "withdrawal reason")
+        def apply(conn, view):
+            if proposer != view.proposer:
+                raise CollectiveValidationError("only registered proposer may withdraw")
+            conn.execute(
+                "UPDATE tkal_hearings SET verdict='WITHDRAW',rationale=? WHERE episode_id=?",
+                (reason, episode_id),
+            )
+            return self._view(conn, episode_id)
         return self._mutate(episode_id, apply)

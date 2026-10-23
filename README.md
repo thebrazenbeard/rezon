@@ -91,6 +91,31 @@ authenticated, **loopback-only** HTTP gateway. Configuration and routes are in
 the guide. Neither mode verifies a model's factual accuracy, claims authority,
 or supplies production-ready distributed consensus.
 
+## T'Kal-in-ket hearing (opt-in)
+
+Use the existing authenticated loopback-only Collective V1 gateway with the
+explicit `--tkal` flag:
+
+```bash
+python -m rezon.collective_cli serve --db ./private-collective.sqlite3 --tkal
+```
+
+This adds durable three-lens challenge, defense, resolution, REFINE and
+SUSTAIN inquiry over a four-worker Collective episode. Three distinct
+cross-peer exchanges are required for SUSTAIN; self-targeted initial reviews,
+waived challenges or proposer-only replies do not qualify. Without `--tkal`,
+the hearing routes are absent. Details: [Virtual hearing guide](docs/TKAL_VIRTUAL_NETWORK_V1.md) and [gateway qualification](docs/qualification/REZON_VIRTUAL_HEARING_GATEWAY_20261023.md).
+
+The gate verifies attributed records and digest consistency, NOT independent
+physical host identity, trustworthiness of model outputs, or factual truth.
+No remote TLS ingress or four-machine persistent service is installed. The
+real four-source episode was primary-relayed into a single persisted Rezon
+store, not a qualified direct four-device mesh.
+
+The repository's hidden VS Code folder-open execution was removed from
+source in security PR #106. This does not prove that previously exposed
+machines are uncompromised. See [source triage](docs/security/WORKSPACE_AUTORUN_TRIAGE_20261023.md).
+
 ## Current status
 
 Kernel V0 and the opt-in collective V1 are executable and covered by automated

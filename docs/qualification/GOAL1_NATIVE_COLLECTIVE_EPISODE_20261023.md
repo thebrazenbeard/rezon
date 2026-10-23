@@ -127,4 +127,3 @@ Research-only additional regression `tests/test_four_worker_collective_http.py` 
 - **Lappy Windows:** Python3.12 independently fetched exact source Git blobs into a fresh temp directory, direct test function invocation PASS.
 - Both checks ran solely over their **own host's IPv4 loopback** with synthetic credentials and scripted, non-model answers. They do **not** establish connectivity from Lappy, VN1 or Malaphor into a VN2 Rezon gateway.
 - Rezon `make_server` still binds only `127.0.0.1` by contract. Genuine direct four-device routing requires a separately authorized, authenticated private TLS tunnel or equivalent controlled gateway and per-device credentials. No network ingress, trust, credentials, service or production cutover occurred in this test.
-

@@ -55,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
     server.add_argument("--db", type=Path, required=True)
     server.add_argument("--port", type=int, default=8765)
     server.add_argument("--integrator-config", type=Path)
+    server.add_argument("--tkal", action="store_true",
+                        help="Enable virtual Tkal hearings on existing loopback gateway")
     run = sub.add_parser("run", help="Run independent providers concurrently and synthesize")
     run.add_argument("--db", type=Path, required=True)
     run.add_argument("--prompt", required=True)
@@ -68,8 +70,13 @@ def main(argv: list[str] | None = None) -> int:
             worker_json = os.environ.get("REZON_COLLECTIVE_WORKER_TOKENS_JSON", "")
             worker_tokens = json.loads(worker_json)
             integrator = _model(_load_config(args.integrator_config)) if args.integrator_config else None
+            if args.tkal:
+                from .tkal_network import TkalVirtualNetwork
+                hearing = TkalVirtualNetwork(store)
+            else:
+                hearing = None
             instance = make_server(store, admin_token, worker_tokens, integrator,
-                                   port=args.port)
+                                   port=args.port, tkal_network=hearing)
             try:
                 print(f"Rezon collective gateway listening on 127.0.0.1:{instance.server_port}")
                 instance.serve_forever()

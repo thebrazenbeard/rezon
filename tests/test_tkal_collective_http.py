@@ -49,7 +49,8 @@ def test_four_agent_hearing_over_authenticated_shared_gateway():
         for i,a in enumerate(AGENTS):
             store.submit_review(ep,a,"Review "+a,("answer:"+AGENTS[(i+1)%4],))
         digest=store.snapshot(ep).digest
-        server=make_server(store,ADMIN,TOKENS)
+        from rezon.tkal_network import TkalVirtualNetwork
+        server=make_server(store,ADMIN,TOKENS,tkal_network=TkalVirtualNetwork(store))
         thread=Thread(target=server.serve_forever,daemon=True);thread.start()
         try:
             path="/v1/episodes/"+ep+"/tkal"
