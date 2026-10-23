@@ -78,6 +78,14 @@ critique, then a synthesis bound to the exact saved input state:
   --models-config ./models.json --integrator-config ./integrator.json
 ```
 
+For a local Ollama installation, point each OpenAI-compatible model at
+`http://127.0.0.1:11434/v1`, with its `api_key_env` set to an environment
+variable containing any nonempty loopback-only placeholder. Supported optional
+per-model controls include `timeout_seconds`, `max_tokens`, and
+`reasoning_effort` (where supported by the local model/endpoint). See the
+[VN1 Ollama qualification note](docs/VN1_OLLAMA_2026-10-23.md) for a
+reproducible, two-model smoke test and its limitations.
+
 Separately running agents can instead submit answers and reviews to the
 authenticated, **loopback-only** HTTP gateway. Configuration and routes are in
 the guide. Neither mode verifies a model's factual accuracy, claims authority,
