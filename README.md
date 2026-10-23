@@ -116,6 +116,26 @@ The repository's hidden VS Code folder-open execution was removed from
 source in security PR #106. This does not prove that previously exposed
 machines are uncompromised. See [source triage](docs/security/WORKSPACE_AUTORUN_TRIAGE_20261023.md).
 
+## Private worker execution (one-shot)
+
+The [private worker client](docs/PRIVATE_WORKER_CLIENT_V1.md) runs a **single**
+`status`, `answer`, or `review` action against the existing authenticated
+Collective API. An authorized operator must separately provision each worker's
+`REZON_WORKER_TOKEN`; the client cannot extract or distribute secrets, weaken
+SSH host-key validation, or grant itself a model identity.
+
+```sh
+python -m rezon.worker_client status --gateway https://vn2.tail86ea75.ts.net \
+  --episode collective-REPLACE_WITH_ID
+```
+
+For `answer` and `review`, configure a localhost OpenAI-compatible model and
+its separate API-key environment variable. External gateways require HTTPS
+and certificate validation; bearer redirects are refused. Accepted receipts
+are **unattested**, and ambiguous network writes are marked
+`OUTCOME_UNKNOWN`, never automatically retried. This does **not** qualify a
+four-machine inference episode or permanently connected worker mesh.
+
 ## Current status
 
 Kernel V0 and the opt-in collective V1 are executable and covered by automated
