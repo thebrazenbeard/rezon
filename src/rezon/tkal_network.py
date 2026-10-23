@@ -246,6 +246,25 @@ class TkalVirtualNetwork:
             if any(c["disposition"] not in ("ANSWERED", "CONCEDED", "WAIVED")
                    for c in view.challenges):
                 raise CollectiveConflict("unanswered/partial/unresolved challenge")
+            if verdict == "SUSTAIN":
+                # A chair's unilateral WAIVED resolution (or three
+                # proposer-only answers) cannot stand in for reciprocal
+                # peer examination. Required: all three lenses challenge
+                # and all three peer lenses supply attributable responses.
+                answered = [c for c in view.challenges
+                            if c["disposition"] in ("ANSWERED", "CONCEDED")
+                            and c["response"] and c["response_ref"]
+                            and c["target"] in view.lenses.values()
+                            and c["reviewer"] != c["target"]]
+                challengers = {c["lens"] for c in answered}
+                respondents = {
+                    lens for c in answered for lens, peer in view.lenses.items()
+                    if peer == c["target"]
+                }
+                if challengers != set(LENSES) or respondents != set(LENSES):
+                    raise CollectiveConflict(
+                        "SUSTAIN requires directed, attributed peer exchanges across all lenses"
+                    )
             conn.execute(
                 "UPDATE tkal_hearings SET verdict=?,rationale=? WHERE episode_id=?",
                 (verdict, rationale, episode_id),
