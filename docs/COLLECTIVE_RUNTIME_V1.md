@@ -1,6 +1,6 @@
 # Rezon collective runtime V1 (optional prototype)
 
-Status: **source implemented and locally testable; not installed or deployed**.
+Status: **source implemented and locally testable; local CLI and loopback gateway smoke-tested on VN1**. No remote-host deployment, unattended gateway service, or production qualification is claimed. See [VN1 Ollama qualification](VN1_OLLAMA_2026-10-23.md).
 
 This opt-in layer provides two complementary ways to combine independent agents:
 
@@ -117,9 +117,11 @@ provider credentials, or background job runner is included.
   server-side file, accessed by multiple threads/processes through a gateway.
   There is no replicated database, durable distributed worker lease, failover,
   or autonomous scheduling across machines.
-- **Not deployed:** no live provider credentials, endpoint registration,
-  service installation, remote connectivity, or end-to-end model-quality
-  benchmark has been verified. The provider tests use local HTTP simulators.
+- **Deployment boundary:** VN1 has a live local Ollama CLI configuration and
+  an ephemeral authenticated loopback gateway probe. No unattended service
+  installation, remote connectivity, production ingress, or end-to-end
+  model-quality benchmark has been verified. Most provider tests use local
+  HTTP simulators; the separate VN1 runtime note records live evidence.
 - **No authority translation:** outputs cannot mutate repositories or remote
   resources. A Project Runner adapter may later consume non-promotional
   receipts, but this layer does not create grants or claim completion.

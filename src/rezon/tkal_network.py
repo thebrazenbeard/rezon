@@ -150,7 +150,12 @@ class TkalVirtualNetwork:
                 if (not snap.complete or snap.digest != expected_digest
                         or set(snap.agents) != {proposer, *lenses.values()}):
                     raise CollectiveConflict("incomplete or stale four-worker episode")
-                actual_reviewers = {r.agent_id for r in snap.reviews}
+                # A self-review cannot qualify a peer lens.
+                actual_reviewers = {
+                    r.agent_id for r in snap.reviews
+                    if any(target != "answer:" + r.agent_id
+                           for target in r.target_ids)
+                }
                 if not set(lenses.values()).issubset(actual_reviewers):
                     raise CollectiveConflict("three peer first reviews required")
                 if conn.execute("SELECT 1 FROM tkal_hearings WHERE episode_id=?",

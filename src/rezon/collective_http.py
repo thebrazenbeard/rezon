@@ -159,7 +159,7 @@ class _Handler(BaseHTTPRequestHandler):
                             self._json(403, {"error": "admin required or invalid fields"})
                             return
                         view = network.resolve(episode_id, **body)
-                    elif action == "determination":
+                    elif action in ("determination", "verdict"):
                         if role != "admin" or set(body) != {"verdict", "rationale"}:
                             self._json(403, {"error": "admin required or invalid fields"})
                             return

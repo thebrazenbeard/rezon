@@ -5,7 +5,7 @@ from threading import Thread
 import pytest
 
 from rezon.collective import CollectiveStore
-from rezon.collective_cli import main
+from rezon.collective_cli import main, _model
 from rezon.providers import AnthropicModel, OpenAICompatibleModel, ProviderError
 
 
@@ -124,3 +124,41 @@ def test_cli_reaches_two_provider_protocols_and_persists_integrated_result(tmp_p
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+def test_openai_optional_generation_controls_are_forwarded_and_validated():
+    ProviderHandler.requests = []
+    server = ThreadingHTTPServer(("127.0.0.1", 0), ProviderHandler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        model = OpenAICompatibleModel(
+            "thinking", "small-model", f"http://127.0.0.1:{server.server_port}/v1",
+            "local-placeholder", timeout_seconds=120, max_tokens=2048, reasoning_effort="none",
+        )
+        assert model.complete(({"role": "user", "content": "test"},)) == "OpenAI style response"
+        request = ProviderHandler.requests[-1][2]
+        assert request["max_tokens"] == 2048
+        assert request["reasoning_effort"] == "none"
+        assert request["stream"] is False
+        with pytest.raises(ValueError):
+            OpenAICompatibleModel("bad", "model", "http://127.0.0.1:11434/v1", "x", max_tokens=0)
+        with pytest.raises(ValueError):
+            OpenAICompatibleModel("bad", "model", "http://127.0.0.1:11434/v1", "x", reasoning_effort=17)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+def test_cli_model_config_forwards_local_thinking_controls(monkeypatch):
+    monkeypatch.setenv("OLLAMA_TEST_KEY", "local-dummy")
+    config = {"provider": "openai_compatible", "agent_id": "liquid",
+              "model": "lfm2.5-thinking:1.2b", "base_url": "http://127.0.0.1:11434/v1",
+              "api_key_env": "OLLAMA_TEST_KEY", "timeout_seconds": 180,
+              "max_tokens": 3072, "reasoning_effort": "none"}
+    model = _model(config)
+    assert model.timeout_seconds == 180 and model.max_tokens == 3072
+    assert model.reasoning_effort == "none"
+    with pytest.raises(ValueError):
+        _model({**config, "max_tokens": "unbounded"})
+    with pytest.raises(ValueError):
+        _model({**config, "timeout_seconds": 999})
