@@ -280,3 +280,20 @@ def test_models_challenge_one_another_only_after_initial_answers_finish():
         }
         assert len(store.project_episode(ep).snapshot().current_relations) == 2
         assert synthesize_with_model(store, ep, IntegratorNoBarrier()).input_digest == snap.digest
+
+
+def test_review_cannot_challenge_own_answer_even_alongside_peer_target():
+    with TemporaryDirectory() as tmp:
+        store = _store(tmp)
+        ep = store.create("Independent peer challenge", ("alice", "bob"))
+        store.submit_answer(ep, "alice", "Alice's initial claim")
+        store.submit_answer(ep, "bob", "Bob's initial claim")
+
+        for targets in (("answer:alice",), ("answer:bob", "answer:alice")):
+            with pytest.raises(CollectiveValidationError):
+                store.submit_review(ep, "alice", "Claimed peer review", targets)
+        assert store.snapshot(ep).reviews == ()
+
+        assert store.submit_review(ep, "alice", "Bob's claim needs evidence",
+                                   ("answer:bob",)) == "review:alice"
+        assert store.snapshot(ep).reviews[0].target_ids == ("answer:bob",)
