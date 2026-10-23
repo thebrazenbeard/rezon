@@ -18,7 +18,7 @@ from .collective import (
 
 LENSES = ("purist_logic", "pragmatism", "bridge")
 RESOLUTIONS = ("ANSWERED", "CONCEDED", "WAIVED", "PARTLY_ANSWERED", "UNRESOLVED")
-VERDICTS = ("SUSTAIN", "REFINE", "WITHDRAW")
+VERDICTS = ("SUSTAIN", "REFINE")
 
 
 @dataclass(frozen=True)
@@ -177,7 +177,8 @@ class TkalVirtualNetwork:
             matches = [lens for lens, agent in view.lenses.items() if agent == reviewer]
             if not matches or target == reviewer or target not in {view.proposer, *view.lenses.values()}:
                 raise CollectiveValidationError("reviewer/target identity mismatch")
-            if any(c["disposition"] is None for c in view.challenges):
+            if any(c["disposition"] in (None, "PARTLY_ANSWERED", "UNRESOLVED")
+                   for c in view.challenges):
                 raise CollectiveConflict("only one unresolved challenge at a time")
             if any(c["challenge_id"] == challenge_id for c in view.challenges):
                 raise CollectiveConflict("challenge ID replay")
@@ -200,10 +201,20 @@ class TkalVirtualNetwork:
             if not matches or matches[0]["target"] != defender:
                 raise CollectiveValidationError("only challenged worker may defend")
             c = matches[0]
-            if c["response"] is not None or c["disposition"] is not None:
-                raise CollectiveConflict("defense already provided or resolved")
+            if c["disposition"] not in (None, "PARTLY_ANSWERED", "UNRESOLVED"):
+                raise CollectiveConflict("defense already finally resolved")
+            if c["response"] is not None:
+                if c["disposition"] not in ("PARTLY_ANSWERED", "UNRESOLVED"):
+                    raise CollectiveConflict("defense already provided")
+                # Preserve original words and references within the record.
+                # This is a continuation, not a silent replacement.
+                response = c["response"] + "\n[CONTINUATION]\n" + response
+                evidence_ref = c["response_ref"] + "; " + evidence_ref
+                if len(response) > 8192 or len(evidence_ref) > 2048:
+                    raise CollectiveValidationError("continuation exceeds bounded defense")
             conn.execute(
-                "UPDATE tkal_challenges SET response=?,response_ref=? "
+                "UPDATE tkal_challenges SET response=?,response_ref=?,"
+                "disposition=NULL,rationale=NULL "
                 "WHERE episode_id=? AND challenge_id=?",
                 (response, evidence_ref, episode_id, challenge_id),
             )
@@ -222,8 +233,8 @@ class TkalVirtualNetwork:
             if not matches or matches[0]["disposition"] is not None:
                 raise CollectiveConflict("missing/already resolved challenge")
             c = matches[0]
-            if disposition == "ANSWERED" and not c["response"]:
-                raise CollectiveConflict("answer must exist before answered disposition")
+            if disposition in ("ANSWERED", "CONCEDED") and not c["response"]:
+                raise CollectiveConflict("attributed defense required before answered/conceded disposition")
             conn.execute(
                 "UPDATE tkal_challenges SET disposition=?,rationale=? "
                 "WHERE episode_id=? AND challenge_id=?",
@@ -271,4 +282,17 @@ class TkalVirtualNetwork:
             )
             return self._view(conn, episode_id)
 
+        return self._mutate(episode_id, apply)
+
+    def withdraw(self, episode_id: str, *, proposer: str, reason: str) -> HearingView:
+        """Proposer-authored withdrawal, not an administrator determination."""
+        _agent(proposer); _text(reason, 4096, "withdrawal reason")
+        def apply(conn, view):
+            if proposer != view.proposer:
+                raise CollectiveValidationError("only registered proposer may withdraw")
+            conn.execute(
+                "UPDATE tkal_hearings SET verdict='WITHDRAW',rationale=? WHERE episode_id=?",
+                (reason, episode_id),
+            )
+            return self._view(conn, episode_id)
         return self._mutate(episode_id, apply)
