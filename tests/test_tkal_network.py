@@ -206,6 +206,48 @@ class TkalNetworkTests(unittest.TestCase):
                                    challenge_id="new-late", target="vn2",
                                    question="New evidence?")
 
+    def test_partial_challenge_blocks_next_until_attributed_followup(self):
+        self.seal_reviews()
+        self.open()
+        self.network.challenge(self.episode, reviewer="vn1", challenge_id="partial1",
+                               target="vn2", question="Where is the evidence?")
+        self.network.defend(self.episode, challenge_id="partial1", defender="vn2",
+                            response="Initial incomplete response", evidence_ref="ref:initial")
+        self.network.resolve(self.episode, challenge_id="partial1",
+                             disposition="PARTLY_ANSWERED", rationale="More detail required")
+        with self.assertRaises(CollectiveConflict):
+            self.network.challenge(self.episode, reviewer="malaphor",
+                                   challenge_id="premature", target="vn1",
+                                   question="Can we proceed?")
+        continued=self.network.defend(self.episode, challenge_id="partial1",
+                                      defender="vn2", response="Additional qualified evidence",
+                                      evidence_ref="ref:followup")
+        self.assertIn("Initial incomplete response", continued.challenges[0]["response"])
+        self.assertIn("Additional qualified evidence", continued.challenges[0]["response"])
+        self.assertIsNone(continued.challenges[0]["disposition"])
+        self.network.resolve(self.episode, challenge_id="partial1",
+                             disposition="ANSWERED", rationale="Follow-up recorded")
+        self.network.challenge(self.episode, reviewer="malaphor",
+                               challenge_id="next", target="vn1", question="Challenge now permitted")
+
+    def test_only_proposer_can_withdraw_and_chair_cannot_force_withdraw(self):
+        self.seal_reviews()
+        self.open()
+        with self.assertRaises(ValueError):
+            self.network.determine(self.episode, verdict="WITHDRAW",
+                                   rationale="Chair overreach")
+        with self.assertRaises(ValueError):
+            self.network.withdraw(self.episode, proposer="vn1",
+                                  reason="I am not the proposer")
+        closed=self.network.withdraw(self.episode, proposer="lappy",
+                                     reason="Proposer retracts the hypothesis")
+        self.assertEqual(closed.verdict, "WITHDRAW")
+        self.assertEqual(closed.to_dict()["authority"], "NONE")
+        with self.assertRaises(CollectiveConflict):
+            self.network.challenge(self.episode, reviewer="vn1",
+                                   challenge_id="post-withdraw", target="vn2",
+                                   question="Cannot reopen")
+
     def test_bad_roster_and_stale_digest_blocked(self):
         self.seal_reviews()
         with self.assertRaises(CollectiveConflict):
@@ -268,6 +310,13 @@ class TkalNetworkTests(unittest.TestCase):
             {"verdict":"SUSTAIN","rationale":"premature"})[0],409)
         self.assertEqual(request("POST","/challenges",TOKENS["vn1"],
             {"challenge_id":"a1","target":"lappy","question":"replay"})[0],409)
+        self.assertEqual(request("POST","/withdrawals",ADMIN,
+            {"reason":"Chair cannot withdraw"})[0],403)
+        self.assertEqual(request("POST","/withdrawals",TOKENS["vn1"],
+            {"reason":"Wrong proposer"})[0],400)
+        self.assertEqual(request("POST","/withdrawals",TOKENS["lappy"],
+            {"reason":"Proposer voluntarily withdraws"})[0],201)
+        self.assertEqual(request("GET","",TOKENS["vn1"])[1]["verdict"],"WITHDRAW")
 
 
 if __name__=="__main__":
