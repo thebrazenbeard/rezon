@@ -9,7 +9,9 @@ The project deliberately separates four things that are often collapsed together
 3. **State and identity** — what subject is being reasoned about, what changed, what persisted, and what evidence supports continuity.
 4. **Execution** — provider/model adapters, worker routing, receipts, provenance, resource constraints, and runtime behavior.
 
-Rezon is intended to become runnable from the beginning, but the first population is knowledge-first: the architecture is being made explicit before implementation hardens accidental assumptions into interfaces.
+Rezon's V0 reasoning kernel is executable. The optional V1 collective layer
+provides a bounded, local implementation of concurrent multi-model reasoning;
+the wider distributed topology below remains a roadmap, not a deployed system.
 
 ## Core direction
 
@@ -51,7 +53,41 @@ A stronger model is never automatically an authority source. A reasoning node ma
 - `docs/SOURCE_TRANSFER_MATRIX.md` — source-by-source transfer analysis
 - `docs/EXECUTABLE_FRAMEWORK_DIRECTION.md` — runnable system direction
 - `docs/VERA_ADOPTION_CANDIDATES.md` — mechanisms that may be promoted into Vera later
+- [`docs/COLLECTIVE_RUNTIME_V1.md`](docs/COLLECTIVE_RUNTIME_V1.md) — model config, agent API, security boundaries, and verification
+
+## Run locally
+
+Python 3.12+ is required. From a clone:
+
+```bash
+python -m venv .venv
+.venv/bin/python -m pip install -e . pytest
+.venv/bin/python -m pytest -q
+```
+
+On Windows, replace `.venv/bin/python` with `.venv\Scripts\python.exe`.
+
+For concurrent model reasoning, configure two or more OpenAI-compatible or
+Anthropic endpoints and a synthesis model using the [collective runtime guide](docs/COLLECTIVE_RUNTIME_V1.md).
+The CLI runs independent first answers **in parallel**, then concurrent peer
+critique, then a synthesis bound to the exact saved input state:
+
+```bash
+.venv/bin/python -m rezon.collective_cli run \
+  --db ./rezon-episodes.sqlite3 --prompt "Compare these explanations" \
+  --models-config ./models.json --integrator-config ./integrator.json
+```
+
+Separately running agents can instead submit answers and reviews to the
+authenticated, **loopback-only** HTTP gateway. Configuration and routes are in
+the guide. Neither mode verifies a model's factual accuracy, claims authority,
+or supplies production-ready distributed consensus.
 
 ## Current status
 
-This branch is a foundation / knowledge population. It does **not** claim a working runtime, provider deployment, model bridge, or Vera installation.
+Kernel V0 and the opt-in collective V1 are executable and covered by automated
+tests, including two independently authenticated HTTP workers, separate-process
+durability, simulated provider protocols, peer critique, and stale-result
+rejection. The backend is one SQLite authority, not a distributed-consensus
+system. No live model-provider deployment, remote installation, Vera adoption,
+or measured reasoning improvement has been established by these source tests.
