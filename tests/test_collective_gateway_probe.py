@@ -49,6 +49,14 @@ class GatewayProbeTest(unittest.TestCase):
         self.assertEqual(result["gateway"], "unverified")
         self.assertEqual(opened.call_count, 1)
 
+    def test_admin_access_is_not_worker_enrollment(self):
+        with patch.object(probe_module, "urlopen", side_effect=[
+            FakeResponse(200, {"service": "rezon-collective", "status": "ready"}),
+            FakeResponse(200, {"episode_id": "collective-abc", "agent_id": None}),
+        ]):
+            result = probe_module.probe("https://private.example", "collective-abc", "secret" * 4)
+        self.assertEqual(result["episode"], "unverified")
+
     def test_wrong_episode_never_claims_authorization(self):
         with patch.object(probe_module, "urlopen", side_effect=[
             FakeResponse(200, {"service": "rezon-collective", "status": "ready"}),
