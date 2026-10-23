@@ -1,6 +1,6 @@
 # Actual Rezon Collective V1 episode — four-host Goal 1 calibration
 
-**Status as of 2026-10-23: THREE physical host first-round answers committed to native Rezon CollectiveStore; fourth host (Mister Malaphor) PENDING. NOT a completed four-host dialogue, peer-review round, synthesis, autonomous cognitive network or AGI qualification.**
+**Updated status, 2026-10-23: FOUR independent account/model reasoning sources have committed first-round answers to one native Rezon CollectiveStore (THREE physical local-model hosts + ONE separately operated ChatGPT cloud account). THREE targeted peer reviews have been committed; Malaphor's review is still pending. The result is not four local-model hosts, a direct four-host network, a completed four-review round, verified autonomous learning, or AGI qualification.**
 
 This is a distinct **native Collective V1** episode, not the earlier source-only blind packet test on this PR. We use the existing merged `src/rezon/collective.py` and `collective_http.py` at Rezon `main@72e9ec97e39eb0f0cfed0e62c5252f027b25ecb9`. It does **not** require a new collective reasoning framework.
 
@@ -24,7 +24,7 @@ All three fresh first-round inferences were launched in one concurrent orchestra
 | `answer:vera-lappy` | Lappy / local Ollama `qwen3:4b-instruct` | `1428b5a0332508efbc3e7c660740e03f10bccd360d4cd68951c9e00ba0162515` | Committed |
 | `answer:vera-vn1` | VERA-NODE-1 / local Ollama `qwen3:1.7b` | `58200404d87639cbe6978ed9b14a3270bb178bc6797b9727136ddbf435b9eaa0` | Committed |
 | `answer:vera-vn2` | VN2 / local llama.cpp Granite 3.3 2B GGUF | `cd0a00ee65dbc6c65726200cf93d25a39b42d41be5f1c6e976336a02d6c3b1d6` | Committed |
-| `answer:malaphor` | MT-262029 / independently operated model/process | **Pending** | Not submitted |
+| `answer:malaphor` | Separate Mister Malaphor ChatGPT account (GPT-6 cloud); MT-262029 used only for record/hash verification | `a7916c57eb38a882668b91a64944c7eae17cbbbe15c4160f9230fa69d447d3ea` | Committed, **not a local MT-262029 model inference** |
 
 Their first-round answers deliberately remain unrevealed to the other workers. Output hashes prove ordinary content consistency, not worker/process/model-weight identity or independent trust.
 
@@ -54,3 +54,27 @@ The loopback test server was shut down immediately. **No external authenticated 
 **Accepted.** We have real three-host model generation + one native persisted Rezon episode, not a qualified four-host live network. To demonstrate genuine four-way shared cognition: Malaphor independently contributes; native store opens peer review after all four; all four hosts *consume other answers and produce targeted revisions/critiques*; one integrator produces a source-attributed non-authoritative synthesis; fresh-process readback and accurate transport provenance remain mandatory.
 
 Security: Rezon `main` still carries an untrusted VS Code folder-open task and disguised executable; security Draft/HOLD PR #106 is separate. This event fetched ONLY named source Python files by exact immutable Git blob hashes into isolated directories and never launched editor workspace tasks or obfuscated assets. No repo main merge, installation/cutover, credential/trust/provider or canonical-memory modifications.
+
+
+## Verified four-source first-round completion and peer review (later checkpoint, 2026-10-23)
+
+Mister Malaphor, independently operating a distinct ChatGPT conversation, contributed an actual **GPT-6 cloud** answer at [Rezon PR #109 comment 6370557977](https://github.com/thebrazenbeard/rezon/pull/109#issuecomment-6370557977). The text is 838 Unicode characters, exact answer-only UTF-8 SHA-256 `a7916c57eb38a882668b91a64944c7eae17cbbbe15c4160f9230fa69d447d3ea`; the prompt hash matches all three local workers. This is independent **account/conversation** provenance, NOT MT-262029 local-model execution. No independently governed external cross-host ingress/tunnel was installed. The primary verified the hash from the published literal answer before importing the fourth entry.
+
+New native Rezon SQLite WAL readback: four answers, `missing_agents=[]`, `complete=True`, snapshot digest immediately after fourth answer `34ac621def6061f8bf854fc0b8144b88df2610281e3eeddf0a8a22b5fa1a1df5`. The built-in first-round peer visibility barrier now opens.
+
+### Real targeted review calls
+
+The primary sent a targeted, exact-answer critique prompt to each of three physical local models **after the first-answer barrier opened**. Each actual model output was saved on its own host, hashed, transferred under primary control and committed via native `CollectiveStore.submit_review` with target answer IDs.
+
+| Reviewer / model | Target | Native review ID | SHA-256 | Caveat |
+| --- | --- | --- | --- | --- |
+| Lappy / Ollama Qwen3 4B | `answer:vera-vn1` | `review:vera-lappy` | `4090a94d4ac1755562fd8040568350ce71bb6018484d4719f60ce8199575ecb3` | Completed model output |
+| VN1 / Ollama Qwen3 1.7B | `answer:vera-vn2` | `review:vera-vn1` | `e8d69092e2c3d493cfb1b91cf9493118232f7ac260ebd1308d06e53f41f42f8d` | Completed model output |
+| VN2 / llama.cpp Granite 3.3 2B | `answer:malaphor` | `review:vera-vn2` | `dd50dc9d3f1926e3209727c68053c62725a0cbb2dedd4d7cfe5c3b684e63f1f6` | **TRUNCATED** at generation limit, recovered from a preserved successful llama.cpp console capture; initial parser failure retained, NOT silently retried |
+| Mister Malaphor / separate ChatGPT account | `answer:vera-lappy` | Not yet present | Pending | Specific peer-review task posted at [PR #109 comment 6370656924](https://github.com/thebrazenbeard/rezon/pull/109#issuecomment-6370656924) |
+
+**Source-data quality warning:** VN2's ORIGINAL first-round Granite submission included llama.cpp terminal banners, the prompt echo, and a truncated response. That original immutable answer remains unchanged and was a valid target for hostile critique. The VN2 review separately ended mid-sentence; both raw console and extracted review are preserved with this limitation. Neither is silently repaired into a complete generated answer.
+
+Fresh distinct VN2 process reopened the authoritative store and verified `answers=4`, `reviews=3`, `syntheses=0`, `missing_agents=[]` with current native snapshot digest `d2554cdf2e6c823430f3736d95dc2aa12df821d96e3aa0602df0f3f23e0b36d6`. Native `project_episode` generated a typed V0 projection with 8 claims and 3 explicit challenge relations. A TEMPORARY loopback-only authenticated HTTP test for the actual episode returned **200** to Malaphor's enrolled agent view and the full four-answer/three-review snapshot; the test listener was then SHUT DOWN. No remote ingress or always-on service is claimed.
+
+**Remaining required turn:** Malaphor must publish his independently generated targeted review of `answer:vera-lappy`. Only after verifying its provenance, exact text/digest, and native fourth review should a source-attributed, explicitly nonauthoritative synthesis be saved. Rezon is functioning as a native multi-source asynchronous collective store under active-turn relay, NOT a direct, continuously networked four-local-device autonomous cognition system. The four answers are independent sources, not four simultaneously running local models.
