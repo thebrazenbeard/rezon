@@ -103,7 +103,7 @@ class _Handler(BaseHTTPRequestHandler):
                 episode_id = self.server.store.create(body["prompt"], tuple(body["agents"]))
                 self._json(201, {"episode_id": episode_id})
                 return
-            if len(segments) < 3 or len(segments) > 4:
+            if len(segments) < 3 or len(segments) > 5:
                 self._json(404, {"error": "not found"})
                 return
             episode_id = segments[2]
@@ -113,6 +113,67 @@ class _Handler(BaseHTTPRequestHandler):
             snapshot = self.server.store.snapshot(episode_id)
             if role == "worker" and agent not in snapshot.agents:
                 self._json(403, {"error": "not an episode participant"})
+                return
+            # Opt-in T'Kal-in-ket hearing over the SAME authenticated
+            # collective episode. Token-derived identities, never request actors.
+            if len(segments) >= 4 and segments[3] == "tkal":
+                from .tkal_network import TkalVirtualNetwork
+                hearing = TkalVirtualNetwork(self.server.store)
+                if method == "GET" and len(segments) == 4:
+                    if role == "worker" and not snapshot.complete:
+                        raise CollectiveConflict("first answers not complete")
+                    self._json(200, hearing.snapshot(episode_id).to_dict())
+                    return
+                if method != "POST":
+                    self._json(404, {"error": "not found"})
+                    return
+                if len(segments) == 4:
+                    if role != "admin":
+                        self._json(403, {"error": "admin required"})
+                        return
+                    body = self._body()
+                    if set(body) != {"expected_digest", "proposer", "lenses", "hypothesis", "falsifier"}:
+                        raise CollectiveValidationError("invalid hearing opening")
+                    result = hearing.open(episode_id, **body)
+                    self._json(201, result.to_dict())
+                    return
+                if len(segments) == 5:
+                    action = segments[4]
+                    body = self._body()
+                    if action == "challenges":
+                        if role != "worker":
+                            self._json(403, {"error": "worker required"})
+                            return
+                        if set(body) != {"challenge_id", "target", "question"}:
+                            raise CollectiveValidationError("invalid challenge")
+                        result = hearing.challenge(episode_id, reviewer=agent, **body)
+                    elif action == "defenses":
+                        if role != "worker":
+                            self._json(403, {"error": "worker required"})
+                            return
+                        if set(body) != {"challenge_id", "response", "evidence_ref"}:
+                            raise CollectiveValidationError("invalid defense")
+                        result = hearing.defend(episode_id, defender=agent, **body)
+                    elif action == "resolutions":
+                        if role != "admin":
+                            self._json(403, {"error": "admin required"})
+                            return
+                        if set(body) != {"challenge_id", "disposition", "rationale"}:
+                            raise CollectiveValidationError("invalid resolution")
+                        result = hearing.resolve(episode_id, **body)
+                    elif action == "verdict":
+                        if role != "admin":
+                            self._json(403, {"error": "admin required"})
+                            return
+                        if set(body) != {"verdict", "rationale"}:
+                            raise CollectiveValidationError("invalid verdict")
+                        result = hearing.determine(episode_id, **body)
+                    else:
+                        self._json(404, {"error": "not found"})
+                        return
+                    self._json(201, result.to_dict())
+                    return
+                self._json(404, {"error": "not found"})
                 return
             if method == "GET" and len(segments) == 3:
                 self._json(200, {"episode_id": episode_id, "prompt": snapshot.prompt,
