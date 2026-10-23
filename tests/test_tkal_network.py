@@ -66,6 +66,14 @@ class TkalNetworkTests(unittest.TestCase):
                                  ("answer:lappy",))
         self.assertEqual(self.open().proposer, "lappy")
 
+    def test_self_target_reviews_do_not_satisfy_peer_quorum(self):
+        self.seal_answers()
+        for agent in ("vn1", "vn2", "malaphor"):
+            self.store.submit_review(self.episode, agent, "self-check by "+agent,
+                                     ("answer:"+agent,))
+        with self.assertRaises(CollectiveConflict):
+            self.open()
+
     def test_role_spoof_and_concurrent_challenge_blocked(self):
         self.seal_reviews()
         self.open()
