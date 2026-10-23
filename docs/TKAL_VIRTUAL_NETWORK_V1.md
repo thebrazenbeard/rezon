@@ -8,6 +8,10 @@ The canonical four-worker data plane is existing `rezon.collective.CollectiveSto
 
 `make_server(...,tkal_network=TkalVirtualNetwork(store))` opts into HTTP routes on the existing **127.0.0.1-only** authenticated collective gateway. `make_server` still rejects nonloopback host. It does not create remote ingress, provision credentials, approve a tunnel, or connect other physical hosts. Authenticated private TLS proxy/tunnel configuration and independent host identity/provenance remain explicit separate operator-governed work.
 
+The protocol reference has since merged stronger source guards into `t-kal-in-ket/main@e3dff0561b68810af8d40a1295739afaa763fc2b` through separately owned PRs #4 and #3. This Rezon implementation remains an original separate codebase: no library or unlicensed upstream source is imported.
+
+To enable the virtual hearing interface explicitly, run `python -m rezon.collective_cli serve --db <private-state-file> --tkal` with the **existing** Rezon collective gateway's operator-managed environment credentials. With no `--tkal`, the hearing API is absent. The listener remains `127.0.0.1`; any remote agent connection requires separately authorized, authenticated, private TLS transport, and a bearer token is not an independent hardware identity witness.
+
 No source-level role/token identifies an independent physical model execution. Expose only `independence_verified:false`, `authority:NONE`. Rezon worker reviews remain claims; a `SUSTAIN` result records completed peer exchange, not correctness or deployment permission.
 
 ## One episode / four workers
@@ -25,7 +29,7 @@ Admin credentials cannot be used to impersonate worker answers/defenses in these
 
 - Rezon CollectiveStore transaction use is preserved, and the new hearing shares its DB handle.
 - Strong existing bearer validation and hidden first-round answers continue. HTTP server never binds to `0.0.0.0`.
-- Four-agent roster collision, false reviewer, challenge replay, multiple simultaneous challenges, stale state, missing defenses, invalid waiver, attempted admin withdrawal, and all-three directed SUSTAIN tests run on physical Lappy Windows and VN2 Linux.
+- Four-agent roster collision, false reviewer, challenge replay, multiple simultaneous challenges, stale state, missing defenses, invalid waiver, attempted admin withdrawal, and all-three directed SUSTAIN tests passed on physical Lappy Windows and VN2 Linux (14 focused tests each at head `4191f62a119526dc665de2940eaec468d854c9c3`). A subsequent 15th test used **four separate authenticated Python client processes on Lappy**, with parallel initial answers/reviews and cross-peer challenges via the one real loopback HTTP gateway; 15/15 passed on Lappy. A matching VN2 subprocess test command was blocked by host safety controls, **not** rerun around the block; GitHub Linux CI at that exact source head was SUCCESS.
 - The source tests use synthetic worker text, not independent host inference. The real mediated Rezon four-source episode in PR #109 is a distinct provenance artifact (three local models and one separate Malaphor GPT-6 cloud account). It is not evidence that this API was installed on those four hosts.
 - Independent review from `COORDINATION_TKIK` is recorded in `t-kal-in-ket/issues/2` and Bus Issue #388. Concurrent tkik PRs #3 and #4 alter their own `tkik/core.py`; this Rezon feature does **not** merge, overwrite, or import those sources.
 
