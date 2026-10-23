@@ -5,6 +5,9 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
+import subprocess
+import sys
 from unittest.mock import patch
 import unittest
 from urllib.error import HTTPError
@@ -293,6 +296,73 @@ class TkalNetworkTests(unittest.TestCase):
                 ):
                     self.assertEqual(main(cli), 0)
                 self.assertEqual(len(captured), 1)
+
+    def test_four_separate_process_clients_share_one_gateway(self):
+        # Four independent Python OS processes on ONE machine, not four hosts.
+        server=make_server(self.store, ADMIN, TOKENS, tkal_network=self.network)
+        thread=Thread(target=server.serve_forever,daemon=True)
+        thread.start()
+        self.addCleanup(thread.join, 3)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        base=f"http://127.0.0.1:{server.server_port}/v1/episodes/{self.episode}"
+        code = """import json,sys
+from urllib.request import Request,urlopen
+from urllib.error import HTTPError
+url,token,method,body=sys.argv[1:]
+headers={"Authorization":"Bearer "+token}
+data=None if method=="GET" else body.encode()
+if data is not None:headers["Content-Type"]="application/json"
+try:
+ with urlopen(Request(url,data=data,headers=headers,method=method),timeout=8) as r:
+  result={"status":r.status,"body":json.load(r)}
+except HTTPError as e:
+ result={"status":e.code,"body":json.load(e)}
+print(json.dumps(result))
+"""
+        def call(actor, method, suffix, payload=None):
+            token=ADMIN if actor=="admin" else TOKENS[actor]
+            args=[sys.executable,"-c",code,base+suffix,token,
+                  method,json.dumps(payload if payload is not None else {})]
+            result=subprocess.run(args,stdin=subprocess.DEVNULL,
+                                  text=True,capture_output=True,timeout=18)
+            if result.returncode:
+                raise AssertionError("child HTTP client failed")
+            return json.loads(result.stdout)
+        self.assertEqual(call("vn1","GET","/state")["status"],409)
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            answers=list(pool.map(lambda a:call(a,"POST","/answers",
+                            {"content":"independent client message from "+a}),AGENTS))
+        self.assertEqual([a["status"] for a in answers],[201]*4)
+        self.assertEqual(len(call("vn2","GET","/state")["body"]["answers"]),4)
+        targets={"lappy":"vn1","vn1":"vn2","vn2":"malaphor","malaphor":"lappy"}
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            reviews=list(pool.map(lambda a:call(a,"POST","/reviews",{
+                "content":"review authored by process "+a,
+                "target_ids":["answer:"+targets[a]]}),AGENTS))
+        self.assertEqual([a["status"] for a in reviews],[201]*4)
+        frozen=call("admin","GET","/state")["body"]["input_digest"]
+        opened=call("admin","POST","/tkal",{
+            "expected_digest":frozen,"proposer":"lappy","lenses":LENSES,
+            "hypothesis":"exact claim","falsifier":"credible counterexample"})
+        self.assertEqual(opened["status"],201)
+        for reviewer,defender in (("vn1","vn2"),("vn2","malaphor"),("malaphor","vn1")):
+            cid="net-"+reviewer
+            self.assertEqual(call(reviewer,"POST","/tkal/challenges",{
+                "challenge_id":cid,"target":defender,"question":"Cross challenge by "+reviewer
+            })["status"],201)
+            self.assertEqual(call(defender,"POST","/tkal/defenses",{
+                "challenge_id":cid,"response":"Peer reply from "+defender,
+                "evidence_ref":"synthetic:subprocess:"+defender})["status"],201)
+            self.assertEqual(call("admin","POST","/tkal/resolutions",{
+                "challenge_id":cid,"disposition":"ANSWERED","rationale":"Response logged"
+            })["status"],201)
+        decision=call("admin","POST","/tkal/determination",{
+            "verdict":"SUSTAIN","rationale":"Three process-backed lens exchanges were recorded"})
+        self.assertEqual(decision["status"],201)
+        self.assertEqual(decision["body"]["verdict"],"SUSTAIN")
+        self.assertFalse(decision["body"]["independence_verified"])
+        self.assertEqual(call("malaphor","GET","/tkal")["body"]["verdict"],"SUSTAIN")
 
     def test_http_roles_and_loopback_gate(self):
         self.seal_reviews()
