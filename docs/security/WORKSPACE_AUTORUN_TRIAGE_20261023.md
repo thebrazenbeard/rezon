@@ -12,7 +12,7 @@ At `thebrazenbeard/rezon/main@03f84f44f970e8d871f0a918fdecb510b7095957`:
 
 These three exact Git blobs were independently observed in `thebrazenbeard/vera-mono/main@64c4a756a8c4d6fc791787de80303f7ee0f64869` and have a separate proposed mitigation in Vera Mono Draft/HOLD PR #88. Identical blobs establish byte-level overlap, **not** which repository/actor introduced them, whether Node ran, or who authored the content.
 
-The payload was never executed or dynamically evaluated during this review. Source reads and safe standalone tests only; no editor startup, hooks, services, credentials, trust settings, deployments or production memory were changed.
+The payload was never executed or dynamically evaluated during this review. GitHub REST commit inspection also confirmed that commit `03f84f44f970e8d871f0a918fdecb510b7095957` (message `Fix empty CodeQL analysis matrix (#96)`, dated September 30, 2026) **added** the workspace task, settings, and disguised asset, unrelated to the stated CodeQL workflow removal. This is a provenance anomaly, not definitive attribution or proof of execution. Source reads and safe standalone tests only; no editor startup, hooks, services, credentials, trust settings, deployments or production memory were changed.
 
 ## Isolated proposed source mitigation
 
@@ -20,9 +20,10 @@ On `security/disable-workspace-autorun-goal1-20261023`:
 
 1. Keep `.vscode/tasks.json` config envelope but remove all automatic task definitions.
 2. Set `task.allowAutomaticTasks=false` and remove the secondary embedded task from `.vscode/settings.json`.
-3. Add `tests/test_workspace_startup_safety.py` to reject reintroduction of implicit `folderOpen` execution and the disguised asset path in task commands.
+3. Remove the tracked `public/fonts/fa-solid.lkf` payload from the proposed working tree, while preserving the exact original Git blob `31ce18eddf4c96c1a705dbceaec4304f953d4dc3` in history for controlled forensic inspection.
+4. Add `tests/test_workspace_startup_safety.py` to reject reintroduction of implicit `folderOpen` execution, disguised asset path in task commands, or a checked-out `.lkf` executable.
 
-The focused regression was first observed **RED: 2 failed** on the new test with untouched main configs, then **GREEN: 2 passed** with the proposed config repair. Both checks ran on VN2 in a temporary directory containing only three fetched text files, never the repository or the disguised asset. Repository-wide CI and independent security review remain separate gates.
+The focused regression was first observed **RED: 2 failed** on original main configuration and **GREEN: 2 passed** with the proposed config repair. An additional removal regression was observed **RED: 1 failed / 2 passed** when the real `.lkf` was still present, then **GREEN: 3 passed** after removing that asset from the draft branch. All of these were isolated source-only tests on VN2; the original asset was fetched as data only, never executed. Both checks ran on VN2 in a temporary directory containing only three fetched text files, never the repository or the disguised asset. Repository-wide CI and independent security review remain separate gates.
 
 This is not incident response or runtime protection. Existing local checkouts may already have encountered the task, and repository settings do not override every possible user setting or external process. Inspect affected host activity through independently authorized read-only methods; do not execute the payload to establish what it does.
 
