@@ -44,7 +44,7 @@ def probe(base_url: str, episode_id: str, token: str, timeout: float = 5.0) -> d
     if status != 200 or health.get("service") != "rezon-collective" or health.get("status") != "ready":
         return {"gateway": "unverified", "health_status": status, "episode": "not_checked"}
     status, episode = request("/v1/episodes/" + episode_id, True)
-    if status != 200 or episode.get("episode_id") != episode_id:
+    if status != 200 or episode.get("episode_id") != episode_id or not isinstance(episode.get("agent_id"), str) or not episode["agent_id"]:
         return {"gateway": "reachable", "episode": "unverified", "episode_status": status}
     return {"gateway": "reachable", "episode": "authorized", "episode_id": episode_id,
             "note": "Bearer access is not physical-host or model independence attestation"}
