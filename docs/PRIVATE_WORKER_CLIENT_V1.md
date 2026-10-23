@@ -22,17 +22,21 @@ python -m rezon.worker_client status \
 python -m rezon.worker_client answer \
   --gateway https://vn2.tail86ea75.ts.net \
   --episode collective-REPLACE_WITH_ID \
-  --model lfm2.5-thinking:1.2b \
+  --model gemma3:1b \
   --model-url http://127.0.0.1:11434/v1
 
 # Only after the last initial answer is present:
 python -m rezon.worker_client review \
   --gateway https://vn2.tail86ea75.ts.net \
   --episode collective-REPLACE_WITH_ID \
-  --model lfm2.5-thinking:1.2b
+  --model gemma3:1b
 ```
 
 Each invocation uses the token-bound identity the server returns, not a caller-supplied worker label. `answer` asks the local model to assess the original prompt before peer answers are available. `review` fetches the complete sealed first round, targets other participants' answers, then submits an adversarial critique. An incomplete first round yields a 409 conflict; no model invocation or fake review is created. The client does not automatically defend challenges or determine the case.
+
+### Local model compatibility readback
+
+On VN1 with the existing Rezon `OpenAICompatibleModel` adapter against localhost Ollama, `gemma3:1b` returned nonempty completion text in a bounded smoke test. `lfm2.5-thinking:1.2b` and `qwen3:1.7b` returned `ProviderError: provider returned invalid or oversized text` on the same adapter route. This establishes an **adapter compatibility gap**, not evidence that those models are inherently unable to reason. Do not select them for an unattended worker without separately verifying a nonempty response. These model-only smokes did not submit anything to the remote Rezon gateway.
 
 The client prints only bounded receipt metadata: episode ID, token-bound agent ID, input SHA-256, contribution ID and *self-declared* model name. It does not echo the bearer token, private model text or underlying prompt. An accepted submission is `ACCEPTED_UNATTESTED`, not proof of independent execution, hardware identity, scientific accuracy or permission for protected effects.
 
