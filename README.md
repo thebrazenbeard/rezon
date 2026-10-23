@@ -65,7 +65,7 @@ python -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-On Windows, replace `.venv/bin/python` with `.venv\\Scripts\\python.exe`.
+On Windows, replace `.venv/bin/python` with `.venv\Scripts\python.exe`.
 
 For concurrent model reasoning, configure two or more OpenAI-compatible or
 Anthropic endpoints and a synthesis model using the [collective runtime guide](docs/COLLECTIVE_RUNTIME_V1.md).
