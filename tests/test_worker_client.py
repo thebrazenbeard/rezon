@@ -151,8 +151,8 @@ class WorkerClientTests(unittest.TestCase):
 
     def test_cli_errors_do_not_print_secret(self):
         old = "secret-token-for-test-only-abcdefgh"
-        with patch("rezon.worker_client.os.environ", {"REZON_WORKER_TOKEN": old}), (
-             patch("rezon.worker_client.sys.stderr", new_callable=io.StringIO) as stderr):
+        with patch("rezon.worker_client.os.environ", {"REZON_WORKER_TOKEN": old}), \
+             patch("rezon.worker_client.sys.stderr", new_callable=io.StringIO) as stderr:
             code = main(["status", "--gateway", "http://some-public-host",
                          "--episode", "collective-"+"a"*32])
         self.assertEqual(code, 2)
