@@ -164,6 +164,11 @@ class _Handler(BaseHTTPRequestHandler):
                             self._json(403, {"error": "admin required or invalid fields"})
                             return
                         view = network.determine(episode_id, **body)
+                    elif action == "withdrawals":
+                        if role != "worker" or set(body) != {"reason"}:
+                            self._json(403, {"error": "worker required or invalid fields"})
+                            return
+                        view = network.withdraw(episode_id, proposer=agent, **body)
                     else:
                         self._json(404, {"error": "unknown hearing action"})
                         return
