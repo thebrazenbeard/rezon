@@ -6,20 +6,46 @@ from __future__ import annotations
 
 import argparse
 import json
+import ipaddress
 import os
+import re
 import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import Request, HTTPRedirectHandler, build_opener
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+# Kept as a separate binding to allow deterministic patching in tests.
+urlopen = build_opener(_NoRedirect).open
+_EPISODE = re.compile(r"collective-[0-9a-f]{32}\Z")
 
 
 def probe(base_url: str, episode_id: str, token: str, timeout: float = 5.0) -> dict:
-    url = urlsplit(base_url)
-    if url.scheme not in ("http", "https") or not url.hostname or url.username or url.password or url.query or url.fragment:
+    if type(base_url) is not str:
         raise ValueError("invalid base URL")
-    if url.scheme == "http" and url.hostname not in ("localhost", "127.0.0.1", "::1"):
-        raise ValueError("remote transport must use HTTPS")
-    if not episode_id.startswith("collective-") or not episode_id.removeprefix("collective-").isalnum():
+    url = urlsplit(base_url)
+    if url.scheme not in ("http", "https") or not url.hostname or (
+        url.username is not None or url.password is not None
+        or url.path not in ("", "/") or url.query or url.fragment
+    ):
+        raise ValueError("invalid base URL")
+    try:
+        url.port
+    except ValueError:
+        raise ValueError("invalid base URL port") from None
+    if url.scheme == "http":
+        try:
+            local = ipaddress.ip_address(url.hostname).is_loopback
+        except ValueError:
+            local = url.hostname.lower() == "localhost"
+        if not local:
+            raise ValueError("remote transport must use HTTPS")
+    if type(episode_id) is not str or not _EPISODE.fullmatch(episode_id):
         raise ValueError("invalid episode id")
     base = base_url.rstrip("/")
     def request(path: str, authenticated: bool) -> tuple[int, dict]:
