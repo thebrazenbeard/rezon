@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
+from unittest.mock import patch
 import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -260,6 +261,38 @@ class TkalNetworkTests(unittest.TestCase):
                 proposer="lappy", lenses={"purist_logic":"vn1",
                 "pragmatism":"vn1","bridge":"malaphor"},
                 hypothesis="x", falsifier="y")
+
+    def test_cli_flag_enables_hearing_only_when_requested(self):
+        from rezon.collective_cli import main
+        from unittest.mock import patch as mocked
+        import os
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled):
+                captured = []
+                class Stub:
+                    server_port = 8765
+                    def serve_forever(self):
+                        pass
+                    def server_close(self):
+                        pass
+                def fake_make(store, admin, workers, integrator, **kwargs):
+                    captured.append(kwargs.get("tkal_network"))
+                    if enabled:
+                        self.assertIsInstance(captured[-1], TkalVirtualNetwork)
+                        self.assertIs(captured[-1].store, store)
+                    else:
+                        self.assertIsNone(captured[-1])
+                    return Stub()
+                cli=["serve", "--db", str(Path(self.tmp.name)/("serve-"+str(enabled)+".sqlite")),
+                     "--port", "8765"]
+                if enabled:cli.append("--tkal")
+                env={"REZON_COLLECTIVE_ADMIN_TOKEN":ADMIN,
+                     "REZON_COLLECTIVE_WORKER_TOKENS_JSON":json.dumps(TOKENS)}
+                with mocked.dict(os.environ, env), mocked(
+                    "rezon.collective_cli.make_server", side_effect=fake_make
+                ):
+                    self.assertEqual(main(cli), 0)
+                self.assertEqual(len(captured), 1)
 
     def test_http_roles_and_loopback_gate(self):
         self.seal_reviews()
