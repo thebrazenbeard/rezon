@@ -103,7 +103,7 @@ class _Handler(BaseHTTPRequestHandler):
                 episode_id = self.server.store.create(body["prompt"], tuple(body["agents"]))
                 self._json(201, {"episode_id": episode_id})
                 return
-            if len(segments) < 3 or len(segments) > 4:
+            if len(segments) < 3 or len(segments) > 5:
                 self._json(404, {"error": "not found"})
                 return
             episode_id = segments[2]
@@ -113,6 +113,63 @@ class _Handler(BaseHTTPRequestHandler):
             snapshot = self.server.store.snapshot(episode_id)
             if role == "worker" and agent not in snapshot.agents:
                 self._json(403, {"error": "not an episode participant"})
+                return
+            # Optional authenticated virtual hearing over the existing
+            # loopback gateway. No network exposure or host attestation added.
+            if len(segments) in (4, 5) and segments[3] == "tkal":
+                network = self.server.tkal_network
+                if network is None:
+                    self._json(404, {"error": "hearing disabled"})
+                    return
+                if method == "GET" and len(segments) == 4:
+                    self._json(200, network.snapshot(episode_id).to_dict())
+                    return
+                if method == "POST" and len(segments) == 4:
+                    if role != "admin":
+                        self._json(403, {"error": "admin required"})
+                        return
+                    body = self._body()
+                    if set(body) != {"expected_digest", "proposer", "lenses",
+                                     "hypothesis", "falsifier"}:
+                        raise CollectiveValidationError("invalid hearing request")
+                    view = network.open(episode_id, **body)
+                    self._json(201, view.to_dict())
+                    return
+                if method == "POST" and len(segments) == 5:
+                    action = segments[4]
+                    body = self._body()
+                    if action == "challenges":
+                        if role != "worker" or set(body) != {
+                            "challenge_id", "target", "question"
+                        }:
+                            self._json(403, {"error": "worker required or invalid fields"})
+                            return
+                        view = network.challenge(episode_id, reviewer=agent, **body)
+                    elif action == "defenses":
+                        if role != "worker" or set(body) != {
+                            "challenge_id", "response", "evidence_ref"
+                        }:
+                            self._json(403, {"error": "worker required or invalid fields"})
+                            return
+                        view = network.defend(episode_id, defender=agent, **body)
+                    elif action == "resolutions":
+                        if role != "admin" or set(body) != {
+                            "challenge_id", "disposition", "rationale"
+                        }:
+                            self._json(403, {"error": "admin required or invalid fields"})
+                            return
+                        view = network.resolve(episode_id, **body)
+                    elif action == "determination":
+                        if role != "admin" or set(body) != {"verdict", "rationale"}:
+                            self._json(403, {"error": "admin required or invalid fields"})
+                            return
+                        view = network.determine(episode_id, **body)
+                    else:
+                        self._json(404, {"error": "unknown hearing action"})
+                        return
+                    self._json(201, view.to_dict())
+                    return
+                self._json(404, {"error": "not found"})
                 return
             if method == "GET" and len(segments) == 3:
                 self._json(200, {"episode_id": episode_id, "prompt": snapshot.prompt,
@@ -186,7 +243,8 @@ class _Handler(BaseHTTPRequestHandler):
 def make_server(store: CollectiveStore, admin_token: str,
                 worker_tokens: dict[str, str],
                 integrator: ReasoningModel | None = None,
-                *, host: str = "127.0.0.1", port: int = 0) -> CollectiveHTTPServer:
+                *, host: str = "127.0.0.1", port: int = 0,
+                tkal_network=None) -> CollectiveHTTPServer:
     if type(store) is not CollectiveStore or host != "127.0.0.1":
         raise ValueError("collective service binds to IPv4 loopback only")
     if type(admin_token) is not str or not 16 <= len(admin_token) <= 256 or (
@@ -209,5 +267,11 @@ def make_server(store: CollectiveStore, admin_token: str,
     server.store = store
     server.admin_token = admin_token
     server.worker_tokens = dict(worker_tokens)
+    if tkal_network is not None:
+        from .tkal_network import TkalVirtualNetwork
+        if type(tkal_network) is not TkalVirtualNetwork or tkal_network.store is not store:
+            server.server_close()
+            raise ValueError("hearing must share the exact CollectiveStore")
+    server.tkal_network = tkal_network
     server.integrator = integrator
     return server
