@@ -84,14 +84,20 @@ def _request(gateway: str, route: str, token: str, method: str = "GET",
                 raise WorkerClientError("response over limit")
             value = json.loads(raw)
     except HTTPError as exc:
+        if method == "POST" and not 400 <= exc.code < 500:
+            raise OutcomeUnknown("OUTCOME_UNKNOWN: POST may have committed") from None
         raise WorkerClientError(f"gateway HTTP {exc.code}") from None
     except (URLError, TimeoutError, OSError, HTTPException) as exc:
         if method == "POST":
             raise OutcomeUnknown("OUTCOME_UNKNOWN: dispatched request may have committed") from None
         raise WorkerClientError("gateway transport unavailable") from None
     except (ValueError, UnicodeError, RecursionError):
+        if method == "POST":
+            raise OutcomeUnknown("OUTCOME_UNKNOWN: unreadable POST acknowledgment") from None
         raise WorkerClientError("invalid gateway response") from None
     if type(value) is not dict:
+        if method == "POST":
+            raise OutcomeUnknown("OUTCOME_UNKNOWN: malformed POST acknowledgment")
         raise WorkerClientError("invalid gateway envelope")
     return value
 
@@ -176,7 +182,7 @@ def run(action: str, gateway: str, episode_id: str, token: str,
     receipt = _request(root, route, token, method="POST", body=payload, timeout=timeout)
     expected = action + ":" + agent
     if receipt.get("contribution_id") != expected:
-        raise WorkerClientError("unexpected contribution receipt")
+        raise OutcomeUnknown("OUTCOME_UNKNOWN: unexpected contribution acknowledgment")
     input_sha = sha256(json.dumps(messages, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
     return {"episode_id": episode_id, "agent_id": agent,
             "contribution_id": expected, "kind": action,
