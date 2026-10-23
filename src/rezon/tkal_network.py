@@ -203,20 +203,21 @@ class TkalVirtualNetwork:
             c = matches[0]
             if c["disposition"] not in (None, "PARTLY_ANSWERED", "UNRESOLVED"):
                 raise CollectiveConflict("defense already finally resolved")
+            next_response, next_ref = response, evidence_ref
             if c["response"] is not None:
                 if c["disposition"] not in ("PARTLY_ANSWERED", "UNRESOLVED"):
                     raise CollectiveConflict("defense already provided")
                 # Preserve original words and references within the record.
                 # This is a continuation, not a silent replacement.
-                response = c["response"] + "\n[CONTINUATION]\n" + response
-                evidence_ref = c["response_ref"] + "; " + evidence_ref
-                if len(response) > 8192 or len(evidence_ref) > 2048:
+                next_response = c["response"] + "\n[CONTINUATION]\n" + response
+                next_ref = c["response_ref"] + "; " + evidence_ref
+                if len(next_response) > 8192 or len(next_ref) > 2048:
                     raise CollectiveValidationError("continuation exceeds bounded defense")
             conn.execute(
                 "UPDATE tkal_challenges SET response=?,response_ref=?,"
                 "disposition=NULL,rationale=NULL "
                 "WHERE episode_id=? AND challenge_id=?",
-                (response, evidence_ref, episode_id, challenge_id),
+                (next_response, next_ref, episode_id, challenge_id),
             )
             return self._view(conn, episode_id)
 
