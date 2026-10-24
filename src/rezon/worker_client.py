@@ -104,13 +104,15 @@ def _request(gateway: str, route: str, token: str, method: str = "GET",
 
 def run(action: str, gateway: str, episode_id: str, token: str,
         model_id: str | None = None, model_url: str = "http://127.0.0.1:11434/v1",
-        model_api_key: str | None = None, timeout: int = 40) -> dict:
+        model_api_key: str | None = None, timeout: int = 40, max_tokens: int = 1024) -> dict:
     """Single explicit action; never loops or retries a dispatched POST."""
     root = _gateway(gateway)
     if type(episode_id) is not str or not _EPISODE.fullmatch(episode_id):
         raise WorkerClientError("invalid episode")
     if type(timeout) is not int or not 1 <= timeout <= 120:
         raise WorkerClientError("invalid timeout")
+    if type(max_tokens) is not int or not 1 <= max_tokens <= 1024:
+        raise WorkerClientError("invalid model token budget")
     if action not in ("status", "answer", "review"):
         raise WorkerClientError("unknown worker action")
     base = "/v1/episodes/" + episode_id
@@ -171,7 +173,7 @@ def run(action: str, gateway: str, episode_id: str, token: str,
         )
         route = base + "/reviews"
     model = OpenAICompatibleModel(agent, model_id, model_url, model_api_key,
-                                  timeout_seconds=timeout, max_tokens=1024)
+                                  timeout_seconds=timeout, max_tokens=max_tokens)
     output = model.complete(messages)
     # Plain text is a claim, not a signed independent-host attestation.
     if type(output) is not str or not output.strip() or len(output) > 32_768:
@@ -201,6 +203,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model-url", default="http://127.0.0.1:11434/v1")
     parser.add_argument("--model-key-env", default="REZON_MODEL_API_KEY")
     parser.add_argument("--timeout", type=int, default=40)
+    parser.add_argument("--max-tokens", type=int, default=1024)
     args = parser.parse_args(argv)
     try:
         result = run(args.action, args.gateway, args.episode,
@@ -208,7 +211,7 @@ def main(argv: list[str] | None = None) -> int:
                      model_id=args.model,
                      model_url=args.model_url,
                      model_api_key=os.environ.get(args.model_key_env),
-                     timeout=args.timeout)
+                     timeout=args.timeout, max_tokens=args.max_tokens)
     except OutcomeUnknown:
         print("OUTCOME_UNKNOWN: inspect episode before retrying", file=sys.stderr)
         return 3

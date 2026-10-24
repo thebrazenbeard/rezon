@@ -32,7 +32,7 @@ python -m rezon.worker_client review \
   --model gemma3:1b
 ```
 
-Each invocation uses the token-bound identity the server returns, not a caller-supplied worker label. `answer` asks the local model to assess the original prompt before peer answers are available. `review` fetches the complete sealed first round, targets other participants' answers, then submits an adversarial critique. An incomplete first round yields a 409 conflict; no model invocation or fake review is created. The client does not automatically defend challenges or determine the case.
+Each invocation uses the token-bound identity the server returns, not a caller-supplied worker label. `answer` asks the local model to assess the original prompt before peer answers are available. `review` fetches the complete sealed first round, targets other participants' answers, then submits an adversarial critique. An incomplete first round yields a 409 conflict; no model invocation or fake review is created. The client does not automatically defend challenges or determine the case. The optional `--max-tokens N` controls the local model generation budget (integer 1`1024, default 1024); use a lower value such as `--max-tokens 240` for CPU-only models whose completions may otherwise outlast `--timeout`.
 
 ### Local model compatibility readback
 
