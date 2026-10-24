@@ -194,6 +194,39 @@ class WorkerClientTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertNotIn(old, stderr.getvalue())
 
+    @patch("rezon.worker_client.OpenAICompatibleModel", FakeModel)
+    def test_bounded_max_tokens_reaches_real_model_adapter(self):
+        with gateway() as (_, tokens, server, episode):
+            url = f"http://127.0.0.1:{server.server_port}"
+            reply = run("answer", url, episode, tokens["vn1"], model_id="test-model",
+                        model_api_key="local-placeholder", max_tokens=240)
+            self.assertEqual(reply["contribution_id"], "answer:vn1")
+            self.assertEqual(FakeModel.calls[0][0], "construct")
+            self.assertEqual(FakeModel.calls[0][2]["max_tokens"], 240)
+
+    def test_max_tokens_rejects_out_of_bounds_before_network_or_inference(self):
+        episode = "collective-" + "a"*32
+        for bad in (0, -1, 1025, True, "256"):
+            with self.subTest(bad=bad):
+                with patch("rezon.worker_client._request") as request:
+                    with self.assertRaises(WorkerClientError):
+                        run("answer", "https://vn2.tail86ea75.ts.net", episode,
+                            "safe-test-token-1234567890", model_id="test-model",
+                            model_api_key="local-placeholder", max_tokens=bad)
+                    request.assert_not_called()
+
+    def test_cli_forwards_max_tokens_without_printing_credentials(self):
+        token = "secret-token-for-test-only-abcdefgh"
+        episode = "collective-" + "a"*32
+        with patch("rezon.worker_client.os.environ", {"REZON_WORKER_TOKEN": token}), \
+             patch("rezon.worker_client.run", return_value={"episode_id": episode}) as run_mock, \
+             patch("rezon.worker_client.sys.stdout", new_callable=io.StringIO) as output:
+            code = main(["status", "--gateway", "https://vn2.tail86ea75.ts.net",
+                         "--episode", episode, "--max-tokens", "240"])
+        self.assertEqual(code, 0)
+        self.assertEqual(run_mock.call_args.kwargs["max_tokens"], 240)
+        self.assertNotIn(token, output.getvalue())
+
     def test_no_model_without_opt_in(self):
         with gateway() as (_, tokens, server, episode):
             with self.assertRaises(WorkerClientError):

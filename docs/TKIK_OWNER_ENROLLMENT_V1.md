@@ -74,7 +74,7 @@ After the administrator supplies the nonsecret episode ID, the operator sets it 
 ```powershell
 $episode = "collective-REPLACE_WITH_THE_CREATED_ID"
 & $py -m rezon.worker_client status --gateway https://vn2.tail86ea75.ts.net --episode $episode
-& $py -m rezon.worker_client answer --gateway https://vn2.tail86ea75.ts.net --episode $episode --model qwen3:4b-instruct --timeout 120
+& $py -m rezon.worker_client answer --gateway https://vn2.tail86ea75.ts.net --episode $episode --model qwen3:4b-instruct --max-tokens 240 --timeout 120
 ```
 
 **VN1 / Gemma** (VN1's credential only):
@@ -82,7 +82,7 @@ $episode = "collective-REPLACE_WITH_THE_CREATED_ID"
 ```powershell
 $episode = "collective-REPLACE_WITH_THE_CREATED_ID"
 & $py -m rezon.worker_client status --gateway https://vn2.tail86ea75.ts.net --episode $episode
-& $py -m rezon.worker_client answer --gateway https://vn2.tail86ea75.ts.net --episode $episode --model gemma3:1b --timeout 120
+& $py -m rezon.worker_client answer --gateway https://vn2.tail86ea75.ts.net --episode $episode --model gemma3:1b --max-tokens 240 --timeout 120
 ```
 
 **VN2 / Granite** (VN2's credential only):
@@ -92,7 +92,7 @@ EPISODE="collective-REPLACE_WITH_THE_CREATED_ID"
 PYTHON="$HOME/.local/share/rezon-venv/bin/python"
 MODEL="/home/patrick/vera-review-sandbox/models/ibm-granite_granite-3.3-2b-instruct-Q4_K_M.gguf"
 "$PYTHON" -m rezon.worker_client status --gateway https://vn2.tail86ea75.ts.net --episode "$EPISODE"
-"$PYTHON" -m rezon.worker_client answer --gateway https://vn2.tail86ea75.ts.net --episode "$EPISODE" --model "$MODEL" --model-url http://127.0.0.1:11435/v1 --timeout 120
+"$PYTHON" -m rezon.worker_client answer --gateway https://vn2.tail86ea75.ts.net --episode "$EPISODE" --model "$MODEL" --model-url http://127.0.0.1:11435/v1 --max-tokens 240 --timeout 120
 ```
 
 **Lappy / Ministral** (in a separate owner shell, clear the previous `lappy` token first; enter `malaphor` token via the same hidden-entry procedure):
@@ -100,7 +100,7 @@ MODEL="/home/patrick/vera-review-sandbox/models/ibm-granite_granite-3.3-2b-instr
 ```powershell
 $episode = "collective-REPLACE_WITH_THE_CREATED_ID"
 & $py -m rezon.worker_client status --gateway https://vn2.tail86ea75.ts.net --episode $episode
-& $py -m rezon.worker_client answer --gateway https://vn2.tail86ea75.ts.net --episode $episode --model ministral-3:14b --timeout 120
+& $py -m rezon.worker_client answer --gateway https://vn2.tail86ea75.ts.net --episode $episode --model ministral-3:14b --max-tokens 240 --timeout 120
 ```
 
 A receipt with `gateway_status=ACCEPTED_UNATTESTED` establishes acceptance under the bearer-bound *claimed* role, not proof of which physical host ran it. If exit code is **3 / OUTCOME_UNKNOWN**, inspect server episode state before doing anything again; **never blindly retry the POST**. A failed model invocation must not be recorded as an accepted contribution.
@@ -110,10 +110,18 @@ A receipt with `gateway_status=ACCEPTED_UNATTESTED` establishes acceptance under
 When **all four first answers** have been accepted, each worker uses its own credential again and runs the analogous explicit `review` command:
 
 ```powershell
-& $py -m rezon.worker_client review --gateway https://vn2.tail86ea75.ts.net --episode $episode --model gemma3:1b --timeout 120
+& $py -m rezon.worker_client review --gateway https://vn2.tail86ea75.ts.net --episode $episode --model gemma3:1b --max-tokens 240 --timeout 120
 ```
 
 Replace the example model with that worker's model from Gate 3. VN2 uses the additional `--model-url http://127.0.0.1:11435/v1`. The server withholds the peer round until initial answers are complete. Each worker must target exactly the **three other** answer IDs. Keep client receipt IDs, source-head identifiers, model claims and outcome-unknown cases distinct from host attestation.
+
+For the VN2 review step, the exact local invocation is:
+
+```bash
+"$PYTHON" -m rezon.worker_client review --gateway https://vn2.tail86ea75.ts.net --episode "$EPISODE" --model "$MODEL" --model-url http://127.0.0.1:11435/v1 --max-tokens 240 --timeout 120
+```
+
+The bounded `--max-tokens` argument controls the **generation budget**, not gateway security. If a model times out, retain the explicit failed/outcome-unknown status and inspect the durable episode before retrying.
 
 The **local VN2 owner** verifies the durable store separately after the round (no bearer material required):
 
