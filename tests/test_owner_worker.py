@@ -7,7 +7,7 @@ import io
 import json
 import secrets
 import unittest
-from unittest.mock import patch, call
+from unittest.mock import patch, call, MagicMock
 
 from rezon.collective import CollectiveStore
 from rezon.collective_http import make_server
@@ -132,6 +132,41 @@ class EnrollmentTests(unittest.TestCase):
             with self.assertRaises(owner_worker.credential_store.CredentialError):
                 owner_worker.credential_store.save("vn1", "fake-secret-123456789012345")
             open_file.assert_not_called()
+
+    def test_linux_python_secret_service_store_when_secret_tool_missing(self):
+        secret = "synthetic-only-test-1234567890"
+        module = MagicMock()
+        collection = module.get_default_collection.return_value
+        collection.is_locked.return_value = False
+        with patch("rezon.credential_store.sys.platform", "linux"), \\
+             patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError), \\
+             patch.dict("sys.modules", {"secretstorage": module}), \\
+             patch("builtins.open") as opened:
+            owner_worker.credential_store.save("vn2", secret)
+        collection.create_item.assert_called_once_with(
+            "Rezon worker vn2",
+            {"service": "rezon-tkik", "role": "vn2"},
+            secret.encode("ascii"),
+            replace=True,
+        )
+        opened.assert_not_called()
+
+    def test_linux_python_secret_service_load_when_secret_tool_missing(self):
+        secret = "synthetic-only-test-1234567890"
+        module = MagicMock()
+        item = MagicMock()
+        item.is_locked.return_value = False
+        item.get_secret.return_value = secret.encode("ascii")
+        module.search_items.return_value = [item]
+        with patch("rezon.credential_store.sys.platform", "linux"), \\
+             patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError), \\
+             patch.dict("sys.modules", {"secretstorage": module}):
+            result = owner_worker.credential_store.load("vn2")
+        self.assertEqual(result, secret)
+        module.search_items.assert_called_once_with(
+            module.dbus_init.return_value,
+            {"service": "rezon-tkik", "role": "vn2"},
+        )
 
     def test_cli_never_logs_prompted_token_in_failure(self):
         secret = "fake-secret-token-for-tests-abcdef"
