@@ -34,6 +34,19 @@ def sample_gateway():
 
 
 class EnrollmentTests(unittest.TestCase):
+    def test_no_interactive_terminal_refuses_to_prompt_or_store(self):
+        with patch("rezon.owner_worker.sys.stdin") as stdin, \\
+             patch("rezon.owner_worker.getpass.getpass") as prompt, \\
+             patch("rezon.owner_worker.client_run") as network, \\
+             patch("rezon.owner_worker.credential_store.save") as save:
+            stdin.isatty.return_value = False
+            with self.assertRaises(owner_worker.EnrollmentError):
+                owner_worker.enroll("vn1", "https://vn2.tail86ea75.ts.net",
+                                    "collective-"+"a"*32)
+            prompt.assert_not_called()
+            network.assert_not_called()
+            save.assert_not_called()
+
     def test_owner_enrollment_verifies_exact_role_before_saving(self):
         with sample_gateway() as (gateway, episode, tokens), \
              patch("rezon.owner_worker.getpass.getpass", return_value=tokens["vn1"]), \
