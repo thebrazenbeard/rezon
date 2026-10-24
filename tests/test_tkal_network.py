@@ -13,7 +13,7 @@ import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from rezon.collective import CollectiveConflict, CollectiveStore
+from rezon.collective import CollectiveConflict, CollectiveStore, CollectiveValidationError
 from rezon.collective_http import make_server
 from rezon.tkal_network import TkalVirtualNetwork
 
@@ -69,8 +69,10 @@ class TkalNetworkTests(unittest.TestCase):
     def test_self_target_reviews_do_not_satisfy_peer_quorum(self):
         self.seal_answers()
         for agent in ("vn1", "vn2", "malaphor"):
-            self.store.submit_review(self.episode, agent, "self-check by "+agent,
-                                     ("answer:"+agent,))
+            with self.assertRaises(CollectiveValidationError):
+                self.store.submit_review(self.episode, agent, "self-check by "+agent,
+                                         ("answer:"+agent,))
+        self.assertEqual(self.store.snapshot(self.episode).reviews, ())
         with self.assertRaises(CollectiveConflict):
             self.open()
 

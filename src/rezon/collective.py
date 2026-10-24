@@ -274,6 +274,8 @@ class CollectiveStore:
                         {a.contribution_id for a in snap.answers}
                     ):
                         raise CollectiveValidationError("review targets must be existing answers")
+                    if f"answer:{agent_id}" in target_ids:
+                        raise CollectiveValidationError("review cannot target own answer")
                 elif target_ids:
                     raise CollectiveValidationError("initial answers cannot target peers")
                 previous = conn.execute("""SELECT content,refs_json,targets_json FROM contributions
