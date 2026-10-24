@@ -126,11 +126,18 @@ class EnrollmentTests(unittest.TestCase):
         self.assertFalse(run.call_args.kwargs.get("shell", False))
 
     def test_linux_missing_secret_service_never_falls_back_to_plaintext_file(self):
+        # Simulate both providers being unavailable. Never touch the host keyring:
+        # on VN2, secretstorage may access a real unlocked Secret Service.
+        unavailable = owner_worker.credential_store.CredentialError(
+            "Python Secret Service client unavailable"
+        )
         with patch("rezon.credential_store.sys.platform", "linux"), \
              patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError), \
+             patch("rezon.credential_store._python_service", side_effect=unavailable) as python_service, \
              patch("builtins.open") as open_file:
             with self.assertRaises(owner_worker.credential_store.CredentialError):
                 owner_worker.credential_store.save("vn1", "fake-secret-123456789012345")
+            python_service.assert_called_once_with()
             open_file.assert_not_called()
 
     def test_linux_python_secret_service_store_when_secret_tool_missing(self):
