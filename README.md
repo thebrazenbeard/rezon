@@ -129,6 +129,22 @@ python -m rezon.worker_client status --gateway https://vn2.tail86ea75.ts.net \
   --episode collective-REPLACE_WITH_ID
 ```
 
+An alternative, **owner-local** enrollment flow is available in
+[the OS credential vault guide](docs/OWNER_LOCAL_CREDENTIAL_ENROLLMENT_V1.md).
+The new `rezon.owner_worker` commands verify a specific worker's gateway
+identity, then store its bearer in that local user's Windows Credential
+Manager or Linux Secret Service—without shell arguments, plaintext files, or
+ChatGPT-connected credential transfer. Enrollment refuses noninteractive
+terminals, and each one-shot action checks the role again:
+
+```sh
+python -m rezon.owner_worker enroll --role vn1 --gateway https://vn2.tail86ea75.ts.net --episode collective-REPLACE_WITH_ID
+python -m rezon.owner_worker status --role vn1 --gateway https://vn2.tail86ea75.ts.net --episode collective-REPLACE_WITH_ID
+```
+
+This does **not** automatically enroll the current running machines; the owner
+must privately provide each assigned bearer in a local interactive session.
+
 For `answer` and `review`, configure a localhost OpenAI-compatible model and
 its separate API-key environment variable. External gateways require HTTPS
 and certificate validation; bearer redirects are refused. Accepted receipts
