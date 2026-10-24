@@ -35,10 +35,10 @@ def sample_gateway():
 
 class EnrollmentTests(unittest.TestCase):
     def test_no_interactive_terminal_refuses_to_prompt_or_store(self):
-        with patch("rezon.owner_worker.sys.stdin") as stdin, \\
-             patch("rezon.owner_worker.getpass.getpass") as prompt, \\
-             patch("rezon.owner_worker.client_run") as network, \\
-             patch("rezon.owner_worker.credential_store.save") as save:
+        with (patch("rezon.owner_worker.sys.stdin") as stdin,
+              patch("rezon.owner_worker.getpass.getpass") as prompt,
+              patch("rezon.owner_worker.client_run") as network,
+              patch("rezon.owner_worker.credential_store.save") as save):
             stdin.isatty.return_value = False
             with self.assertRaises(owner_worker.EnrollmentError):
                 owner_worker.enroll("vn1", "https://vn2.tail86ea75.ts.net",
