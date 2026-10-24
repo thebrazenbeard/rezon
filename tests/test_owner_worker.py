@@ -138,10 +138,10 @@ class EnrollmentTests(unittest.TestCase):
         module = MagicMock()
         collection = module.get_default_collection.return_value
         collection.is_locked.return_value = False
-        with patch("rezon.credential_store.sys.platform", "linux"), \\
-             patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError), \\
-             patch.dict("sys.modules", {"secretstorage": module}), \\
-             patch("builtins.open") as opened:
+        with (patch("rezon.credential_store.sys.platform", "linux"),
+              patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError),
+              patch.dict("sys.modules", {"secretstorage": module}),
+              patch("builtins.open") as opened):
             owner_worker.credential_store.save("vn2", secret)
         collection.create_item.assert_called_once_with(
             "Rezon worker vn2",
@@ -158,9 +158,9 @@ class EnrollmentTests(unittest.TestCase):
         item.is_locked.return_value = False
         item.get_secret.return_value = secret.encode("ascii")
         module.search_items.return_value = [item]
-        with patch("rezon.credential_store.sys.platform", "linux"), \\
-             patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError), \\
-             patch.dict("sys.modules", {"secretstorage": module}):
+        with (patch("rezon.credential_store.sys.platform", "linux"),
+              patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError),
+              patch.dict("sys.modules", {"secretstorage": module})):
             result = owner_worker.credential_store.load("vn2")
         self.assertEqual(result, secret)
         module.search_items.assert_called_once_with(
