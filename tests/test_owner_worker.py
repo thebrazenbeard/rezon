@@ -49,6 +49,7 @@ class EnrollmentTests(unittest.TestCase):
 
     def test_owner_enrollment_verifies_exact_role_before_saving(self):
         with sample_gateway() as (gateway, episode, tokens), \
+             patch("rezon.owner_worker._interactive", return_value=True), \
              patch("rezon.owner_worker.getpass.getpass", return_value=tokens["vn1"]), \
              patch("rezon.owner_worker.credential_store.save") as save:
             result = owner_worker.enroll("vn1", gateway, episode)
@@ -59,6 +60,7 @@ class EnrollmentTests(unittest.TestCase):
 
     def test_cross_role_token_is_not_enrolled(self):
         with sample_gateway() as (gateway, episode, tokens), \
+             patch("rezon.owner_worker._interactive", return_value=True), \
              patch("rezon.owner_worker.getpass.getpass", return_value=tokens["lappy"]), \
              patch("rezon.owner_worker.credential_store.save") as save:
             with self.assertRaises(owner_worker.EnrollmentError):
@@ -66,11 +68,13 @@ class EnrollmentTests(unittest.TestCase):
         save.assert_not_called()
 
     def test_enrollment_rejects_invalid_role_and_missing_token(self):
-        with patch("rezon.owner_worker.getpass.getpass", return_value=""):
+        with patch("rezon.owner_worker._interactive", return_value=True), \
+             patch("rezon.owner_worker.getpass.getpass", return_value=""):
             with self.assertRaises(owner_worker.EnrollmentError):
                 owner_worker.enroll("lappy", "https://vn2.tail86ea75.ts.net",
                                     "collective-"+"a"*32)
-        with patch("rezon.owner_worker.getpass.getpass") as prompt:
+        with patch("rezon.owner_worker._interactive", return_value=True), \
+             patch("rezon.owner_worker.getpass.getpass") as prompt:
             with self.assertRaises(owner_worker.EnrollmentError):
                 owner_worker.enroll("admin", "https://vn2.tail86ea75.ts.net",
                                     "collective-"+"a"*32)
@@ -131,7 +135,8 @@ class EnrollmentTests(unittest.TestCase):
 
     def test_cli_never_logs_prompted_token_in_failure(self):
         secret = "fake-secret-token-for-tests-abcdef"
-        with patch("rezon.owner_worker.getpass.getpass", return_value=secret), \
+        with patch("rezon.owner_worker._interactive", return_value=True), \
+             patch("rezon.owner_worker.getpass.getpass", return_value=secret), \
              patch("rezon.owner_worker.client_run", side_effect=ValueError(secret)), \
              patch("rezon.owner_worker.sys.stderr", new_callable=io.StringIO) as stderr:
             rc = owner_worker.main(["enroll","--role","vn1",
