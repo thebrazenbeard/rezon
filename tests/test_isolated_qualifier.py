@@ -1,5 +1,7 @@
 """A reproducible real-HTTP isolated hearing is not production enrollment."""
 import json
+import subprocess
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -58,3 +60,15 @@ def test_existing_output_is_not_overwritten():
         target.mkdir()
         with pytest.raises(QualificationError):
             qualify(target)
+
+
+def test_python_optimized_mode_cannot_skip_qualification_assertions():
+    with TemporaryDirectory() as tmp:
+        output = Path(tmp) / "must-not-run-optimized"
+        result = subprocess.run(
+            [sys.executable, "-O", "-m", "rezon.qualify_isolated",
+             "--output", str(output)],
+            capture_output=True, text=True, timeout=20,
+        )
+        assert result.returncode != 0
+        assert not output.exists()

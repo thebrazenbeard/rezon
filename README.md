@@ -154,6 +154,36 @@ gateway or bearer-authorized episode is **not** physical host or model
 attestation. Without a previously enrolled token and episode this probe cannot
 qualify remote participation.
 
+## Reproducible isolated T'Kal protocol qualification
+
+Use the opt-in [isolated qualifier](src/rezon/qualify_isolated.py) to
+exercise the actual localhost HTTP gateway, separate ephemeral worker
+bearers, durable SQLite first answers/peer reviews, hearing challenges,
+attributed defenses and a final REFINE determination, without reading or
+changing the running production service or its credentials.
+
+For an offline protocol-only test, run:
+
+```sh
+python -m rezon.qualify_isolated --output ./qualification-fixture
+```
+
+On VN2, optionally verify one actual locally hosted Granite inference:
+
+```sh
+python -m rezon.qualify_isolated --output ./qualification-real-model   --model /home/patrick/vera-review-sandbox/models/ibm-granite_granite-3.3-2b-instruct-Q4_K_M.gguf   --model-url http://127.0.0.1:11435/v1 --max-tokens 120
+```
+
+The output directory must not exist. It contains an owner-private SQLite
+database and a secret-free JSON report. Generated credentials remain in
+process memory and are not persisted. All nonlocal model URLs are rejected.
+The qualifier refuses Python optimized mode because it would disable
+assertion-based protocol checks. **Fixture workers are not independent live
+model executions:** with --model exactly one worker invokes a real model,
+and the other answers, peer reviews and defenses are labeled synthetic.
+This is not production credential enrollment, host attestation or proof
+of scientific truth.
+
 ## Current status
 
 Kernel V0 and the opt-in collective V1 are executable and covered by automated

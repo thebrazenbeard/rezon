@@ -52,6 +52,8 @@ def qualify(output: Path, *, model: str | None = None,
             model_url: str = "http://127.0.0.1:11435/v1",
             max_tokens: int = 120) -> dict:
     """Exercise real loopback HTTP, real persistent SQLite and optional local model."""
+    if not __debug__:
+        raise QualificationError("optimized Python disables required validation")
     path = Path(output)
     if path.exists():
         raise QualificationError("output path already exists")
