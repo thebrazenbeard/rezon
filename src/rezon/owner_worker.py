@@ -41,9 +41,16 @@ def _verify(role: str, gateway: str, episode: str, token: str,
     return status
 
 
+def _interactive() -> bool:
+    """Fail closed instead of allowing getpass to echo a fallback prompt."""
+    return sys.stdin.isatty() and sys.stderr.isatty()
+
+
 def enroll(role: str, gateway: str, episode: str) -> dict:
     """Owner must perform this in a local terminal; no secret ever returned."""
     _role(role)
+    if not _interactive():
+        raise EnrollmentError("private interactive owner terminal required")
     token = getpass.getpass("Assigned " + role + " worker bearer (hidden): ")
     try:
         credential_store.validate_token(token)
