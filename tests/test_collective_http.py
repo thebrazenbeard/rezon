@@ -109,3 +109,35 @@ def test_bad_roster_returns_client_error_and_server_remains_healthy():
             server.shutdown()
             server.server_close()
             thread.join(timeout=3)
+
+
+def test_http_peer_review_rejects_self_and_mixed_targets_without_side_effects():
+    with TemporaryDirectory() as tmp:
+        store = CollectiveStore(f"{tmp}/episodes.sqlite3")
+        server = make_server(store, ADMIN, TOKENS)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            status, created = _call(server, "POST", "/v1/episodes", ADMIN,
+                                    {"prompt": "Assess independent challenges",
+                                     "agents": ["alice", "bob"]})
+            assert status == 201
+            ep = created["episode_id"]
+            for agent in ("alice", "bob"):
+                assert _call(server, "POST", f"/v1/episodes/{ep}/answers",
+                             TOKENS[agent], {"content": f"Initial {agent} claim"})[0] == 201
+
+            for targets in (["answer:alice"], ["answer:bob", "answer:alice"]):
+                assert _call(server, "POST", f"/v1/episodes/{ep}/reviews",
+                             TOKENS["alice"], {"content": "Not independent",
+                                              "target_ids": targets})[0] == 400
+            assert store.snapshot(ep).reviews == ()
+
+            assert _call(server, "POST", f"/v1/episodes/{ep}/reviews",
+                         TOKENS["alice"], {"content": "Specific challenge to Bob",
+                                          "target_ids": ["answer:bob"]})[0] == 201
+            assert store.snapshot(ep).reviews[0].target_ids == ("answer:bob",)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
