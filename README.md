@@ -125,6 +125,15 @@ explicit `--tkal` flag:
 python -m rezon.collective_cli serve --db ./private-collective.sqlite3 --tkal
 ```
 
+SQLite path admission refuses file symlinks/reparse points and untrusted
+directory ancestry before creation and on later read/write connections. On
+POSIX, newly created database files are owner-only (`0600`); permissions of
+**existing regular databases remain operator-managed** and must be audited
+before sensitive use. Windows NTFS effective-ACL qualification is **not yet
+implemented**, so these source checks alone do not establish an owner-private
+installed Windows database or prevent a path swap by another ACL-authorized
+account. Such installation remains HOLD pending native ACL validation.
+
 This adds durable three-lens challenge, defense, resolution, REFINE and
 SUSTAIN inquiry over a four-worker Collective episode. Three distinct
 cross-peer exchanges are required for SUSTAIN; self-targeted initial reviews,

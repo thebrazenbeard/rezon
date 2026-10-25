@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 import sqlite3
+import stat
 from typing import Protocol
 from uuid import uuid4
 
@@ -141,11 +142,16 @@ class CollectiveStore:
     """SQLite-WAL, append-only per-worker rounds; one connection per operation."""
 
     def __init__(self, database: str | Path):
-        self.database = str(database)
-        if not self.database or self.database == ":memory:":
+        if not str(database) or str(database) == ":memory:":
             raise CollectiveValidationError("a persistent database file is required")
-        db_path = Path(self.database)
+        # Normalize lexical aliases, not symlinks: the latter must be rejected.
+        db_path = Path(os.path.abspath(os.fspath(database)))
+        self.database = str(db_path)
+        # Validate every *existing* ancestor before mkdir can follow an alias
+        # and create directories outside the operator's intended tree.
+        self._check_database_path(allow_missing_parents=True)
         db_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self._check_database_path()
         # sqlite3.connect otherwise creates a readable-by-others 0644 file
         # under the typical umask, disclosing workers' private deliberations.
         # An existing file's permission policy remains operator-owned.
@@ -190,8 +196,52 @@ class CollectiveStore:
                 );
             """)
 
+    def _check_database_path(self, *, allow_missing_parents: bool = False) -> None:
+        """Reject path redirection across an untrusted filesystem boundary.
+
+        SQLite reopens the filename, so the ancestor chain must not be
+        replaceable by another local user. Existing regular database modes
+        remain an explicit operator policy, never silently chmodded here.
+        """
+        path = Path(self.database)
+        ancestors = tuple(reversed((path.parent, *path.parent.parents)))
+        for ancestor in ancestors:
+            if ancestor.is_symlink() or ancestor.is_junction():
+                raise CollectiveValidationError("database directory reparse path denied")
+            try:
+                info = ancestor.lstat()
+            except FileNotFoundError:
+                if allow_missing_parents:
+                    continue
+                raise CollectiveValidationError("database directory inaccessible") from None
+            except OSError as exc:
+                raise CollectiveValidationError("database directory inaccessible") from exc
+            if not stat.S_ISDIR(info.st_mode):
+                raise CollectiveValidationError("database directory is not a directory")
+            if os.name == "posix":
+                if info.st_uid not in (0, os.getuid()):
+                    raise CollectiveValidationError("database directory is not trusted")
+                if info.st_mode & 0o022:
+                    # /tmp-style root-owned sticky directories protect
+                    # owner-managed children against other local users.
+                    if not (info.st_uid == 0 and info.st_mode & stat.S_ISVTX):
+                        raise CollectiveValidationError("database directory is writable by others")
+        if path.is_symlink() or path.is_junction():
+            raise CollectiveValidationError("database file reparse path denied")
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            return
+        except OSError as exc:
+            raise CollectiveValidationError("database file inaccessible") from exc
+        if not stat.S_ISREG(info.st_mode):
+            raise CollectiveValidationError("database file is not regular")
+        if os.name == "posix" and info.st_uid != os.getuid():
+            raise CollectiveValidationError("database file owner mismatch")
+
     @contextmanager
     def _connect(self):
+        self._check_database_path()
         conn = sqlite3.connect(self.database, timeout=10, isolation_level=None)
         try:
             conn.execute("PRAGMA foreign_keys=ON")
@@ -224,6 +274,7 @@ class CollectiveStore:
                 "response_ref,disposition,rationale FROM tkal_challenges LIMIT 0",
             )
         try:
+            self._check_database_path()
             uri = Path(self.database).absolute().as_uri() + "?mode=ro"
             with closing(sqlite3.connect(uri, uri=True, timeout=0.25)) as conn:
                 conn.execute("PRAGMA query_only=ON")
@@ -231,7 +282,7 @@ class CollectiveStore:
                 for query in queries:
                     conn.execute(query).fetchone()
             return True
-        except (OSError, sqlite3.DatabaseError):
+        except (CollectiveValidationError, OSError, sqlite3.DatabaseError):
             return False
 
     def create(self, prompt: str, agents: tuple[str, ...]) -> str:

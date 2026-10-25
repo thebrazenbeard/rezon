@@ -4,7 +4,7 @@ import os
 import stat
 import subprocess
 import sys
-from tempfile import TemporaryDirectory
+from tempfile import NamedTemporaryFile, TemporaryDirectory, gettempdir
 from threading import Barrier, Event, Thread
 
 import pytest
@@ -273,6 +273,97 @@ def test_fresh_episode_database_is_owner_only():
         path = Path(tmp) / "private.sqlite3"
         CollectiveStore(path)
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink and mode semantics")
+def test_collective_rejects_dangling_sqlite_symlink_without_creating_target():
+    with TemporaryDirectory() as tmp:
+        victim = Path(tmp) / "not-created.sqlite3"
+        link = Path(tmp) / "episodes.sqlite3"
+        link.symlink_to(victim)
+        with pytest.raises(CollectiveValidationError, match="reparse"):
+            CollectiveStore(link)
+        assert not victim.exists()
+        assert link.is_symlink()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink and mode semantics")
+def test_collective_rejects_existing_sqlite_symlink_without_changing_victim():
+    import sqlite3
+
+    with TemporaryDirectory() as tmp:
+        victim = Path(tmp) / "victim.sqlite3"
+        with sqlite3.connect(victim) as conn:
+            conn.execute("CREATE TABLE protected (marker TEXT)")
+            conn.execute("INSERT INTO protected VALUES ('intact')")
+        link = Path(tmp) / "episodes.sqlite3"
+        link.symlink_to(victim)
+        with pytest.raises(CollectiveValidationError, match="reparse"):
+            CollectiveStore(link)
+        with sqlite3.connect(victim) as conn:
+            assert conn.execute("SELECT marker FROM protected").fetchall() == [("intact",)]
+            assert conn.execute("SELECT name FROM sqlite_master WHERE name='episodes'").fetchall() == []
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink and mode semantics")
+def test_collective_revalidates_replaced_sqlite_path_for_reads_and_writes():
+    with TemporaryDirectory() as tmp:
+        path = Path(tmp) / "episodes.sqlite3"
+        store = CollectiveStore(path)
+        episode = store.create("Original", ("a",))
+        path.rename(Path(tmp) / "moved.sqlite3")
+        path.symlink_to(Path(tmp) / "moved.sqlite3")
+        assert store.readable() is False
+        with pytest.raises(CollectiveValidationError, match="reparse"):
+            store.snapshot(episode)
+        with pytest.raises(CollectiveValidationError, match="reparse"):
+            store.create("Different", ("b",))
+        assert CollectiveStore(Path(tmp) / "moved.sqlite3").snapshot(episode).prompt == "Original"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX directory permission semantics")
+def test_collective_rejects_writable_parent_and_parent_symlink():
+    with TemporaryDirectory() as tmp:
+        unsafe = Path(tmp) / "insecure"
+        unsafe.mkdir(mode=0o777)
+        unsafe.chmod(0o777)
+        with pytest.raises(CollectiveValidationError, match="writable"):
+            CollectiveStore(unsafe / "episodes.sqlite3")
+        assert not (unsafe / "episodes.sqlite3").exists()
+        private = Path(tmp) / "private"
+        private.mkdir(mode=0o700)
+        alias = Path(tmp) / "alias"
+        alias.symlink_to(private, target_is_directory=True)
+        with pytest.raises(CollectiveValidationError, match="reparse"):
+            CollectiveStore(alias / "episodes.sqlite3")
+        assert not (private / "episodes.sqlite3").exists()
+        with pytest.raises(CollectiveValidationError, match="reparse"):
+            CollectiveStore(alias / "newdir" / "nested" / "episodes.sqlite3")
+        assert not (private / "newdir").exists()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX sticky directory semantics")
+def test_collective_accepts_caller_owned_file_under_root_sticky_temp():
+    temp = Path(gettempdir())
+    info = temp.stat()
+    if info.st_uid != 0 or not (info.st_mode & stat.S_ISVTX):
+        pytest.skip("system temp is not a root-owned sticky directory")
+    with NamedTemporaryFile(suffix=".sqlite3", dir=temp) as handle:
+        store = CollectiveStore(handle.name)
+        episode = store.create("Direct sticky parent", ("a",))
+        assert store.snapshot(episode).prompt == "Direct sticky parent"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX existing-file mode semantics")
+def test_collective_preserves_operator_owned_existing_regular_db_permissions():
+    with TemporaryDirectory() as tmp:
+        path = Path(tmp) / "shared.sqlite3"
+        first = CollectiveStore(path)
+        episode = first.create("Keep records", ("a",))
+        path.chmod(0o666)
+        reopened = CollectiveStore(path)
+        assert reopened.snapshot(episode).prompt == "Keep records"
+        assert stat.S_IMODE(path.stat().st_mode) == 0o666
 
 
 def test_models_challenge_one_another_only_after_initial_answers_finish():
