@@ -18,6 +18,8 @@ The enrollment client uses **Windows Credential Manager** (per-user Generic Cred
 
 The source binding for this optional dependency is declared as `.[linux-keyring]` in `pyproject.toml`. VN2 can access the already-running GNOME keyring; it does not need a second keyring or any privileged package installation. Neither backend writes a plaintext worker token file.
 
+The Python fallback checks matching role metadata in the **entire** Secret Service before storing in the default collection, then rechecks that exactly one unlocked item remains and that it is the item just stored. A duplicate in another collection, locked match, or race makes enrollment fail closed rather than report a false success. This check does not retrieve other stored secrets or delete entries in another collection. A write interrupted by a concurrent conflicting item may leave a partially enrolled default-collection item: resolve the conflict using your own vault UI before retrying, not automatic cleanup. Successful metadata checks are not proof of physical-host identity or of the later gateway request.
+
 ## Enroll in an owner-controlled terminal
 
 On **Lappy and VN1**, in a **local PowerShell terminal**:

@@ -145,6 +145,11 @@ class EnrollmentTests(unittest.TestCase):
         module = MagicMock()
         collection = module.get_default_collection.return_value
         collection.is_locked.return_value = False
+        collection.search_items.return_value = []
+        created = collection.create_item.return_value
+        created.item_path = "/default/created"
+        created.is_locked.return_value = False
+        module.search_items.side_effect = [[], [created]]
         with (patch("rezon.credential_store.sys.platform", "linux"),
               patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError),
               patch.dict("sys.modules", {"secretstorage": module}),
@@ -157,6 +162,114 @@ class EnrollmentTests(unittest.TestCase):
             replace=True,
         )
         opened.assert_not_called()
+
+    def test_linux_python_save_rejects_cross_collection_duplicate_before_write(self):
+        secret = "synthetic-only-test-1234567890"
+        module = MagicMock()
+        collection = module.get_default_collection.return_value
+        collection.is_locked.return_value = False
+        foreign = MagicMock(item_path="/foreign/role", is_locked=MagicMock(return_value=False))
+        collection.search_items.return_value = []
+        module.search_items.return_value = [foreign]
+        with (patch("rezon.credential_store.sys.platform", "linux"),
+              patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError),
+              patch.dict("sys.modules", {"secretstorage": module})):
+            with self.assertRaises(owner_worker.credential_store.CredentialError):
+                owner_worker.credential_store.save("vn2", secret)
+        collection.create_item.assert_not_called()
+
+    def test_linux_python_save_rejects_raced_duplicate_after_write(self):
+        secret = "synthetic-only-test-1234567890"
+        module = MagicMock()
+        collection = module.get_default_collection.return_value
+        collection.is_locked.return_value = False
+        created = collection.create_item.return_value
+        created.item_path = "/default/new"
+        duplicate = MagicMock(item_path="/other/raced")
+        collection.search_items.return_value = []
+        module.search_items.side_effect = [[], [created, duplicate]]
+        with (patch("rezon.credential_store.sys.platform", "linux"),
+              patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError),
+              patch.dict("sys.modules", {"secretstorage": module})):
+            with self.assertRaises(owner_worker.credential_store.CredentialError):
+                owner_worker.credential_store.save("vn2", secret)
+        collection.create_item.assert_called_once()
+        duplicate.delete.assert_not_called()
+
+    def test_linux_python_save_rejects_wrong_identity_after_write(self):
+        secret = "synthetic-only-test-1234567890"
+        module = MagicMock()
+        collection = module.get_default_collection.return_value
+        collection.is_locked.return_value = False
+        collection.search_items.return_value = []
+        created = collection.create_item.return_value
+        created.item_path = "/default/new"
+        other = MagicMock(item_path="/default/other")
+        module.search_items.side_effect = [[], [other]]
+        with (patch("rezon.credential_store.sys.platform", "linux"),
+              patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError),
+              patch.dict("sys.modules", {"secretstorage": module})):
+            with self.assertRaises(owner_worker.credential_store.CredentialError):
+                owner_worker.credential_store.save("vn2", secret)
+        collection.create_item.assert_called_once()
+
+    def test_linux_python_save_replaces_only_unique_default_collection_item(self):
+        secret = "synthetic-only-test-1234567890"
+        module = MagicMock()
+        collection = module.get_default_collection.return_value
+        collection.is_locked.return_value = False
+        original = MagicMock(item_path="/default/old")
+        original.is_locked.return_value = False
+        created = collection.create_item.return_value
+        created.item_path = "/default/replacement"
+        created.is_locked.return_value = False
+        collection.search_items.return_value = [original]
+        module.search_items.side_effect = [[original], [created]]
+        with (patch("rezon.credential_store.sys.platform", "linux"),
+              patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError),
+              patch.dict("sys.modules", {"secretstorage": module})):
+            owner_worker.credential_store.save("vn2", secret)
+        collection.create_item.assert_called_once()
+        original.delete.assert_not_called()
+
+    def test_linux_python_save_rejects_locked_matching_item_without_write(self):
+        module = MagicMock()
+        collection = module.get_default_collection.return_value
+        collection.is_locked.return_value = False
+        locked_item = MagicMock(item_path="/default/locked")
+        locked_item.is_locked.return_value = True
+        collection.search_items.return_value = [locked_item]
+        module.search_items.return_value = [locked_item]
+        with (patch("rezon.credential_store.sys.platform", "linux"),
+              patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError),
+              patch.dict("sys.modules", {"secretstorage": module})):
+            with self.assertRaises(owner_worker.credential_store.CredentialError):
+                owner_worker.credential_store.save("vn2", "synthetic-only-test-1234567890")
+        collection.create_item.assert_not_called()
+
+    def test_linux_python_save_duplicate_causes_enroll_failure_not_success(self):
+        secret = "synthetic-only-test-1234567890"
+        module = MagicMock()
+        collection = module.get_default_collection.return_value
+        collection.is_locked.return_value = False
+        collection.search_items.return_value = []
+        created = collection.create_item.return_value
+        created.item_path = "/default/new"
+        created.is_locked.return_value = False
+        foreign = MagicMock(item_path="/other/raced")
+        module.search_items.side_effect = [[], [created, foreign]]
+        status = {"agent_id": "vn2", "episode_id": "collective-" + "a"*32}
+        with (patch("rezon.credential_store.sys.platform", "linux"),
+              patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError),
+              patch.dict("sys.modules", {"secretstorage": module}),
+              patch("rezon.owner_worker._interactive", return_value=True),
+              patch("rezon.owner_worker.getpass.getpass", return_value=secret),
+              patch("rezon.owner_worker.client_run", return_value=status)):
+            with self.assertRaises(owner_worker.EnrollmentError):
+                owner_worker.enroll("vn2", "http://127.0.0.1:8765",
+                                    status["episode_id"])
+        collection.create_item.assert_called_once()
+        foreign.delete.assert_not_called()
 
     def test_linux_python_secret_service_load_when_secret_tool_missing(self):
         secret = "synthetic-only-test-1234567890"
