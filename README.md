@@ -211,6 +211,12 @@ gateway or bearer-authorized episode is **not** physical host or model
 attestation. Without a previously enrolled token and episode this probe cannot
 qualify remote participation.
 
+For PORTAL's separate, read-only V2 HMAC observer route, the
+[VN2 source/loopback challenge preflight](docs/qualification/VN2_STATE_READ_UPGRADE_PREFLIGHT_V1.md)
+is a credential-free first gate. It checks exact clean source and one bounded
+challenge shape, **not** authenticated state, an installed upgrade, or a
+cross-node PORTAL connection. Its output never authorizes deployment.
+
 ## Reproducible isolated T'Kal protocol qualification
 
 Use the opt-in [isolated qualifier](src/rezon/qualify_isolated.py) to
