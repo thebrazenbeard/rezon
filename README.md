@@ -241,6 +241,11 @@ and the other answers, peer reviews and defenses are labeled synthetic.
 This is not production credential enrollment, host attestation or proof
 of scientific truth.
 
+For a source-bound, non-disruptive **private SQLite and service-configuration
+checkpoint**, use the [VN2 recovery checkpoint utility and gates](docs/qualification/VN2_PRIVATE_RECOVERY_CHECKPOINT_V1.md).
+That utility does not deploy a newer Rezon service or read/print private token
+values. Its PASS is backup custody and disposable restore integrity only.
+
 ## Current status
 
 Kernel V0 and the opt-in collective V1 are executable and covered by automated
