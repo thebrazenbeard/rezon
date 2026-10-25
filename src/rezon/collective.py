@@ -48,6 +48,10 @@ def _agent(value: str) -> str:
 def _text(value: str, maximum: int, name: str) -> str:
     if type(value) is not str or not value.strip() or len(value) > maximum:
         raise CollectiveValidationError(f"invalid {name}")
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise CollectiveValidationError(f"invalid {name}") from None
     return value
 
 
@@ -56,6 +60,11 @@ def _refs(values, name: str) -> tuple[str, ...]:
         type(v) is not str or not v or len(v) > 1024 for v in values
     ) or len(values) != len(set(values)):
         raise CollectiveValidationError(f"invalid {name}")
+    for value in values:
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError:
+            raise CollectiveValidationError(f"invalid {name}") from None
     return values
 
 

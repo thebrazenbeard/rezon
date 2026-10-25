@@ -24,6 +24,39 @@ def _store(tmp: str) -> CollectiveStore:
     return CollectiveStore(Path(tmp) / "collaboration.sqlite3")
 
 
+def test_collective_rejects_non_utf8_text_at_the_validation_boundary():
+    # Lone surrogate code points are legal in Python str but cannot be sent
+    # through the external gateway's UTF-8 JSON contract or persisted by SQLite.
+    invalid = "\ud800"
+    with TemporaryDirectory() as tmp:
+        store = _store(tmp)
+        with pytest.raises(CollectiveValidationError, match="invalid prompt"):
+            store.create(invalid, ("a",))
+
+        ep = store.create("Question", ("a",))
+        with pytest.raises(CollectiveValidationError, match="invalid content"):
+            store.submit_answer(ep, "a", f"claim {invalid}")
+        with pytest.raises(CollectiveValidationError, match="invalid source refs"):
+            store.submit_answer(ep, "a", "claim", (f"source:{invalid}",))
+        assert store.snapshot(ep).missing_agents == ("a",)
+
+        store.submit_answer(ep, "a", "valid claim")
+        with pytest.raises(CollectiveValidationError, match="invalid synthesis"):
+            store.save_synthesis(ep, "integrator", store.snapshot(ep).digest, invalid)
+
+
+def test_collective_accepts_valid_supplementary_unicode():
+    with TemporaryDirectory() as tmp:
+        store = _store(tmp)
+        ep = store.create("Question 😀", ("a",))
+        store.submit_answer(ep, "a", "valid claim 🧪", ("ref:🧪",))
+        snap = _store(tmp).snapshot(ep)
+        assert snap.prompt == "Question 😀"
+        assert snap.answers[0].content == "valid claim 🧪"
+        assert snap.answers[0].source_refs == ("ref:🧪",)
+        assert len(snap.digest) == 64
+
+
 def test_concurrent_agents_share_one_durable_episode_and_cannot_overwrite_each_other():
     with TemporaryDirectory() as tmp:
         store = _store(tmp)
