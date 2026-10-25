@@ -92,13 +92,28 @@ the guide. Neither mode verifies a model's factual accuracy, claims authority,
 or supplies production-ready distributed consensus.
 
 For a separate read-only state observer, optionally set
-`REZON_COLLECTIVE_STATE_READ_TOKEN` to a strong secret **distinct** from the
+`REZON_COLLECTIVE_STATE_READ_TOKEN` to **32 cryptographically random bytes
+encoded as 64 lowercase hex characters** (generate with
+`python -c "import secrets; print(secrets.token_hex(32))"`), distinct from the
 admin and every worker credential before launching `collective_cli serve`.
-This bearer can GET `/v1/episodes/{id}/state` only: it cannot create episodes,
+The client **never transmits this secret as a bearer**. Instead it requests
+`GET /v1/read-challenge` with the exact state path and fresh client nonce,
+**verifies the server's challenge MAC before issuing any request proof**, proves
+possession using a single-use, 10-second nonce-bound HMAC for
+`GET /v1/episodes/{id}/state`, and authenticates the exact response bytes with
+a distinct server HMAC. Every MAC binds `GET`, exact path, both nonces, server
+epoch, and the numeric `127.0.0.1:port` derived from the server's *actual
+accepted socket* (not the caller's `Host` header). The role cannot create episodes,
 submit answers/reviews, synthesize, or use T'Kal hearing endpoints. If unset,
 the additional credential role does not exist. A state reader can see prompt
 and worker content for any requested episode; keep the token private and the
-service loopback-only. This separates mutation authority but does not attest
+service loopback-only. Challenge issuance is stateless, so unauthenticated
+challenge floods allocate no pending slots. At most 4096 successfully consumed
+nonce IDs are retained for 10 seconds under a lock to block replay, and a
+server restart changes the random epoch. The credential format rejects short
+or trivially repeated keys, but **only the operator can ensure its randomness**;
+human-chosen 64-character passwords remain susceptible to offline guessing. This
+separates mutation authority but does not attest
 host independence, qualify statements, or establish model consensus.
 
 ## T'Kal-in-ket hearing (opt-in)

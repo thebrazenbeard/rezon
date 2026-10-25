@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hmac
+from hashlib import sha256
 import json
+import re
+import secrets
+from threading import Lock
+from time import monotonic
 from urllib.parse import urlsplit
 
 from .collective import (
@@ -22,6 +27,29 @@ class CollectiveHTTPServer(ThreadingHTTPServer):
     block_on_close = True
 
 
+_CHALLENGE_TTL = 10.0
+_MAX_CONSUMED_CHALLENGES = 4096
+_READ_PREFLIGHT_DOMAIN = b"rezon-state-read/preflight/v2\0"
+_READ_REQUEST_DOMAIN = b"rezon-state-read/request/v2\0"
+_READ_RESPONSE_DOMAIN = b"rezon-state-read/response/v2\0"
+_EXACT_STATE_PATH = re.compile(r"/v1/episodes/collective-[0-9a-f]{32}/state\Z")
+
+
+def _read_context(path: str, audience: str, server_nonce: str,
+                  client_nonce: str, issued_ms: int, epoch: str) -> bytes:
+    return (b"GET\0" + path.encode("ascii") + b"\0" + audience.encode("ascii")
+            + b"\0" + bytes.fromhex(server_nonce) + bytes.fromhex(client_nonce)
+            + issued_ms.to_bytes(8, "big") + bytes.fromhex(epoch))
+
+
+def _request_mac_message(context: bytes) -> bytes:
+    return _READ_REQUEST_DOMAIN + context
+
+
+def _response_mac_message(context: bytes, raw: bytes) -> bytes:
+    return _READ_RESPONSE_DOMAIN + context + sha256(raw).digest()
+
+
 class _Handler(BaseHTTPRequestHandler):
     server: CollectiveHTTPServer
     # Close every request. A rejected POST may leave unread bytes and must not
@@ -32,6 +60,13 @@ class _Handler(BaseHTTPRequestHandler):
         # No token, model-output or prompt data in HTTP access logs.
         return
 
+    def _local_audience(self) -> str:
+        # Actual accepted server socket, never the remotely supplied Host header.
+        host, port = self.connection.getsockname()[:2]
+        if host != "127.0.0.1" or not isinstance(port, int):
+            raise ValueError("non-loopback state read connection")
+        return f"{host}:{port}"
+
     def _json(self, status: int, value: dict) -> None:
         raw = json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         self.send_response(status)
@@ -39,18 +74,60 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Length", str(len(raw)))
+        context = getattr(self, "_read_response_context", None)
+        if status == 200 and context is not None:
+            proof = hmac.new(bytes.fromhex(self.server.read_token),
+                _response_mac_message(context, raw), sha256).hexdigest()
+            self.send_header("X-Rezon-State-Proof", proof)
         self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(raw)
         self.close_connection = True
 
-    def _identity(self) -> tuple[str, str | None] | None:
+    def _identity(self, *, method: str, path: str) -> tuple[str, str | None] | None:
         # A proxy and this origin may otherwise pick different values from
         # duplicate singleton headers and disagree about the authenticated role.
         authorization = self.headers.get_all("Authorization", [])
         if len(authorization) != 1:
             return None
         header = authorization[0]
+        if header.startswith("Rezon-Read-HMAC "):
+            if self.server.read_token is None or method != "GET" or not _EXACT_STATE_PATH.fullmatch(path):
+                return None
+            fields = header[len("Rezon-Read-HMAC "):].split(".")
+            if len(fields) != 5:
+                return None
+            server_nonce, client_nonce, issued_text, epoch, proof = fields
+            if any(not re.fullmatch(r"[0-9a-f]{64}", value)
+                   for value in (server_nonce, client_nonce, proof)) or not re.fullmatch(
+                r"[0-9a-f]{32}", epoch
+            ) or not re.fullmatch(r"[1-9][0-9]{0,18}", issued_text):
+                return None
+            issued_ms = int(issued_text)
+            audience = self._local_audience()
+            now_ms = int(monotonic() * 1000)
+            if epoch != self.server.read_epoch or not 0 <= now_ms - issued_ms <= 10_000:
+                return None
+            context = _read_context(path, audience, server_nonce, client_nonce,
+                                    issued_ms, epoch)
+            # Stateless issuance: the MAC binds this exact method, path,
+            # socket-local audience, server epoch, and both nonces.
+            expected = hmac.new(bytes.fromhex(self.server.read_token),
+                _request_mac_message(context), sha256).hexdigest()
+            if not hmac.compare_digest(expected, proof):
+                return None
+            with self.server.read_consumed_lock:
+                now = monotonic()
+                self.server.read_consumed = {nonce: used
+                    for nonce, used in self.server.read_consumed.items()
+                    if 0 <= now - used <= _CHALLENGE_TTL}
+                if server_nonce in self.server.read_consumed or len(
+                    self.server.read_consumed
+                ) >= _MAX_CONSUMED_CHALLENGES:
+                    return None
+                self.server.read_consumed[server_nonce] = now
+            self._read_response_context = context
+            return ("observer", None)
         if not header.startswith("Bearer ") or not header[7:]:
             return None
         token = header[7:]
@@ -58,8 +135,6 @@ class _Handler(BaseHTTPRequestHandler):
             return None
         if hmac.compare_digest(token, self.server.admin_token):
             return ("admin", None)
-        if self.server.read_token is not None and hmac.compare_digest(token, self.server.read_token):
-            return ("observer", None)
         for agent, known_token in self.server.worker_tokens.items():
             if hmac.compare_digest(token, known_token):
                 return ("worker", agent)
@@ -91,7 +166,37 @@ class _Handler(BaseHTTPRequestHandler):
         if method == "GET" and path.path == "/healthz" and not path.query:
             self._json(200, {"service": "rezon-collective", "status": "ready"})
             return
-        identity = self._identity()
+        if method == "GET" and path.path == "/v1/read-challenge" and not path.query:
+            if self.server.read_token is None:
+                self._json(404, {"error": "reader not configured"})
+                return
+            requested_paths = self.headers.get_all("X-Rezon-State-Path", [])
+            requested_client_nonces = self.headers.get_all("X-Rezon-Client-Nonce", [])
+            if len(requested_paths) != 1 or not _EXACT_STATE_PATH.fullmatch(requested_paths[0]):
+                self._json(400, {"error": "exact state path required"})
+                return
+            if len(requested_client_nonces) != 1 or not re.fullmatch(
+                r"[0-9a-f]{64}", requested_client_nonces[0]
+            ):
+                self._json(400, {"error": "client nonce required"})
+                return
+            state_path = requested_paths[0]
+            client_nonce = requested_client_nonces[0]
+            audience = self._local_audience()
+            nonce = secrets.token_hex(32)
+            issued_ms = int(monotonic() * 1000)
+            epoch = self.server.read_epoch
+            context = _read_context(state_path, audience, nonce, client_nonce,
+                                    issued_ms, epoch)
+            preflight_proof = hmac.new(bytes.fromhex(self.server.read_token),
+                _READ_PREFLIGHT_DOMAIN + context, sha256).hexdigest()
+            self._json(200, {"server_nonce": nonce, "expires_in_ms": 10000,
+                             "audience": audience, "state_path": state_path,
+                             "client_nonce": client_nonce, "issued_ms": issued_ms,
+                             "epoch": epoch,
+                             "proof": preflight_proof})
+            return
+        identity = self._identity(method=method, path=path.path)
         if identity is None:
             self._json(401, {"error": "unauthorized"})
             return
@@ -279,8 +384,11 @@ def make_server(store: CollectiveStore, admin_token: str,
         _agent(agent)
         if type(token) is not str or not 16 <= len(token) <= 256:
             raise ValueError("strong worker tokens required")
-    if read_token is not None and (type(read_token) is not str or not 16 <= len(read_token) <= 256):
-        raise ValueError("strong optional read-only state token required")
+    if read_token is not None and (
+        type(read_token) is not str or re.fullmatch(r"[0-9a-f]{64}", read_token) is None
+        or len(set(read_token)) < 8
+    ):
+        raise ValueError("read-only state secret must be 32 random bytes encoded as 64 lowercase hex")
     tokens = (admin_token, *worker_tokens.values()) + (() if read_token is None else (read_token,))
     if any(not token.isascii() or not token.isprintable() or any(c.isspace() for c in token)
            for token in tokens):
@@ -293,6 +401,9 @@ def make_server(store: CollectiveStore, admin_token: str,
     server.store = store
     server.admin_token = admin_token
     server.read_token = read_token
+    server.read_epoch = secrets.token_hex(16)
+    server.read_consumed = {}
+    server.read_consumed_lock = Lock()
     server.worker_tokens = dict(worker_tokens)
     if tkal_network is not None:
         from .tkal_network import TkalVirtualNetwork
