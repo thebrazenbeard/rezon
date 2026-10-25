@@ -1,8 +1,13 @@
 from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPConnection
+from hashlib import sha256
+import hmac
 from tempfile import TemporaryDirectory
 from threading import Thread
+from time import monotonic
+from unittest.mock import patch
 import json
+import secrets
 
 import pytest
 
@@ -11,6 +16,7 @@ from rezon.collective_http import make_server
 
 
 ADMIN = "super-secret-admin-token"
+READ_ONLY = secrets.token_hex(32)
 TOKENS = {"alice": "alice-secret-agent-token", "bob": "bob-secret-agent-token"}
 
 
@@ -22,11 +28,13 @@ class Integrator:
         return "Independent verification is still missing."
 
 
-def _call(server, method, path, token=None, payload=None):
+def _call(server, method, path, token=None, payload=None, extra_headers=None):
     conn = HTTPConnection("127.0.0.1", server.server_port, timeout=3)
     headers = {}
     if token is not None:
         headers["Authorization"] = f"Bearer {token}"
+    if extra_headers:
+        headers.update(extra_headers)
     if payload is not None:
         headers["Content-Type"] = "application/json"
         payload = json.dumps(payload).encode()
@@ -37,6 +45,90 @@ def _call(server, method, path, token=None, payload=None):
         return response.status, json.loads(body)
     finally:
         conn.close()
+
+
+def _raw_call(server, method, path, authorization):
+    conn = HTTPConnection("127.0.0.1", server.server_port, timeout=3)
+    try:
+        conn.request(method, path, headers={"Authorization": authorization})
+        response = conn.getresponse()
+        raw = response.read()
+        return response.status, json.loads(raw), raw, response.getheader("X-Rezon-State-Proof")
+    finally:
+        conn.close()
+
+
+def _state_credential(path, challenge, client_nonce):
+    server_nonce = challenge["server_nonce"]
+    issued_ms, epoch = challenge["issued_ms"], challenge["epoch"]
+    context = (b"GET\0" + path.encode() + b"\0" + challenge["audience"].encode()
+               + b"\0" + bytes.fromhex(server_nonce) + bytes.fromhex(client_nonce)
+               + issued_ms.to_bytes(8, "big") + bytes.fromhex(epoch))
+    preflight = hmac.new(bytes.fromhex(READ_ONLY),
+        b"rezon-state-read/preflight/v2\0" + context, sha256).hexdigest()
+    assert hmac.compare_digest(challenge["proof"], preflight)
+    mac = hmac.new(bytes.fromhex(READ_ONLY),
+        b"rezon-state-read/request/v2\0" + context, sha256).hexdigest()
+    credential = f"Rezon-Read-HMAC {server_nonce}.{client_nonce}.{issued_ms}.{epoch}.{mac}"
+    return credential, context
+
+
+def _mac_read(server, path):
+    client_nonce = secrets.token_hex(32)
+    status, challenge = _call(server, "GET", "/v1/read-challenge", extra_headers={
+        "X-Rezon-State-Path": path, "X-Rezon-Client-Nonce": client_nonce})
+    assert status == 200 and challenge["expires_in_ms"] == 10000
+    assert challenge["audience"] == f"127.0.0.1:{server.server_port}"
+    credential, context = _state_credential(path, challenge, client_nonce)
+    status, payload, raw, proof = _raw_call(server, "GET", path, credential)
+    if status == 200:
+        expected = hmac.new(bytes.fromhex(READ_ONLY),
+            b"rezon-state-read/response/v2\0" + context + sha256(raw).digest(),
+            sha256).hexdigest()
+        assert proof is not None and hmac.compare_digest(expected, proof)
+    return status, payload, credential
+
+
+def test_read_mac_nonce_expires_and_is_single_use_under_concurrency():
+    with TemporaryDirectory() as tmp:
+        store = CollectiveStore(f"{tmp}/episodes.sqlite3")
+        server = make_server(store, ADMIN, TOKENS, read_token=READ_ONLY)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            status, created = _call(server, "POST", "/v1/episodes", ADMIN,
+                                    {"prompt": "Nonce race", "agents": ["alice", "bob"]})
+            assert status == 201
+            path = f"/v1/episodes/{created['episode_id']}/state"
+            for _ in range(300):
+                status, _ = _call(server, "GET", "/v1/read-challenge",
+                    extra_headers={"X-Rezon-State-Path": path,
+                                   "X-Rezon-Client-Nonce": secrets.token_hex(32)})
+                assert status == 200
+            assert server.read_consumed == {}  # unauthenticated flood reserved no slots
+            client_nonce = secrets.token_hex(32)
+            status, challenge = _call(server, "GET", "/v1/read-challenge",
+                                      extra_headers={"X-Rezon-State-Path": path,
+                                                     "X-Rezon-Client-Nonce": client_nonce})
+            assert status == 200
+            stale, _ = _state_credential(path, challenge, client_nonce)
+            with patch("rezon.collective_http.monotonic", return_value=monotonic() + 11):
+                assert _raw_call(server, "GET", path, stale)[0] == 401
+
+            client_nonce = secrets.token_hex(32)
+            status, challenge = _call(server, "GET", "/v1/read-challenge",
+                                      extra_headers={"X-Rezon-State-Path": path,
+                                                     "X-Rezon-Client-Nonce": client_nonce})
+            assert status == 200
+            credential, _ = _state_credential(path, challenge, client_nonce)
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                responses = list(pool.map(lambda _: _raw_call(server, "GET", path, credential)[0],
+                                          range(2)))
+            assert sorted(responses) == [200, 401]
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
 
 
 def test_multiple_authenticated_remote_agents_share_state_then_synthesize():
@@ -90,6 +182,61 @@ def test_server_rejects_insecure_credentials_and_non_loopback_binding():
             make_server(store, ADMIN, TOKENS, host="0.0.0.0")
         with pytest.raises(ValueError):
             make_server(store, ADMIN, {"alice": "pass with spaces 12345"})
+        for invalid in (ADMIN, TOKENS["alice"], "short", "bad with spaces 123456", 12):
+            with pytest.raises(ValueError):
+                make_server(store, ADMIN, TOKENS, read_token=invalid)
+
+
+def test_opt_in_state_reader_must_not_create_review_or_synthesize():
+    with TemporaryDirectory() as tmp:
+        store = CollectiveStore(f"{tmp}/episodes.sqlite3")
+        server = make_server(store, ADMIN, TOKENS, Integrator(), read_token=READ_ONLY)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            status, created = _call(server, "POST", "/v1/episodes", ADMIN,
+                                    {"prompt": "Bound the view", "agents": ["alice", "bob"]})
+            assert status == 201
+            episode = created["episode_id"]
+            state_url = f"/v1/episodes/{episode}/state"
+            status, state, credential = _mac_read(server, state_url)
+            assert status == 200 and state["episode_id"] == episode
+            assert READ_ONLY not in credential
+            assert _raw_call(server, "GET", state_url, credential)[0] == 401  # consumed challenge
+            assert _raw_call(server, "GET", f"/v1/episodes/{episode}", credential)[0] == 401
+            assert _raw_call(server, "GET", f"/v1/episodes/{episode}/tkal", credential)[0] == 401
+            for path, payload in (
+                ("/v1/episodes", {"prompt": "evil", "agents": ["alice", "bob"]}),
+                (f"/v1/episodes/{episode}/answers", {"content": "forged"}),
+                (f"/v1/episodes/{episode}/reviews", {"content": "forged", "target_ids": ["answer:bob"]}),
+                (f"/v1/episodes/{episode}/synthesize", {}),
+            ):
+                # A stolen state-MAC header cannot be upgraded to a write.
+                assert _raw_call(server, "POST", path, credential)[0] == 401
+            assert store.snapshot(episode).answers == ()
+            assert store.snapshot(episode).reviews == ()
+            assert store.snapshot(episode).syntheses == ()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+
+def test_no_reader_role_when_opt_in_token_absent():
+    with TemporaryDirectory() as tmp:
+        server = make_server(CollectiveStore(f"{tmp}/episodes.sqlite3"), ADMIN, TOKENS)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            status, created = _call(server, "POST", "/v1/episodes", ADMIN,
+                                    {"prompt": "Default roles", "agents": ["alice", "bob"]})
+            assert status == 201
+            assert _call(server, "GET", "/v1/read-challenge")[0] == 404
+            assert _call(server, "GET", f"/v1/episodes/{created['episode_id']}/state", READ_ONLY)[0] == 401
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
 
 
 def test_bad_roster_returns_client_error_and_server_remains_healthy():
