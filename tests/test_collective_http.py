@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from http.client import HTTPConnection
 from hashlib import sha256
 import hmac
@@ -309,7 +310,7 @@ def test_readiness_is_authenticated_and_fails_closed_on_wrong_schema():
                 status, result = _call(server, "GET", "/readyz", TOKENS["alice"])
                 assert status == 503 and result["status"] == "unavailable"
                 assert "private" not in str(result)
-            with sqlite3.connect(db) as conn:
+            with closing(sqlite3.connect(db)) as conn, conn:
                 conn.execute("DROP TABLE syntheses")
             status, result = _call(server, "GET", "/readyz", TOKENS["bob"])
             assert status == 503 and result["status"] == "unavailable"
@@ -332,7 +333,7 @@ def test_readiness_checks_enabled_tkal_tables():
         thread.start()
         try:
             assert _call(server, "GET", "/readyz", TOKENS["alice"])[0] == 200
-            with sqlite3.connect(db) as conn:
+            with closing(sqlite3.connect(db)) as conn, conn:
                 conn.execute("DROP TABLE tkal_challenges")
             assert _call(server, "GET", "/readyz", TOKENS["alice"])[0] == 503
         finally:
