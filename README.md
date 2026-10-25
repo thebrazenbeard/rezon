@@ -144,6 +144,10 @@ python -m rezon.owner_worker status --role vn1 --gateway https://vn2.tail86ea75.
 
 This does **not** automatically enroll the current running machines; the owner
 must privately provide each assigned bearer in a local interactive session.
+On Linux, the Python Secret Service path checks cross-collection item identity
+and stored bytes; the `secret-tool` path checks the just-stored bytes through
+a separate lookup but cannot attest collection-wide uniqueness. Neither check
+is host identity proof or evidence of a completed production hearing.
 
 For `answer` and `review`, configure a localhost OpenAI-compatible model and
 its separate API-key environment variable. External gateways require HTTPS

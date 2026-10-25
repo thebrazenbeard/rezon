@@ -115,15 +115,42 @@ class EnrollmentTests(unittest.TestCase):
         self.assertNotIn(token, json.dumps(result))
 
     def test_linux_store_passes_secret_by_stdin_not_argv(self):
-        fake = type("Proc", (), {"returncode":0, "stdout":""})()
+        secret = "fake-secret-123456789012345"
+        fake_store = type("Proc", (), {"returncode":0, "stdout":""})()
+        fake_load = type("Proc", (), {"returncode":0, "stdout":secret + "\n"})()
         with patch("rezon.credential_store.sys.platform", "linux"), \
-             patch("rezon.credential_store.subprocess.run", return_value=fake) as run:
-            owner_worker.credential_store.save("vn1", "fake-secret-123456789012345")
-        argv = run.call_args.args[0]
+             patch("rezon.credential_store.subprocess.run", side_effect=[fake_store, fake_load]) as run:
+            owner_worker.credential_store.save("vn1", secret)
+        self.assertEqual(run.call_count, 2)
+        argv = run.call_args_list[0].args[0]
         self.assertEqual(argv[0:2], ["secret-tool", "store"])
-        self.assertNotIn("fake-secret-123456789012345", " ".join(argv))
-        self.assertEqual(run.call_args.kwargs["input"], "fake-secret-123456789012345\n")
-        self.assertFalse(run.call_args.kwargs.get("shell", False))
+        self.assertNotIn(secret, " ".join(argv))
+        self.assertEqual(run.call_args_list[0].kwargs["input"], secret + "\n")
+        self.assertFalse(run.call_args_list[0].kwargs.get("shell", False))
+        lookup = run.call_args_list[1]
+        self.assertEqual(lookup.args[0][0:2], ["secret-tool", "lookup"])
+        self.assertNotIn(secret, " ".join(lookup.args[0]))
+
+    def test_linux_secret_tool_save_rejects_wrong_lookup_bytes(self):
+        secret = "synthetic-owner-token-for-tests-1234"
+        fake_store = type("Proc", (), {"returncode":0, "stdout":""})()
+        fake_load = type("Proc", (), {"returncode":0, "stdout":"different-synthetic-token-abcdef\n"})()
+        with patch("rezon.credential_store.sys.platform", "linux"), \
+             patch("rezon.credential_store.subprocess.run", side_effect=[fake_store, fake_load]) as run:
+            with self.assertRaises(owner_worker.credential_store.CredentialError) as err:
+                owner_worker.credential_store.save("vn1", secret)
+        self.assertNotIn(secret, str(err.exception))
+        self.assertEqual(run.call_count, 2)
+
+    def test_linux_secret_tool_save_rejects_failed_lookup(self):
+        secret = "synthetic-owner-token-for-tests-1234"
+        fake_store = type("Proc", (), {"returncode":0, "stdout":""})()
+        fake_load = type("Proc", (), {"returncode":1, "stdout":""})()
+        with patch("rezon.credential_store.sys.platform", "linux"), \
+             patch("rezon.credential_store.subprocess.run", side_effect=[fake_store, fake_load]) as run:
+            with self.assertRaises(owner_worker.credential_store.CredentialError):
+                owner_worker.credential_store.save("vn1", secret)
+        self.assertEqual(run.call_count, 2)
 
     def test_linux_missing_secret_service_never_falls_back_to_plaintext_file(self):
         # Simulate both providers being unavailable. Never touch the host keyring:
