@@ -20,6 +20,17 @@ The source binding for this optional dependency is declared as `.[linux-keyring]
 
 The Python fallback checks matching role metadata in the **entire** Secret Service before storing in the default collection, then rechecks that exactly one unlocked item remains and that it is the item just stored. A duplicate in another collection, locked match, or race makes enrollment fail closed rather than report a false success. This check does not retrieve other stored secrets or delete entries in another collection. A write interrupted by a concurrent conflicting item may leave a partially enrolled default-collection item: resolve the conflict using your own vault UI before retrying, not automatic cleanup. Successful metadata checks are not proof of physical-host identity or of the later gateway request.
 
+The Python fallback also reads back the newly stored item's bytes and checks
+them against the credential supplied in the private local prompt using a
+constant-time comparison. The value is not printed, included in exceptions,
+or sent to ChatGPT-connected tools. If the readback fails or the bytes differ,
+enrollment returns an error—even when the item path matches. The item may
+still exist locally after failure; inspect it through your own vault UI rather
+than automatically deleting an entry. The readback is a bounded check at the
+time of enrollment, not a guarantee against later keyring changes. These
+post-save checks are covered by isolated mocked-Secret-Service tests; they do
+not establish completed production enrollment on Lappy, VN1, or VN2.
+
 ## Enroll in an owner-controlled terminal
 
 On **Lappy and VN1**, in a **local PowerShell terminal**:

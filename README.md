@@ -142,6 +142,15 @@ python -m rezon.owner_worker enroll --role vn1 --gateway https://vn2.tail86ea75.
 python -m rezon.owner_worker status --role vn1 --gateway https://vn2.tail86ea75.ts.net --episode collective-REPLACE_WITH_ID
 ```
 
+On Linux, `secret-tool` is preferred; when it is unavailable, the optional
+`secretstorage` Python client uses the already-unlocked user Secret Service.
+The fallback refuses ambiguous role entries across collections and verifies
+that the stored item's bytes match the submitted credential before returning
+success. A failed post-save check can leave an entry requiring private manual
+inspection; it must not trigger automated deletion of unknown vault items.
+These source safeguards have only been verified with mocked keyrings in tests,
+not with production bearer enrollment on VN2.
+
 This does **not** automatically enroll the current running machines; the owner
 must privately provide each assigned bearer in a local interactive session.
 
