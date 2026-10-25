@@ -34,14 +34,16 @@ class GatewayProbeTest(unittest.TestCase):
     def test_success_requires_both_service_and_authenticated_episode(self):
         episode = "collective-" + "a"*32
         with patch.object(probe_module, "urlopen", side_effect=[
+            FakeResponse(200, {"service": "rezon-collective", "status": "alive"}),
             FakeResponse(200, {"service": "rezon-collective", "status": "ready"}),
             FakeResponse(200, {"episode_id": episode, "agent_id": "lappy"}),
         ]) as opened:
             result = probe_module.probe("http://127.0.0.1:8765", episode, "secret" * 4)
         self.assertEqual(result["episode"], "authorized")
-        self.assertEqual(opened.call_count, 2)
+        self.assertEqual(opened.call_count, 3)
         self.assertIsNone(opened.call_args_list[0].args[0].get_header("Authorization"))
         self.assertEqual(opened.call_args_list[1].args[0].get_header("Authorization"), "Bearer " + "secret" * 4)
+        self.assertEqual(opened.call_args_list[2].args[0].get_header("Authorization"), "Bearer " + "secret" * 4)
 
     def test_unrelated_listener_never_claims_rezon(self):
         with patch.object(probe_module, "urlopen", return_value=FakeResponse(200, {"status": "ready"})) as opened:
@@ -51,6 +53,7 @@ class GatewayProbeTest(unittest.TestCase):
 
     def test_admin_access_is_not_worker_enrollment(self):
         with patch.object(probe_module, "urlopen", side_effect=[
+            FakeResponse(200, {"service": "rezon-collective", "status": "alive"}),
             FakeResponse(200, {"service": "rezon-collective", "status": "ready"}),
             FakeResponse(200, {"episode_id": "collective-" + "a"*32, "agent_id": None}),
         ]):
@@ -59,11 +62,21 @@ class GatewayProbeTest(unittest.TestCase):
 
     def test_wrong_episode_never_claims_authorization(self):
         with patch.object(probe_module, "urlopen", side_effect=[
+            FakeResponse(200, {"service": "rezon-collective", "status": "alive"}),
             FakeResponse(200, {"service": "rezon-collective", "status": "ready"}),
             FakeResponse(200, {"episode_id": "collective-" + "b"*32}),
         ]):
             result = probe_module.probe("https://private.example", "collective-" + "a"*32, "secret" * 4)
         self.assertEqual(result["episode"], "unverified")
+
+    def test_unavailable_readiness_prevents_episode_claim(self):
+        with patch.object(probe_module, "urlopen", side_effect=[
+            FakeResponse(200, {"service": "rezon-collective", "status": "alive"}),
+            FakeResponse(503, {"service": "rezon-collective", "status": "unavailable"}),
+        ]) as opened:
+            result = probe_module.probe("https://private.example", "collective-" + "a"*32, "secret" * 4)
+        self.assertEqual(result["episode"], "not_checked")
+        self.assertEqual(opened.call_count, 2)
 
 
 if __name__ == "__main__":

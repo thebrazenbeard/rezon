@@ -7,7 +7,7 @@ grants external authority, or promotes a model synthesis into a decision.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 import json
@@ -201,6 +201,38 @@ class CollectiveStore:
             yield conn
         finally:
             conn.close()
+
+    def readable(self, *, include_tkal: bool = False) -> bool:
+        """Bounded, read-only storage availability—not write or worker readiness.
+
+        Never use ``_connect`` here: that method can create a missing database
+        and changes connection PRAGMAs for normal write-capable operations.
+        """
+        queries = (
+            "SELECT episode_id,prompt FROM episodes LIMIT 0",
+            "SELECT episode_id,agent_id FROM participants LIMIT 0",
+            "SELECT episode_id,contribution_id,agent_id,kind,content,refs_json,targets_json "
+            "FROM contributions LIMIT 0",
+            "SELECT episode_id,synthesis_id,integrator_id,input_digest,content "
+            "FROM syntheses LIMIT 0",
+        )
+        if include_tkal:
+            queries += (
+                "SELECT episode_id,input_digest,hypothesis,falsifier,proposer,lenses_json,"
+                "verdict,rationale FROM tkal_hearings LIMIT 0",
+                "SELECT episode_id,challenge_id,reviewer,lens,target,question,response,"
+                "response_ref,disposition,rationale FROM tkal_challenges LIMIT 0",
+            )
+        try:
+            uri = Path(self.database).absolute().as_uri() + "?mode=ro"
+            with closing(sqlite3.connect(uri, uri=True, timeout=0.25)) as conn:
+                conn.execute("PRAGMA query_only=ON")
+                conn.execute("PRAGMA busy_timeout=250")
+                for query in queries:
+                    conn.execute(query).fetchone()
+            return True
+        except (OSError, sqlite3.DatabaseError):
+            return False
 
     def create(self, prompt: str, agents: tuple[str, ...]) -> str:
         _text(prompt, _MAX_PROMPT, "prompt")

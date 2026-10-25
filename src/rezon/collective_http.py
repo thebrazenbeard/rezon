@@ -164,7 +164,30 @@ class _Handler(BaseHTTPRequestHandler):
     def _dispatch(self, method: str) -> None:
         path = urlsplit(self.path)
         if method == "GET" and path.path == "/healthz" and not path.query:
-            self._json(200, {"service": "rezon-collective", "status": "ready"})
+            # Liveness only. Readiness requires authenticated, bounded storage I/O.
+            self._json(200, {"service": "rezon-collective", "status": "alive"})
+            return
+        if method == "GET" and path.path == "/readyz" and not path.query:
+            if self._identity(method=method, path=path.path) is None:
+                self._json(401, {"error": "unauthorized"})
+                return
+            # One on-disk probe per gateway at a time; excessive authorized
+            # health polling must not fan out into SQLite read-lock pressure.
+            if not self.server.readiness_lock.acquire(blocking=False):
+                self._json(503, {"service": "rezon-collective", "status": "unavailable"})
+                return
+            try:
+                try:
+                    ready = self.server.store.readable(include_tkal=self.server.tkal_network is not None)
+                except Exception:
+                    # Do not turn an unexpected probe failure into a dropped
+                    # connection or leak filesystem/SQLite exception details.
+                    ready = False
+            finally:
+                self.server.readiness_lock.release()
+            self._json(200 if ready else 503, {
+                "service": "rezon-collective", "status": "ready" if ready else "unavailable"
+            })
             return
         if method == "GET" and path.path == "/v1/read-challenge" and not path.query:
             if self.server.read_token is None:
@@ -404,6 +427,7 @@ def make_server(store: CollectiveStore, admin_token: str,
     server.read_epoch = secrets.token_hex(16)
     server.read_consumed = {}
     server.read_consumed_lock = Lock()
+    server.readiness_lock = Lock()
     server.worker_tokens = dict(worker_tokens)
     if tkal_network is not None:
         from .tkal_network import TkalVirtualNetwork

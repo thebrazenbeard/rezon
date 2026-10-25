@@ -47,7 +47,7 @@ class ProbeSecurityTests(unittest.TestCase):
             def log_message(self,*_):pass
             def do_GET(self):
                 if self.path=="/healthz":
-                    raw=b'{"service":"rezon-collective","status":"ready"}'
+                    raw=b'{"service":"rezon-collective","status":"alive"}'
                     self.send_response(200)
                     self.send_header("Content-Length",str(len(raw)))
                     self.end_headers()
