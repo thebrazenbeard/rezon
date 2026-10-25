@@ -41,19 +41,49 @@ def _python_service() -> object:
         raise CredentialError("Python Secret Service client unavailable") from None
 
 
+def _item_path(item: object) -> str:
+    """Secret Service item identity, not credential content."""
+    path = getattr(item, "item_path", None)
+    if not isinstance(path, str) or not path:
+        raise CredentialError("local Secret Service item identity unavailable")
+    return path
+
+
 def _python_linux_save(role: str, token: str) -> None:
     service = _python_service()
+    attributes = {"service": "rezon-tkik", "role": role}
     try:
         bus = service.dbus_init()
         collection = service.get_default_collection(bus)
         if collection.is_locked():
             raise CredentialError("local keyring is locked")
-        collection.create_item(
-            "Rezon worker " + role,
-            {"service": "rezon-tkik", "role": role},
-            token.encode("ascii"),
+
+        # A collection's replace=True affects only that collection, while the
+        # role lookup spans *all* collections. Refuse ambiguous storage before
+        # writing, and do not edit another collection's entries.
+        global_items = list(service.search_items(bus, attributes))
+        default_items = list(collection.search_items(attributes))
+        if len(global_items) != len(default_items) or len(global_items) > 1:
+            raise CredentialError("conflicting local worker credential")
+        if global_items and (
+            _item_path(global_items[0]) != _item_path(default_items[0])
+            or global_items[0].is_locked()
+            or default_items[0].is_locked()
+        ):
+            raise CredentialError("conflicting local worker credential")
+
+        created = collection.create_item(
+            "Rezon worker " + role, attributes, token.encode("ascii"),
             replace=True,
         )
+
+        # Re-check global uniqueness after the write: another collection may
+        # have acquired the same role during the operation. Failure may leave
+        # our local item saved, but MUST never report enrollment success.
+        items = list(service.search_items(bus, attributes))
+        if (len(items) != 1 or items[0].is_locked()
+                or _item_path(items[0]) != _item_path(created)):
+            raise CredentialError("worker credential storage is ambiguous")
     except CredentialError:
         raise
     except Exception:
