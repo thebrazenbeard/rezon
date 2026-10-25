@@ -45,7 +45,12 @@ class _Handler(BaseHTTPRequestHandler):
         self.close_connection = True
 
     def _identity(self) -> tuple[str, str | None] | None:
-        header = self.headers.get("Authorization", "")
+        # A proxy and this origin may otherwise pick different values from
+        # duplicate singleton headers and disagree about the authenticated role.
+        authorization = self.headers.get_all("Authorization", [])
+        if len(authorization) != 1:
+            return None
+        header = authorization[0]
         if not header.startswith("Bearer ") or not header[7:]:
             return None
         token = header[7:]
@@ -59,13 +64,17 @@ class _Handler(BaseHTTPRequestHandler):
         return None
 
     def _body(self) -> dict:
+        lengths = self.headers.get_all("Content-Length", [])
+        types = self.headers.get_all("Content-Type", [])
+        if len(lengths) != 1 or len(types) != 1 or self.headers.get_all("Transfer-Encoding"):
+            raise CollectiveValidationError("unambiguous JSON framing required")
         try:
-            length = int(self.headers.get("Content-Length", ""))
+            length = int(lengths[0])
         except ValueError:
             raise CollectiveValidationError("content length required")
         if not 0 <= length <= 65_536:
             raise CollectiveValidationError("invalid request size")
-        if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
+        if types[0].split(";")[0].strip().lower() != "application/json":
             raise CollectiveValidationError("JSON content type required")
         try:
             body = json.loads(self.rfile.read(length))
