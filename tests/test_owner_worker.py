@@ -149,6 +149,7 @@ class EnrollmentTests(unittest.TestCase):
         created = collection.create_item.return_value
         created.item_path = "/default/created"
         created.is_locked.return_value = False
+        created.get_secret.return_value = secret.encode("ascii")
         module.search_items.side_effect = [[], [created]]
         with (patch("rezon.credential_store.sys.platform", "linux"),
               patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError),
@@ -213,6 +214,28 @@ class EnrollmentTests(unittest.TestCase):
                 owner_worker.credential_store.save("vn2", secret)
         collection.create_item.assert_called_once()
 
+    def test_linux_python_save_rejects_wrong_stored_bytes_after_identity_matches(self):
+        # Identity and uniqueness alone cannot prove that the provider saved
+        # the requested token. Never use an actual keyring in this test.
+        secret = "synthetic-only-test-1234567890"
+        module = MagicMock()
+        collection = module.get_default_collection.return_value
+        collection.is_locked.return_value = False
+        collection.search_items.return_value = []
+        created = collection.create_item.return_value
+        created.item_path = "/default/new"
+        created.is_locked.return_value = False
+        created.get_secret.return_value = b"different-synthetic-credential-12345"
+        module.search_items.side_effect = [[], [created]]
+        with (patch("rezon.credential_store.sys.platform", "linux"),
+              patch("rezon.credential_store.subprocess.run", side_effect=FileNotFoundError),
+              patch.dict("sys.modules", {"secretstorage": module})):
+            with self.assertRaises(owner_worker.credential_store.CredentialError) as error:
+                owner_worker.credential_store.save("vn2", secret)
+        self.assertNotIn(secret, str(error.exception))
+        collection.create_item.assert_called_once()
+        created.delete.assert_not_called()
+
     def test_linux_python_save_replaces_only_unique_default_collection_item(self):
         secret = "synthetic-only-test-1234567890"
         module = MagicMock()
@@ -223,6 +246,7 @@ class EnrollmentTests(unittest.TestCase):
         created = collection.create_item.return_value
         created.item_path = "/default/replacement"
         created.is_locked.return_value = False
+        created.get_secret.return_value = secret.encode("ascii")
         collection.search_items.return_value = [original]
         module.search_items.side_effect = [[original], [created]]
         with (patch("rezon.credential_store.sys.platform", "linux"),

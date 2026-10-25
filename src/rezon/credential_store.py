@@ -6,6 +6,7 @@ Unsupported or unavailable stores fail closed.
 """
 from __future__ import annotations
 
+import hmac
 import subprocess
 import sys
 
@@ -84,6 +85,11 @@ def _python_linux_save(role: str, token: str) -> None:
         if (len(items) != 1 or items[0].is_locked()
                 or _item_path(items[0]) != _item_path(created)):
             raise CredentialError("worker credential storage is ambiguous")
+        # Identity is not a secret-content postcondition: a misbehaving
+        # provider can return the expected item path yet retain wrong bytes.
+        # Read back the one authenticated item and compare without logging it.
+        if not hmac.compare_digest(items[0].get_secret(), token.encode("ascii")):
+            raise CredentialError("worker credential storage verification failed")
     except CredentialError:
         raise
     except Exception:
