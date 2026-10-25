@@ -33,6 +33,11 @@ _READ_PREFLIGHT_DOMAIN = b"rezon-state-read/preflight/v2\0"
 _READ_REQUEST_DOMAIN = b"rezon-state-read/request/v2\0"
 _READ_RESPONSE_DOMAIN = b"rezon-state-read/response/v2\0"
 _EXACT_STATE_PATH = re.compile(r"/v1/episodes/collective-[0-9a-f]{32}/state\Z")
+_CLIENT_SOCKET_TIMEOUT = 10.0  # Loopback I/O idle timeout, including HTTP headers.
+
+
+class _ClientReadTimeout(Exception):
+    """An authenticated request did not finish its bounded body read."""
 
 
 def _read_context(path: str, audience: str, server_nonce: str,
@@ -55,6 +60,12 @@ class _Handler(BaseHTTPRequestHandler):
     # Close every request. A rejected POST may leave unread bytes and must not
     # share a keep-alive connection with a subsequent request.
     protocol_version = "HTTP/1.0"
+
+    def setup(self) -> None:
+        super().setup()
+        # ThreadingHTTPServer otherwise lets stalled clients hold one handler
+        # thread indefinitely, even for a body capped at 64 KiB.
+        self.connection.settimeout(_CLIENT_SOCKET_TIMEOUT)
 
     def log_message(self, *_args):
         # No token, model-output or prompt data in HTTP access logs.
@@ -154,7 +165,12 @@ class _Handler(BaseHTTPRequestHandler):
         if types[0].split(";")[0].strip().lower() != "application/json":
             raise CollectiveValidationError("JSON content type required")
         try:
-            body = json.loads(self.rfile.read(length))
+            raw = self.rfile.read(length)
+            if len(raw) != length:
+                raise CollectiveValidationError("incomplete request body")
+            body = json.loads(raw)
+        except TimeoutError:
+            raise _ClientReadTimeout from None
         except (UnicodeDecodeError, json.JSONDecodeError):
             raise CollectiveValidationError("invalid JSON") from None
         if type(body) is not dict:
@@ -375,6 +391,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(201, vars(result))
                 return
             self._json(404, {"error": "not found"})
+        except _ClientReadTimeout:
+            self._json(408, {"error": "request timeout"})
         except CollectiveNotFound:
             self._json(404, {"error": "unknown episode"})
         except CollectiveValidationError:

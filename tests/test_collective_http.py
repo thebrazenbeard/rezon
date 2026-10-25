@@ -11,6 +11,7 @@ import json
 import os
 import secrets
 import sqlite3
+import socket
 
 import pytest
 
@@ -403,6 +404,64 @@ def test_http_peer_review_rejects_self_and_mixed_targets_without_side_effects():
                          TOKENS["alice"], {"content": "Specific challenge to Bob",
                                           "target_ids": ["answer:bob"]})[0] == 201
             assert store.snapshot(ep).reviews[0].target_ids == ("answer:bob",)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+
+def test_partial_authenticated_post_times_out_and_gateway_remains_usable():
+    # A client can declare a small valid body length, send one byte, and stop.
+    # The handler must not wait forever on that connection or retain a thread.
+    with TemporaryDirectory() as tmp:
+        store = CollectiveStore(f"{tmp}/episodes.sqlite3")
+        server = make_server(store, ADMIN, TOKENS)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with patch("rezon.collective_http._CLIENT_SOCKET_TIMEOUT", 0.2):
+                with socket.create_connection(("127.0.0.1", server.server_port), timeout=2) as stalled:
+                    stalled.settimeout(1.5)
+                    stalled.sendall((
+                        "POST /v1/episodes HTTP/1.0\r\n"
+                        f"Authorization: Bearer {ADMIN}\r\n"
+                        "Content-Type: application/json\r\n"
+                        "Content-Length: 64\r\n\r\n{"
+                    ).encode("ascii"))
+                    response = stalled.recv(4096)
+            assert b"408 Request Timeout" in response
+            assert _call(server, "GET", "/healthz") == (
+                200, {"service": "rezon-collective", "status": "alive"}
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+
+def test_short_valid_json_body_cannot_create_episode_with_false_length():
+    # EOF before the declared byte count must not convert a truncated request
+    # into an authorized mutation just because the available JSON is valid.
+    with TemporaryDirectory() as tmp:
+        store = CollectiveStore(f"{tmp}/episodes.sqlite3")
+        server = make_server(store, ADMIN, TOKENS)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            body = b'{"prompt":"x","agents":["alice"]}'
+            with socket.create_connection(("127.0.0.1", server.server_port), timeout=2) as client:
+                client.settimeout(2)
+                client.sendall((
+                    "POST /v1/episodes HTTP/1.0\r\n"
+                    f"Authorization: Bearer {ADMIN}\r\n"
+                    "Content-Type: application/json\r\n"
+                    f"Content-Length: {len(body) + 10}\r\n\r\n"
+                ).encode("ascii") + body)
+                client.shutdown(socket.SHUT_WR)
+                response = client.recv(4096)
+            assert b"400 Bad Request" in response
+            with sqlite3.connect(f"{tmp}/episodes.sqlite3") as db:
+                assert db.execute("SELECT count(*) FROM episodes").fetchone() == (0,)
         finally:
             server.shutdown()
             server.server_close()
