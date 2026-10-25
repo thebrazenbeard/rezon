@@ -179,6 +179,18 @@ four-machine inference episode or permanently connected worker mesh.
 
 ## Read-only gateway readiness probe
 
+The unauthenticated `/healthz` endpoint reports process liveness with
+`200 {"service":"rezon-collective","status":"alive"}`; its previous `ready`
+label did **not** attest that the persistent SQLite store was reachable.
+Authenticated `/readyz` accepts an existing admin or worker bearer and performs
+a serialized, bounded, SQLite read-only schema probe: `200/ready` for the
+required tables/columns or `503/unavailable` with no database details. It
+never creates or repairs a missing database. For T'Kal-enabled gateways the
+T'Kal tables are also checked. A healthy read does **not** certify write
+permissions, model availability, worker quorum, or physical host identity.
+Scripts and operators must use `/readyz` in addition to `/healthz`; clients
+expecting the historical health `status=ready` should update their probe.
+
 The optional standard-library
 [`scripts/collective_gateway_probe.py`](scripts/collective_gateway_probe.py)
 checks the Rezon health schema and separately checks authorized episode access

@@ -3,11 +3,13 @@ from http.client import HTTPConnection
 from hashlib import sha256
 import hmac
 from tempfile import TemporaryDirectory
-from threading import Thread
+from threading import Event, Thread
 from time import monotonic
 from unittest.mock import patch
 import json
+import os
 import secrets
+import sqlite3
 
 import pytest
 
@@ -253,6 +255,122 @@ def test_bad_roster_returns_client_error_and_server_remains_healthy():
             assert _call(server, "POST", "/v1/episodes", ADMIN,
                          {"prompt": "Task", "agents": ["alice", "bob"]})[0] == 201
         finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+
+def test_process_liveness_does_not_hide_unavailable_persistent_store():
+    with TemporaryDirectory() as tmp:
+        db = f"{tmp}/episodes.sqlite3"
+        store = CollectiveStore(db)
+        server = make_server(store, ADMIN, TOKENS, read_token=READ_ONLY)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            status, health = _call(server, "GET", "/healthz")
+            assert status == 200 and health["status"] == "alive"
+            assert _call(server, "GET", "/readyz")[0] == 401
+            status, ready = _call(server, "GET", "/readyz", TOKENS["alice"])
+            assert status == 200 and ready == {
+                "service": "rezon-collective", "status": "ready"
+            }
+
+            # A gone SQLite file is not recreated by readiness. The server
+            # remains alive, but must not claim its state store is ready.
+            os.replace(db, f"{tmp}/moved.sqlite3")
+            status, health = _call(server, "GET", "/healthz")
+            assert status == 200 and health["status"] == "alive"
+            status, unavailable = _call(server, "GET", "/readyz", TOKENS["alice"])
+            assert status == 503 and unavailable == {
+                "service": "rezon-collective", "status": "unavailable"
+            }
+            assert not os.path.exists(db)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+
+def test_readiness_is_authenticated_and_fails_closed_on_wrong_schema():
+    with TemporaryDirectory() as tmp:
+        db = f"{tmp}/episodes.sqlite3"
+        store = CollectiveStore(db)
+        server = make_server(store, ADMIN, TOKENS, read_token=READ_ONLY)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with patch.object(store, "readable", side_effect=AssertionError("unauthorized DB probe")):
+                assert _call(server, "GET", "/readyz")[0] == 401
+                assert _call(server, "GET", "/readyz", "wrong-token")[0] == 401
+                assert _call(server, "GET", "/readyz", READ_ONLY)[0] == 401
+            assert _call(server, "GET", "/readyz", ADMIN)[0] == 200
+            with patch.object(store, "readable", side_effect=OSError("private database path")):
+                status, result = _call(server, "GET", "/readyz", TOKENS["alice"])
+                assert status == 503 and result["status"] == "unavailable"
+                assert "private" not in str(result)
+            with sqlite3.connect(db) as conn:
+                conn.execute("DROP TABLE syntheses")
+            status, result = _call(server, "GET", "/readyz", TOKENS["bob"])
+            assert status == 503 and result["status"] == "unavailable"
+            assert not any(key in result for key in ("database", "path", "error"))
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+
+def test_readiness_checks_enabled_tkal_tables():
+    from rezon.tkal_network import TkalVirtualNetwork
+
+    with TemporaryDirectory() as tmp:
+        db = f"{tmp}/episodes.sqlite3"
+        store = CollectiveStore(db)
+        network = TkalVirtualNetwork(store)
+        server = make_server(store, ADMIN, TOKENS, tkal_network=network)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            assert _call(server, "GET", "/readyz", TOKENS["alice"])[0] == 200
+            with sqlite3.connect(db) as conn:
+                conn.execute("DROP TABLE tkal_challenges")
+            assert _call(server, "GET", "/readyz", TOKENS["alice"])[0] == 503
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+
+def test_concurrent_readiness_only_starts_one_storage_probe():
+    with TemporaryDirectory() as tmp:
+        store = CollectiveStore(f"{tmp}/episodes.sqlite3")
+        server = make_server(store, ADMIN, TOKENS)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        started, release = Event(), Event()
+
+        def held_probe(*, include_tkal):
+            started.set()
+            assert release.wait(3)
+            return True
+
+        try:
+            with patch.object(store, "readable", side_effect=held_probe) as reader:
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    first = pool.submit(_call, server, "GET", "/readyz", TOKENS["alice"])
+                    try:
+                        assert started.wait(3)
+                        second_status, second_payload = _call(
+                            server, "GET", "/readyz", TOKENS["bob"]
+                        )
+                        assert second_status == 503
+                        assert second_payload["status"] == "unavailable"
+                        assert reader.call_count == 1
+                    finally:
+                        release.set()
+                    assert first.result(timeout=3)[0] == 200
+        finally:
+            release.set()
             server.shutdown()
             server.server_close()
             thread.join(timeout=3)
