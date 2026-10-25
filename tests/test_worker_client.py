@@ -100,6 +100,58 @@ class WorkerClientTests(unittest.TestCase):
                 "answer:lappy", "answer:vn1", "answer:malaphor"
             })
             self.assertNotIn("answer:vn2", review.target_ids)
+            calls = list(FakeModel.calls)
+            with self.assertRaisesRegex(WorkerClientError, "review already submitted"):
+                run("review", url, episode, tokens["vn2"],
+                    model_id="test-model", model_api_key="local-placeholder")
+            self.assertEqual(FakeModel.calls, calls)
+
+    @patch("rezon.worker_client.OpenAICompatibleModel", FakeModel)
+    def test_repeated_review_does_not_invoke_model_or_post_again(self):
+        episode = "collective-" + "a" * 32
+        record = {"episode_id": episode, "agent_id": "vn2", "prompt": "Task"}
+        state = {
+            "episode_id": episode, "complete": True,
+            "agents": ["vn1", "vn2"], "prompt": "Task",
+            "answers": [
+                {"agent_id": "vn1", "id": "answer:vn1", "content": "A"},
+                {"agent_id": "vn2", "id": "answer:vn2", "content": "B"},
+            ],
+            "reviews": [{"agent_id": "vn2", "id": "review:vn2"}],
+        }
+        with patch("rezon.worker_client._request", side_effect=[record, state]) as request:
+            with self.assertRaisesRegex(WorkerClientError, "review already submitted"):
+                run("review", "https://vn2.tail86ea75.ts.net", episode,
+                    "safe-test-token-1234567890", model_id="test-model",
+                    model_api_key="local-placeholder")
+        self.assertEqual(request.call_count, 2)
+        self.assertFalse(FakeModel.calls)
+
+    @patch("rezon.worker_client.OpenAICompatibleModel", FakeModel)
+    def test_malformed_or_duplicate_review_claims_are_rejected_before_inference(self):
+        episode = "collective-" + "a" * 32
+        record = {"episode_id": episode, "agent_id": "vn2", "prompt": "Task"}
+        state = {
+            "episode_id": episode, "complete": True,
+            "agents": ["vn1", "vn2"], "prompt": "Task",
+            "answers": [
+                {"agent_id": "vn1", "id": "answer:vn1", "content": "A"},
+                {"agent_id": "vn2", "id": "answer:vn2", "content": "B"},
+            ],
+        }
+        for reviews in (None, {}, [{"agent_id": "vn1", "id": "review:vn2"}],
+                        [{"agent_id": "vn1", "id": "review:vn1"}] * 2,
+                        [{"agent_id": "unknown", "id": "review:unknown"}]):
+            with self.subTest(reviews=reviews):
+                with patch("rezon.worker_client._request", side_effect=[
+                    record, {**state, "reviews": reviews}
+                ]) as request:
+                    with self.assertRaisesRegex(WorkerClientError, "invalid review state"):
+                        run("review", "https://vn2.tail86ea75.ts.net", episode,
+                            "safe-test-token-1234567890", model_id="test-model",
+                            model_api_key="local-placeholder")
+                self.assertEqual(request.call_count, 2)
+        self.assertFalse(FakeModel.calls)
 
     @patch("rezon.worker_client.OpenAICompatibleModel", FakeModel)
     def test_missing_initial_answers_block_review(self):

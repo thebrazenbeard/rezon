@@ -176,6 +176,10 @@ and certificate validation; bearer redirects are refused. Accepted receipts
 are **unattested**, and ambiguous network writes are marked
 `OUTCOME_UNKNOWN`, never automatically retried. This does **not** qualify a
 four-machine inference episode or permanently connected worker mesh.
+An explicit repeated `review` checks the immutable gateway review state before
+local inference; if that worker already reviewed, it stops without another
+model call or POST. This is replay avoidance for completed reviews, **not** a
+cross-process claim lock: simultaneous first attempts can still both infer.
 
 ## Read-only gateway readiness probe
 

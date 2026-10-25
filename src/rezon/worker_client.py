@@ -150,6 +150,20 @@ def run(action: str, gateway: str, episode_id: str, token: str,
         answers = state.get("answers")
         if type(answers) is not list or len(answers) != len(state["agents"]):
             raise WorkerClientError("invalid review inputs")
+        reviews = state.get("reviews")
+        if type(reviews) is not list or len(reviews) > len(state["agents"]):
+            raise WorkerClientError("invalid review state")
+        reviewers: set[str] = set()
+        for review in reviews:
+            if type(review) is not dict or type(review.get("agent_id")) is not str:
+                raise WorkerClientError("invalid review state")
+            reviewer = review["agent_id"]
+            if (reviewer not in state["agents"] or reviewer in reviewers or
+                    review.get("id") != "review:" + reviewer):
+                raise WorkerClientError("invalid review state")
+            reviewers.add(reviewer)
+        if agent in reviewers:
+            raise WorkerClientError("review already submitted; no duplicate inference")
         peers = []
         targets = []
         for item in answers:
