@@ -20,6 +20,8 @@ The source binding for this optional dependency is declared as `.[linux-keyring]
 
 The Python fallback checks matching role metadata in the **entire** Secret Service before storing in the default collection, then rechecks that exactly one unlocked item remains and that it is the item just stored. A duplicate in another collection, locked match, or race makes enrollment fail closed rather than report a false success. This check does not retrieve other stored secrets or delete entries in another collection. A write interrupted by a concurrent conflicting item may leave a partially enrolled default-collection item: resolve the conflict using your own vault UI before retrying, not automatic cleanup. Successful metadata checks are not proof of physical-host identity or of the later gateway request.
 
+Both Linux backends check the stored token's bytes before reporting enrollment success. With the `secret-tool` CLI, a subsequent `lookup` must return the exact token just stored; a failed/mismatched lookup fails closed. **Unlike the Python backend, the CLI's one-item lookup does not prove global uniqueness across Secret Service collections.** If your session has conflicting items for the same role, resolve them locally through the vault UI before relying on a worker. Even an exact immediate readback cannot guarantee a credential is not later replaced.
+
 ## Enroll in an owner-controlled terminal
 
 On **Lappy and VN1**, in a **local PowerShell terminal**:

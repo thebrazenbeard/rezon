@@ -128,6 +128,21 @@ def _linux_save(role: str, token: str) -> None:
         raise CredentialError("local Secret Service unavailable") from None
     if r.returncode:
         raise CredentialError("local Secret Service could not store credential")
+    # A successful secret-tool store exit only reports transport success. The
+    # subsequent lookup may resolve a different matching item, or a provider
+    # may have failed to preserve the requested bytes. Do not report local
+    # enrollment success unless the normal read path returns those bytes.
+    try:
+        check = subprocess.run(
+            ["secret-tool", "lookup", "service", "rezon-tkik", "role", role],
+            capture_output=True, text=True, timeout=20, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        raise CredentialError("local Secret Service could not verify credential") from None
+    if check.returncode or not hmac.compare_digest(
+        check.stdout.rstrip("\r\n"), token
+    ):
+        raise CredentialError("local Secret Service credential verification failed")
 
 
 def _linux_load(role: str) -> str:
