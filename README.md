@@ -91,6 +91,16 @@ authenticated, **loopback-only** HTTP gateway. Configuration and routes are in
 the guide. Neither mode verifies a model's factual accuracy, claims authority,
 or supplies production-ready distributed consensus.
 
+For a separate read-only state observer, optionally set
+`REZON_COLLECTIVE_STATE_READ_TOKEN` to a strong secret **distinct** from the
+admin and every worker credential before launching `collective_cli serve`.
+This bearer can GET `/v1/episodes/{id}/state` only: it cannot create episodes,
+submit answers/reviews, synthesize, or use T'Kal hearing endpoints. If unset,
+the additional credential role does not exist. A state reader can see prompt
+and worker content for any requested episode; keep the token private and the
+service loopback-only. This separates mutation authority but does not attest
+host independence, qualify statements, or establish model consensus.
+
 ## T'Kal-in-ket hearing (opt-in)
 
 Use the existing authenticated loopback-only Collective V1 gateway with the

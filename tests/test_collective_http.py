@@ -11,6 +11,7 @@ from rezon.collective_http import make_server
 
 
 ADMIN = "super-secret-admin-token"
+READ_ONLY = "separate-read-only-state-token"
 TOKENS = {"alice": "alice-secret-agent-token", "bob": "bob-secret-agent-token"}
 
 
@@ -90,6 +91,56 @@ def test_server_rejects_insecure_credentials_and_non_loopback_binding():
             make_server(store, ADMIN, TOKENS, host="0.0.0.0")
         with pytest.raises(ValueError):
             make_server(store, ADMIN, {"alice": "pass with spaces 12345"})
+        for invalid in (ADMIN, TOKENS["alice"], "short", "bad with spaces 123456", 12):
+            with pytest.raises(ValueError):
+                make_server(store, ADMIN, TOKENS, read_token=invalid)
+
+
+def test_opt_in_state_reader_must_not_create_review_or_synthesize():
+    with TemporaryDirectory() as tmp:
+        store = CollectiveStore(f"{tmp}/episodes.sqlite3")
+        server = make_server(store, ADMIN, TOKENS, Integrator(), read_token=READ_ONLY)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            status, created = _call(server, "POST", "/v1/episodes", ADMIN,
+                                    {"prompt": "Bound the view", "agents": ["alice", "bob"]})
+            assert status == 201
+            episode = created["episode_id"]
+            state_url = f"/v1/episodes/{episode}/state"
+            assert _call(server, "GET", state_url, READ_ONLY)[0] == 200
+            assert _call(server, "GET", f"/v1/episodes/{episode}", READ_ONLY)[0] == 403
+            assert _call(server, "GET", f"/v1/episodes/{episode}/tkal", READ_ONLY)[0] == 403
+            for path, payload in (
+                ("/v1/episodes", {"prompt": "evil", "agents": ["alice", "bob"]}),
+                (f"/v1/episodes/{episode}/answers", {"content": "forged"}),
+                (f"/v1/episodes/{episode}/reviews", {"content": "forged", "target_ids": ["answer:bob"]}),
+                (f"/v1/episodes/{episode}/synthesize", {}),
+            ):
+                assert _call(server, "POST", path, READ_ONLY, payload)[0] == 403
+            assert store.snapshot(episode).answers == ()
+            assert store.snapshot(episode).reviews == ()
+            assert store.snapshot(episode).syntheses == ()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+
+def test_no_reader_role_when_opt_in_token_absent():
+    with TemporaryDirectory() as tmp:
+        server = make_server(CollectiveStore(f"{tmp}/episodes.sqlite3"), ADMIN, TOKENS)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            status, created = _call(server, "POST", "/v1/episodes", ADMIN,
+                                    {"prompt": "Default roles", "agents": ["alice", "bob"]})
+            assert status == 201
+            assert _call(server, "GET", f"/v1/episodes/{created['episode_id']}/state", READ_ONLY)[0] == 401
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
 
 
 def test_bad_roster_returns_client_error_and_server_remains_healthy():

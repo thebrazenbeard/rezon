@@ -58,6 +58,8 @@ class _Handler(BaseHTTPRequestHandler):
             return None
         if hmac.compare_digest(token, self.server.admin_token):
             return ("admin", None)
+        if self.server.read_token is not None and hmac.compare_digest(token, self.server.read_token):
+            return ("observer", None)
         for agent, known_token in self.server.worker_tokens.items():
             if hmac.compare_digest(token, known_token):
                 return ("worker", agent)
@@ -97,6 +99,14 @@ class _Handler(BaseHTTPRequestHandler):
         segments = path.path.strip("/").split("/")
         if path.query or segments[:2] != ["v1", "episodes"]:
             self._json(404, {"error": "not found"})
+            return
+        # An observer can fetch only immutable claims about one requested
+        # episode. It must never inherit admin creation/synthesis or worker
+        # answer/review authority, even if future endpoints are added.
+        if role == "observer" and not (
+            method == "GET" and len(segments) == 4 and segments[3] == "state"
+        ):
+            self._json(403, {"error": "read-only state credential"})
             return
         try:
             if method == "POST" and len(segments) == 2:
@@ -258,7 +268,7 @@ def make_server(store: CollectiveStore, admin_token: str,
                 worker_tokens: dict[str, str],
                 integrator: ReasoningModel | None = None,
                 *, host: str = "127.0.0.1", port: int = 0,
-                tkal_network=None) -> CollectiveHTTPServer:
+                tkal_network=None, read_token: str | None = None) -> CollectiveHTTPServer:
     if type(store) is not CollectiveStore or host != "127.0.0.1":
         raise ValueError("collective service binds to IPv4 loopback only")
     if type(admin_token) is not str or not 16 <= len(admin_token) <= 256 or (
@@ -269,7 +279,9 @@ def make_server(store: CollectiveStore, admin_token: str,
         _agent(agent)
         if type(token) is not str or not 16 <= len(token) <= 256:
             raise ValueError("strong worker tokens required")
-    tokens = (admin_token, *worker_tokens.values())
+    if read_token is not None and (type(read_token) is not str or not 16 <= len(read_token) <= 256):
+        raise ValueError("strong optional read-only state token required")
+    tokens = (admin_token, *worker_tokens.values()) + (() if read_token is None else (read_token,))
     if any(not token.isascii() or not token.isprintable() or any(c.isspace() for c in token)
            for token in tokens):
         raise ValueError("bearer tokens must be printable ASCII without whitespace")
@@ -280,6 +292,7 @@ def make_server(store: CollectiveStore, admin_token: str,
     server = CollectiveHTTPServer((host, port), _Handler)
     server.store = store
     server.admin_token = admin_token
+    server.read_token = read_token
     server.worker_tokens = dict(worker_tokens)
     if tkal_network is not None:
         from .tkal_network import TkalVirtualNetwork

@@ -67,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
         store = CollectiveStore(args.db)
         if args.command == "serve":
             admin_token = os.environ.get("REZON_COLLECTIVE_ADMIN_TOKEN", "")
+            read_token = os.environ.get("REZON_COLLECTIVE_STATE_READ_TOKEN") or None
             worker_json = os.environ.get("REZON_COLLECTIVE_WORKER_TOKENS_JSON", "")
             worker_tokens = json.loads(worker_json)
             integrator = _model(_load_config(args.integrator_config)) if args.integrator_config else None
@@ -76,7 +77,8 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 hearing = None
             instance = make_server(store, admin_token, worker_tokens, integrator,
-                                   port=args.port, tkal_network=hearing)
+                                   port=args.port, tkal_network=hearing,
+                                   read_token=read_token)
             try:
                 print(f"Rezon collective gateway listening on 127.0.0.1:{instance.server_port}")
                 instance.serve_forever()
