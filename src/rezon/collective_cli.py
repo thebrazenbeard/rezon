@@ -12,6 +12,7 @@ from .collective import (
     CollectiveStore, run_independent_models, run_peer_reviews, synthesize_with_model,
 )
 from .collective_http import make_server
+from .collective_evidence import import_dossier
 from .providers import AnthropicModel, OpenAICompatibleModel
 
 
@@ -62,9 +63,34 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--prompt", required=True)
     run.add_argument("--models-config", type=Path, required=True)
     run.add_argument("--integrator-config", type=Path, required=True)
+    imported = sub.add_parser("import-findings", help="Import an externally authored, unverified agent dossier")
+    imported.add_argument("--db", type=Path, required=True)
+    imported.add_argument("--manifest", type=Path, required=True)
+    synthesis = sub.add_parser("synthesize-episode", help="Use a real configured model to synthesize a complete episode")
+    synthesis.add_argument("--db", type=Path, required=True)
+    synthesis.add_argument("--episode-id", required=True)
+    synthesis.add_argument("--integrator-config", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         store = CollectiveStore(args.db)
+        if args.command == "import-findings":
+            # Explicit local file import only; no automatic Blotter access,
+            # remote publication, model calls, or manufactured findings.
+            if args.manifest.stat().st_size > 1_000_000:
+                raise ValueError("dossier is too large")
+            episode_id = import_dossier(store, _load_config(args.manifest))
+            snap = store.snapshot(episode_id)
+            print(json.dumps({"episode_id": episode_id, "complete": snap.complete,
+                              "answers": len(snap.answers), "reviews": len(snap.reviews),
+                              "input_digest": snap.digest,
+                              "status": "external_agent_claims_unverified"}, sort_keys=True))
+            return 0
+        if args.command == "synthesize-episode":
+            integrator = _model(_load_config(args.integrator_config))
+            item = synthesize_with_model(store, args.episode_id, integrator)
+            print(json.dumps({"episode_id": args.episode_id, "input_digest": item.input_digest,
+                              "synthesis": item.content, "status": item.status}, sort_keys=True))
+            return 0
         if args.command == "serve":
             admin_token = os.environ.get("REZON_COLLECTIVE_ADMIN_TOKEN", "")
             read_token = os.environ.get("REZON_COLLECTIVE_STATE_READ_TOKEN") or None

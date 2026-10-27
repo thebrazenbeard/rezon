@@ -70,6 +70,81 @@ enrolled reviewer fails. It prints the durable episode ID and per-model
 outcomes for recovery; reruns of already-submitted answers/reviews are
 idempotent only if their text matches exactly.
 
+## Import independently authored Blotter engineering findings
+
+For an existing set of **genuine, independently written** worker reports (for
+example, native ChatGPT subagent findings), REZON can ingest those reports into
+its existing immutable, SQLite-backed collective episode. This does not invoke
+workers or a neural model, and **does not establish that the supplied author
+identities, independence, evidence classes, or source links are authentic**.
+
+Prepare a local JSON file containing explicit, reviewed excerpts—not raw
+private Blotter event payloads or authentication material:
+
+```json
+{
+  "provenance": "native-agent-report-import",
+  "task": "Find the root cause of the central Blotter connectivity failure",
+  "findings": [
+    {
+      "agent_id": "blotter_auditor",
+      "evidence_class": "SOURCE_INSPECTION",
+      "content": "The client exposes an authenticated read-only list operation.",
+      "source_refs": ["github:thebrazenbeard/blotter@18d23b7ff5b52fdb9d8084a69c69ae2d68a34fac:src/agent_blotter/remote.py"]
+    },
+    {
+      "agent_id": "systems_architect",
+      "evidence_class": "INFERENCE",
+      "content": "A source-defined client does not itself prove service reachability.",
+      "source_refs": []
+    }
+  ],
+  "reviews": [
+    {
+      "agent_id": "systems_architect",
+      "evidence_class": "MODEL_REVIEW",
+      "content": "The auditor's source claim warrants an authenticated runtime check.",
+      "source_refs": [],
+      "target_ids": ["answer:blotter_auditor"]
+    }
+  ]
+}
+```
+
+The example is illustrative, not a claim that REZON executed those agents.
+Manifests must contain 2–32 distinct report authors. All source-backed claims
+need immutable `github:owner/repo@40hexsha:path`, `artifact:sha256:64hex`, or
+`blotter:seq:N:sha256:64hex` references. The declared `FORMAL_VERIFY` class is
+rejected: formal qualification requires separately verified receipts. Each
+review author must be in the original roster and may challenge only other
+authors' actual answer IDs. Entire manifests are validated before any episode
+is created; imported strings remain unverified claims.
+
+```bash
+python -m rezon.collective_cli import-findings \
+  --db ./rezon-episodes.sqlite3 --manifest ./blotter-reviewed.json
+```
+
+The JSON output returns a durable episode ID, number of authored answers and
+peer reviews, and exact `input_digest`; **it contains no manufactured
+synthesis or model invocation**. To request a genuine model synthesis, first
+review the episode and endpoint privacy/credentials, then explicitly run:
+
+```bash
+python -m rezon.collective_cli synthesize-episode \
+  --db ./rezon-episodes.sqlite3 --episode-id collective-EXACT-ID \
+  --integrator-config ./integrator.json
+```
+
+This sends the imported findings and reviews to the selected **real** model
+provider. The result is `unverified_model_synthesis` bound to the exact input
+digest, not validation of any Blotter operation. REZON does not connect to the
+Blotter service as part of this workflow, nor does it repair credentials,
+tailnet networking, or service deployment. Blotter's `RemoteBlotter.list()` is
+read-only but requires authenticated reachability; `check()` intentionally
+appends an audit event. Do not infer a current central tail from an old source
+or read-only sample.
+
 ## HTTP gateway for independently running agents
 
 Set `REZON_COLLECTIVE_ADMIN_TOKEN` to a unique random secret of at least 16
