@@ -42,3 +42,35 @@ Evidence: actual model HTTP calls at the three local loopback endpoints and file
 The job generator intentionally permits 1–32 cases per bounded one-shot exchange, 2–8 assigned workers and 32 output tokens per model response. Scaling into millions of records requires batching, resource scheduling, safe transport retries, drift monitoring, source deduplication, independent holdouts and neural-training gates. Host-specific dedicated models can evaluate code, arithmetic or reasoning separately, but truth must be independently checked; model vote counts alone are not a safe training label.
 
 The pilot demonstrates execution and a negative result for unguarded peer critique. Do not promote this branch as a production multi-host mesh or evidence Vera's reasoning weights improved.
+
+## R23 offline logical routing assessment (source-only)
+
+`rezon.trainingday_routing.assess_routing_declarations` compares a validated,
+hash-pinned TrainingDay job's worker names with **declared** worker-to-device
+routes, device observations and logical lease metadata. It checks missing and
+colliding routes, disconnected/stale/occupied workers, duplicate observations,
+lease reuse, lease-to-worker mismatches, expiration and replay/reconnect cases.
+This assessor invokes no Executor tool or model, allocates no lease, performs no
+network communication and preserves the live three-host configuration.
+
+Even a consistent assessment returns `dispatch_authorized=false` and
+`host_lease_authenticated=false`; it is **not** an executable scheduler.
+Before any host task, the independent Executor/host authority must fresh-read
+device identity and activity, enforce a host-side exclusive resource lease
+atomically (including across competing coordinators), confirm worker/model
+availability and authorize dispatch. A statically consistent observation can
+become stale immediately, and the caller may fabricate any declaration.
+Reconnecting and retrying require fresh, authenticated checks, never automatic
+promotion from earlier receipts. No self-hashed Rezon receipt proves host
+identity, a real GPU allocation, or collective gradient computation.
+
+The R24 offline-only assessor limits caller-specified observation freshness to
+at most 30 seconds and flags logical lease claims extending more than 120
+seconds into the future; neither value implies a real host-enforced lease.
+The `routing-assessment.v2` `assessment_sha256` includes the exact asserted
+worker routes, observations, logical leases, job hash, assessment instant,
+policy values and decision. Permuting observation/lease row order alone does
+not change the digest. Preserve those input declarations separately if an
+independent party must replay it: the returned digest is a **self-hash of
+untrusted claims**, not a signature, authenticated host identity, atomic
+resource ownership, an independent wall-clock witness or dispatch authority.
