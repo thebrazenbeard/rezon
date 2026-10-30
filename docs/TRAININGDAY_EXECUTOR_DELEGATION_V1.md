@@ -9,6 +9,8 @@ Each model returns one answer per case in round one. A second round is optional:
 
 After returning portable JSON receipts to the coordinator, `aggregate` validates exact job/worker/model/case IDs, all receipt hashes, every answer parser, the frozen peer snapshot and the separate integer oracle. The oracle's operations must reproduce **both** the answer and the literal public question. If a worker is missing or an input is inconsistent, no candidate batch is exported. A model majority is **not** ground truth.
 
+Transport retries may deliver an identical first-round or review receipt more than once. The aggregate and peer-review paths collapse up to four **exactly identical, digest-validated deliveries per worker** without increasing completed-worker counts or votes; conflicting valid receipts from the same worker fail closed. Missing workers still prevent candidate export, and more than four deliveries per worker fail closed. This is a bounded receipt-replay property, **not** an unattended submission/retry scheduler, proof of a second independent inference, or network transport reliability. CLI output files remain create-only and cannot be overwritten by retry.
+
 The candidate batch contains source `SYNTHETIC_ORIGINAL_INTEGER_REPLAY_V1`, target answers computed by the deterministic oracle, model vote counts and `qualified_for_neural_training=false`. Admission into Labyrinth or the model-training runner requires separate deduplication, provenance, train/eval contamination checks and explicit selection. No private V10 final-bank plaintext may be placed into jobs.
 
 ## Reproduction commands
