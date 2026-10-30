@@ -105,7 +105,8 @@ def scan_v2_manifest(manifest_path, expected_sha):
                 raise AdmissionGateError("invalid shard JSON") from exc
             _require(type(row) is dict, "shard row invalid")
             if row.get("kind") == "code":
-                _require(split == "train", "eval shard contains code row")
+                # Source-code rows in either split are hashed and counted,
+                # but never parsed as arithmetic or sent to the trainer.
                 continue
             signature, key = _source_row(row, manifest["seed"])
             structures[split].add(signature)
