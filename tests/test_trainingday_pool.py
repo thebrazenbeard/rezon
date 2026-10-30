@@ -80,3 +80,45 @@ class PoolTests(unittest.TestCase):
             path.write_bytes(b"\xef\xbb\xbf" + b'{"vn1":"qwen","vn2":"granite"}')
             self.assertEqual(load_json(path)["vn1"], "qwen")
 
+
+    def test_second_round_peer_review_cannot_see_oracle(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import run_worker, run_review, collect_reviews
+        first = [
+            run_worker(self.job, worker, base_url="http://127.0.0.1:11434/v1",
+                       model=Mock(complete=Mock(return_value="999999")))
+            for worker in self.workers
+        ]
+        fake_model = Mock(complete=Mock(return_value="0"))
+        reviewed = [
+            run_review(self.job, first, worker, base_url="http://127.0.0.1:11434/v1",
+                       model=fake_model)
+            for worker in self.workers
+        ]
+        summary, rows = collect_reviews(self.job, self.oracle, first, reviewed)
+        self.assertEqual(summary["workers_completed"], 2)
+        self.assertEqual(summary["review_workers_completed"], 2)
+        self.assertEqual(summary["model_exact_total"], 0)
+        self.assertEqual(summary["review_model_exact_total"], sum(
+            r["answer"] == 0 for r in self.oracle["cases"]) * 2)
+        self.assertEqual(len(rows), 6)
+        self.assertTrue(all(r["qualified_for_neural_training"] is False for r in rows))
+        for call in fake_model.complete.call_args_list:
+            self.assertNotIn('"answer":', str(call))
+
+    def test_peer_review_digest_must_bind_exact_first_round(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import run_worker, run_review, collect_reviews, PoolError
+        first = [
+            run_worker(self.job, worker, base_url="http://127.0.0.1:11434/v1",
+                       model=Mock(complete=Mock(return_value="7")))
+            for worker in self.workers
+        ]
+        reviewed = [
+            run_review(self.job, first, worker, base_url="http://127.0.0.1:11434/v1",
+                       model=Mock(complete=Mock(return_value="8")))
+            for worker in self.workers
+        ]
+        reviewed[0]["peer_receipts_sha256"] = "f" * 64
+        with self.assertRaisesRegex(PoolError, "peer"):
+            collect_reviews(self.job, self.oracle, first, reviewed)
