@@ -4,13 +4,14 @@ import json
 from rezon.trainingday_pool import build_job
 
 class PoolTests(unittest.TestCase):
-    def test_no_answers_in_job(self):
-        job, oracle = build_job(seed=29037, count=6, workers={"vn1": "qwen-coder", "vn2": "granite"})
-        self.assertEqual(len(job["cases"]), 6)
-        self.assertNotIn("answer", str(job))
-        self.assertEqual(oracle["job_sha256"], job["job_sha256"])
+    def setUp(self):
         self.workers = {"vn1": "qwen-coder", "vn2": "granite"}
-        self.job, self.oracle = job, oracle
+        self.job, self.oracle = build_job(seed=29037, count=6, workers=self.workers)
+
+    def test_no_answers_in_job(self):
+        self.assertEqual(len(self.job["cases"]), 6)
+        self.assertNotIn("answer", str(self.job))
+        self.assertEqual(self.oracle["job_sha256"], self.job["job_sha256"])
 
     def test_three_wrong_models_cannot_override_integer_oracle(self):
         from unittest.mock import Mock
