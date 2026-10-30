@@ -157,21 +157,32 @@ def build_job(*, seed: int, count: int, workers: dict) -> tuple[dict, dict]:
 
 
 def validate_job(job: dict) -> bool:
-    if type(job) is not dict or job.get("schema") != SCHEMA:
+    expected_fields = {"schema", "event_id", "case_type", "seed", "workers",
+                       "cases", "job_sha256"}
+    if type(job) is not dict or set(job) != expected_fields:
+        raise PoolError("job fields unrecognized or incomplete")
+    if (job["schema"] != SCHEMA or job["event_id"] != "VERA::TRAININGDAY"
+            or job["case_type"] != "SYNTHETIC_INTEGER_ORACLE"):
         raise PoolError("job schema mismatch")
     _check_workers(job.get("workers"))
     cases = job.get("cases")
     if (type(cases) is not list or not 1 <= len(cases) <= 32
-            or type(job.get("seed")) is not int):
+            or type(job["seed"]) is not int or not 0 <= job["seed"] < 2**31):
         raise PoolError("invalid job cases")
-    if len({x.get("id") for x in cases if type(x) is dict}) != len(cases):
+    if any(type(x) is not dict or set(x) != {"id", "prompt"}
+           or type(x["id"]) is not str for x in cases):
+        raise PoolError("invalid job case fields")
+    if len({x["id"] for x in cases}) != len(cases):
         raise PoolError("duplicate or invalid case ids")
     for case in cases:
-        if (type(case) is not dict or set(case) != {"id", "prompt"}
-                or type(case["prompt"]) is not str
-                or not 1 <= len(case["prompt"]) <= 1400
-                or case["id"] != "case-" + hashlib.sha256(
-                    case["prompt"].encode("utf-8")).hexdigest()[:24]):
+        if type(case["prompt"]) is not str or not 1 <= len(case["prompt"]) <= 1400:
+            raise PoolError("case content/hash invalid")
+        try:
+            expected_id = "case-" + hashlib.sha256(
+                case["prompt"].encode("utf-8")).hexdigest()[:24]
+        except UnicodeEncodeError as exc:
+            raise PoolError("job case prompt not UTF-8 encodable") from exc
+        if case["id"] != expected_id:
             raise PoolError("case content/hash invalid")
     claim = job.get("job_sha256")
     if type(claim) is not str or claim != _digest(
