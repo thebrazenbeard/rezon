@@ -75,6 +75,13 @@ def _calculate(start: int, operations: list[list]) -> int:
     return value
 
 
+def _render_prompt(start: int, operations: list[list]) -> str:
+    """Reconstruct the canonical literal question from oracle operations."""
+    parts = [f"Start with the integer {start}."]
+    parts.extend(f"{name} {operand}." for name, operand in operations)
+    return " ".join(parts) + " What is the final integer? Reply with the integer only."
+
+
 def build_job(*, seed: int, count: int, workers: dict) -> tuple[dict, dict]:
     """Generate bounded ORIGINAL synthetic math; never leak answers to workers."""
     if type(seed) is not int or not 0 <= seed < 2**31:
@@ -92,10 +99,7 @@ def build_job(*, seed: int, count: int, workers: dict) -> tuple[dict, dict]:
             op = rng.choice(("add", "subtract", "multiply"))
             operand = rng.randint(-12, 12) if op != "multiply" else rng.randint(-4, 4)
             operations.append([op, operand])
-        segments = [f"Start with the integer {start}."]
-        for op, operand in operations:
-            segments.append(f"{op} {operand}.")
-        prompt = " ".join(segments) + " What is the final integer? Reply with the integer only."
+        prompt = _render_prompt(start, operations)
         if prompt in used:
             continue
         used.add(prompt)
@@ -206,7 +210,8 @@ def collect(job: dict, oracle: dict, receipts: list[dict]) -> tuple[dict, list[d
                 or secret.get("prompt_sha256") != hashlib.sha256(
                     public["prompt"].encode("utf-8")).hexdigest()
                 or type(secret.get("answer")) is not int
-                or secret["answer"] != _calculate(secret.get("start"), secret.get("operations"))):
+                or secret["answer"] != _calculate(secret.get("start"), secret.get("operations"))
+                or public["prompt"] != _render_prompt(secret["start"], secret["operations"])):
             raise PoolError("oracle mismatch or invalid answer")
         truth[public["id"]] = secret["answer"]
     seen = {}
@@ -246,7 +251,7 @@ def collect(job: dict, oracle: dict, receipts: list[dict]) -> tuple[dict, list[d
         candidate = {"schema": SCHEMA + ".candidate",
                      "id": case["id"], "prompt": case["prompt"],
                      "answer": str(truth[case["id"]]),
-                     "source": "SYNTHETIC_ORIGINAL_TWO_PATH_INTEGER_ORACLE",
+                     "source": "SYNTHETIC_ORIGINAL_INTEGER_REPLAY_V1",
                      "verification": "DETERMINISTIC_ORACLE_REPLAY",
                      "model_exact_votes": sum(
                          output["parsed_integer"] == truth[case["id"]]
