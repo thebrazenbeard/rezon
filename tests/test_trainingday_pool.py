@@ -13,6 +13,36 @@ class PoolTests(unittest.TestCase):
         self.assertNotIn("answer", str(self.job))
         self.assertEqual(self.oracle["job_sha256"], self.job["job_sha256"])
 
+    def test_invalid_unicode_job_prompt_is_controlled_admission_error(self):
+        from copy import deepcopy
+        from rezon.trainingday_pool import PoolError, validate_job
+        bad = deepcopy(self.job)
+        bad["cases"][0]["prompt"] = "lone surrogate: \ud800"
+        with self.assertRaisesRegex(PoolError, "UTF-8|Unicode"):
+            validate_job(bad)
+
+    def test_nonfinite_extra_job_field_rejected_before_hashing(self):
+        from copy import deepcopy
+        from rezon.trainingday_pool import PoolError, validate_job
+        bad = deepcopy(self.job)
+        bad["unexpected"] = float("nan")
+        with self.assertRaisesRegex(PoolError, "job fields"):
+            validate_job(bad)
+
+    def test_job_identity_and_unhashable_case_id_rejected_structurally(self):
+        from copy import deepcopy
+        from rezon.trainingday_pool import PoolError, validate_job
+        for mutation in (
+            lambda job: job.__setitem__("event_id", "OTHER_EVENT"),
+            lambda job: job["cases"][0].__setitem__("id", ["not hashable"]),
+            lambda job: job.__setitem__("seed", -1),
+        ):
+            bad = deepcopy(self.job)
+            mutation(bad)
+            with self.subTest(mutation=mutation):
+                with self.assertRaises(PoolError):
+                    validate_job(bad)
+
     def test_three_wrong_models_cannot_override_integer_oracle(self):
         from unittest.mock import Mock
         from rezon.trainingday_pool import collect, run_worker
@@ -66,6 +96,23 @@ class PoolTests(unittest.TestCase):
         receipt["answers"][0]["text"] = "999"
         with self.assertRaisesRegex(PoolError, "digest"):
             collect(self.job, self.oracle, [receipt])
+
+    def test_missing_worker_can_resume_via_bounded_idempotent_delivery(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import collect, run_worker
+        first = run_worker(self.job, "vn1", base_url="http://localhost:11434/v1",
+                           model=Mock(complete=Mock(return_value="7")))
+        second = run_worker(self.job, "vn2", base_url="http://localhost:11434/v1",
+                            model=Mock(complete=Mock(return_value="8")))
+        partial, rows = collect(self.job, self.oracle, [first, first])
+        self.assertEqual(partial["status"], "PARTIAL_WORKER_EVIDENCE_NOT_ADMITTED")
+        self.assertEqual(partial["workers_completed"], 1)
+        self.assertEqual(rows, [])
+        complete = collect(self.job, self.oracle, [first, second])
+        delayed_retry = collect(self.job, self.oracle, [first, first, second, second])
+        self.assertEqual(delayed_retry, complete)
+        self.assertEqual(complete[0]["workers_completed"], 2)
+        self.assertEqual(len(complete[1]), len(self.job["cases"]))
 
     def test_self_hashed_oversized_first_answer_rejected_before_aggregation(self):
         from unittest.mock import Mock
