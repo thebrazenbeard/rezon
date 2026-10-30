@@ -122,3 +122,27 @@ class PoolTests(unittest.TestCase):
         reviewed[0]["peer_receipts_sha256"] = "f" * 64
         with self.assertRaisesRegex(PoolError, "peer"):
             collect_reviews(self.job, self.oracle, first, reviewed)
+
+    def test_consistently_poisoned_oracle_must_match_literal_question(self):
+        from rezon.trainingday_pool import PoolError, collect
+        altered = json.loads(json.dumps(self.oracle))
+        case = altered["cases"][0]
+        # Change both operations and the answer together; each passes a
+        # simple replay, but the literal public question is now different.
+        case["operations"][0] = ["add", 30000]
+        value = case["start"]
+        for op, n in case["operations"]:
+            value = {"add": lambda a,b:a+b, "subtract":lambda a,b:a-b,
+                     "multiply":lambda a,b:a*b}[op](value,n)
+        case["answer"] = value
+        with self.assertRaisesRegex(PoolError, "oracle"):
+            collect(self.job, altered, [])
+
+    def test_candidate_provenance_does_not_claim_two_independent_oracles(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import collect, run_worker
+        first = [run_worker(self.job, w, base_url="http://localhost:11434/v1",
+                            model=Mock(complete=Mock(return_value="99")))
+                 for w in self.workers]
+        _, rows = collect(self.job, self.oracle, first)
+        self.assertEqual(rows[0]["source"], "SYNTHETIC_ORIGINAL_INTEGER_REPLAY_V1")
