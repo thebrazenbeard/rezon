@@ -21,10 +21,37 @@ from .providers import OpenAICompatibleModel
 SCHEMA = "rezon.trainingday.pool.v1"
 _WORKER = re.compile(r"[a-z][a-z0-9_]{1,31}\Z")
 _INTEGER = re.compile(r"-?(?:0|[1-9][0-9]*)\Z")
+_MAX_DELIVERIES_PER_WORKER = 4
 
 
 class PoolError(ValueError):
     """Bad pinned task, worker receipt, or training admission boundary."""
+
+
+def _accept_delivery(seen: dict, worker: str, receipt: dict) -> None:
+    """Collapse byte-equivalent deliveries, but never resolve conflicting evidence."""
+    if worker in seen:
+        if seen[worker] != receipt:
+            raise PoolError("conflicting duplicate worker receipt")
+        return
+    seen[worker] = receipt
+
+
+def _check_delivery_budget(receipts: list, workers: dict, *, complete: bool) -> None:
+    if type(receipts) is not list:
+        raise PoolError("receipt list required")
+    if len(receipts) > len(workers) * _MAX_DELIVERIES_PER_WORKER:
+        raise PoolError("receipt replay limit exceeded")
+    counts = {}
+    for receipt in receipts:
+        if type(receipt) is not dict or type(receipt.get("worker")) is not str:
+            raise PoolError("invalid worker receipt")
+        worker = receipt["worker"]
+        counts[worker] = counts.get(worker, 0) + 1
+        if counts[worker] > _MAX_DELIVERIES_PER_WORKER:
+            raise PoolError("receipt replay limit exceeded")
+    if complete and len(receipts) < len(workers):
+        raise PoolError("all worker receipts required")
 
 
 def _digest(value: dict) -> str:
@@ -214,14 +241,13 @@ def collect(job: dict, oracle: dict, receipts: list[dict]) -> tuple[dict, list[d
                 or public["prompt"] != _render_prompt(secret["start"], secret["operations"])):
             raise PoolError("oracle mismatch or invalid answer")
         truth[public["id"]] = secret["answer"]
+    _check_delivery_budget(receipts, job["workers"], complete=False)
     seen = {}
     for receipt in receipts:
         if (type(receipt) is not dict or receipt.get("schema") != SCHEMA + ".worker"
                 or receipt.get("job_sha256") != job["job_sha256"]):
             raise PoolError("worker job mismatch")
         worker = receipt.get("worker")
-        if worker in seen:
-            raise PoolError("duplicate worker receipt")
         if (worker not in job["workers"]
                 or receipt.get("model_id") != job["workers"][worker]):
             raise PoolError("worker model mismatch")
@@ -236,7 +262,7 @@ def collect(job: dict, oracle: dict, receipts: list[dict]) -> tuple[dict, list[d
         for row in answers:
             if type(row.get("text")) is not str or row.get("parsed_integer") != _numeric(row["text"]):
                 raise PoolError("worker answer parsing mismatch")
-        seen[worker] = receipt
+        _accept_delivery(seen, worker, receipt)
     if set(seen) != set(job["workers"]):
         return ({"status": "PARTIAL_WORKER_EVIDENCE_NOT_ADMITTED",
                  "job_sha256": job["job_sha256"],
@@ -276,16 +302,13 @@ def collect(job: dict, oracle: dict, receipts: list[dict]) -> tuple[dict, list[d
 def _peer_snapshot(job: dict, receipts: list[dict]) -> tuple[dict, str]:
     """Freeze every first answer, without an oracle or final labels."""
     validate_job(job)
-    if type(receipts) is not list or len(receipts) != len(job["workers"]):
-        raise PoolError("all peer first-round receipts required")
+    _check_delivery_budget(receipts, job["workers"], complete=True)
     peers = {}
     for receipt in receipts:
         if (type(receipt) is not dict or receipt.get("schema") != SCHEMA + ".worker"
                 or receipt.get("job_sha256") != job["job_sha256"]):
             raise PoolError("peer first-round job mismatch")
         name = receipt.get("worker")
-        if name in peers:
-            raise PoolError("duplicate peer")
         if name not in job["workers"] or receipt.get("model_id") != job["workers"][name]:
             raise PoolError("peer model identity mismatch")
         if receipt.get("receipt_sha256") != _digest({
@@ -301,7 +324,7 @@ def _peer_snapshot(job: dict, receipts: list[dict]) -> tuple[dict, str]:
                     or len(row["text"]) > 2000
                     or row.get("parsed_integer") != _numeric(row["text"])):
                 raise PoolError("peer answer text mismatch")
-        peers[name] = receipt
+        _accept_delivery(peers, name, receipt)
     if set(peers) != set(job["workers"]):
         raise PoolError("missing peer first-round worker")
     digest = _digest({"job_sha256": job["job_sha256"],
@@ -353,17 +376,15 @@ def collect_reviews(job: dict, oracle: dict, first: list[dict],
     """Evaluate a complete peer critique round, with oracle still sovereign."""
     peers, peer_digest = _peer_snapshot(job, first)
     summary, candidates = collect(job, oracle, first)
-    if (summary["status"] != "REPLAYED_ORACLE_NOT_MODEL_CONSENSUS"
-            or type(reviews) is not list or len(reviews) != len(peers)):
+    if summary["status"] != "REPLAYED_ORACLE_NOT_MODEL_CONSENSUS":
         raise PoolError("incomplete first or review round")
+    _check_delivery_budget(reviews, job["workers"], complete=True)
     found = {}
     for receipt in reviews:
         if (type(receipt) is not dict or receipt.get("schema") != SCHEMA + ".review"
                 or receipt.get("job_sha256") != job["job_sha256"]):
             raise PoolError("review job mismatch")
         worker = receipt.get("worker")
-        if worker in found:
-            raise PoolError("duplicate review worker")
         if (worker not in peers or receipt.get("model_id") != job["workers"][worker]):
             raise PoolError("review worker model mismatch")
         if receipt.get("peer_receipts_sha256") != peer_digest:
@@ -379,7 +400,7 @@ def collect_reviews(job: dict, oracle: dict, first: list[dict],
         if any(type(row.get("text")) is not str or len(row["text"]) > 2000
                or row.get("parsed_integer") != _numeric(row["text"]) for row in rows):
             raise PoolError("review answer parsing mismatch")
-        found[worker] = receipt
+        _accept_delivery(found, worker, receipt)
     if set(found) != set(peers):
         raise PoolError("missing review worker")
     accurate = {}

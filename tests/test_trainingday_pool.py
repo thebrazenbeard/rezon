@@ -47,11 +47,57 @@ class PoolTests(unittest.TestCase):
             self.job, "vn1", base_url="http://127.0.0.1:11434/v1",
             model=Mock(complete=Mock(return_value="17")),
         )
-        with self.assertRaisesRegex(PoolError, "duplicate"):
-            collect(self.job, self.oracle, [receipt, receipt])
+        # An identical retried delivery is one piece of evidence, not two workers.
+        summary, rows = collect(self.job, self.oracle, [receipt, receipt])
+        self.assertEqual(summary["status"], "PARTIAL_WORKER_EVIDENCE_NOT_ADMITTED")
+        self.assertEqual(summary["workers_completed"], 1)
+        self.assertEqual(rows, [])
+        # Two independently valid but different answers for one worker conflict.
+        conflicting = run_worker(
+            self.job, "vn1", base_url="http://127.0.0.1:11434/v1",
+            model=Mock(complete=Mock(return_value="18")),
+        )
+        with self.assertRaisesRegex(PoolError, "conflicting duplicate"):
+            collect(self.job, self.oracle, [receipt, conflicting])
+        with self.assertRaisesRegex(PoolError, "replay limit"):
+            collect(self.job, self.oracle, [receipt] * 9)
+        with self.assertRaisesRegex(PoolError, "replay limit"):
+            collect(self.job, self.oracle, [receipt] * 5)
         receipt["answers"][0]["text"] = "999"
         with self.assertRaisesRegex(PoolError, "digest"):
             collect(self.job, self.oracle, [receipt])
+
+    def test_identical_replays_keep_aggregate_and_peer_review_outputs_stable(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import collect, collect_reviews, run_worker, run_review
+        first = [run_worker(self.job, worker, base_url="http://127.0.0.1:11434/v1",
+                            model=Mock(complete=Mock(return_value="7")))
+                 for worker in self.workers]
+        reviews = [run_review(self.job, first, worker,
+                              base_url="http://127.0.0.1:11434/v1",
+                              model=Mock(complete=Mock(return_value="8")))
+                   for worker in self.workers]
+        expected = collect(self.job, self.oracle, first)
+        self.assertEqual(collect(self.job, self.oracle, first + first), expected)
+        reviewed = collect_reviews(self.job, self.oracle, first, reviews)
+        self.assertEqual(collect_reviews(self.job, self.oracle, first + first,
+                                         reviews + reviews), reviewed)
+
+    def test_conflicting_peer_review_replay_denied(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import PoolError, collect_reviews, run_worker, run_review
+        first = [run_worker(self.job, worker, base_url="http://127.0.0.1:11434/v1",
+                            model=Mock(complete=Mock(return_value="7")))
+                 for worker in self.workers]
+        reviews = [run_review(self.job, first, worker,
+                              base_url="http://127.0.0.1:11434/v1",
+                              model=Mock(complete=Mock(return_value="8")))
+                   for worker in self.workers]
+        alternate = run_review(self.job, first, "vn1",
+                               base_url="http://127.0.0.1:11434/v1",
+                               model=Mock(complete=Mock(return_value="9")))
+        with self.assertRaisesRegex(PoolError, "conflicting duplicate"):
+            collect_reviews(self.job, self.oracle, first, reviews + [alternate])
 
     def test_modified_arithmetic_answer_rejected_even_before_worker_results(self):
         from rezon.trainingday_pool import PoolError, collect
