@@ -33,6 +33,11 @@ def _digest(value: dict) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def load_json(path: str | Path) -> dict:
+    """Decode ordinary UTF-8 and Windows PowerShell UTF-8-BOM JSON alike."""
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+
 def save_json_new(path: str | Path, value: dict) -> None:
     """Create only: never replace existing job, oracle, output or receipt."""
     target = Path(path)
@@ -286,13 +291,13 @@ def main() -> None:
     args = parser.parse_args()
     if args.op == "create":
         job, oracle = build_job(seed=args.seed, count=args.cases,
-                                workers=json.loads(args.workers_json.read_text(encoding="utf-8")))
+                                workers=load_json(args.workers_json))
         save_json_new(args.job, job)
         save_json_new(args.oracle, oracle)
         print(json.dumps({"job_sha256": job["job_sha256"], "cases": len(job["cases"]),
                           "workers": sorted(job["workers"]), "status": "PACKAGED_NO_INFERENCE"}))
     elif args.op == "worker":
-        receipt = run_worker(json.loads(args.job.read_text(encoding="utf-8")),
+        receipt = run_worker(load_json(args.job),
                              args.worker, base_url=args.model_url)
         save_json_new(args.output, receipt)
         print(json.dumps({"receipt_sha256": receipt["receipt_sha256"],
@@ -300,9 +305,9 @@ def main() -> None:
                           "status": "LOCAL_MODEL_RESPONSES_UNATTESTED"}))
     else:
         summary, candidates = collect(
-            json.loads(args.job.read_text(encoding="utf-8")),
-            json.loads(args.oracle.read_text(encoding="utf-8")),
-            [json.loads(p.read_text(encoding="utf-8")) for p in args.receipt],
+            load_json(args.job),
+            load_json(args.oracle),
+            [load_json(p) for p in args.receipt],
         )
         if summary["status"] != "REPLAYED_ORACLE_NOT_MODEL_CONSENSUS":
             raise PoolError("all workers required before training candidates export")
