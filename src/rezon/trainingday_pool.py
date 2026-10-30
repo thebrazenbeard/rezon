@@ -22,6 +22,8 @@ SCHEMA = "rezon.trainingday.pool.v1"
 _WORKER = re.compile(r"[a-z][a-z0-9_]{1,31}\Z")
 _INTEGER = re.compile(r"-?(?:0|[1-9][0-9]*)\Z")
 _MAX_DELIVERIES_PER_WORKER = 4
+# A 32-case receipt with 2,000 escaped characters per answer fits below this.
+_MAX_JSON_INPUT_BYTES = 512 * 1024
 
 
 class PoolError(ValueError):
@@ -55,14 +57,23 @@ def _check_delivery_budget(receipts: list, workers: dict, *, complete: bool) -> 
 
 
 def _digest(value: dict) -> str:
-    data = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
-                      allow_nan=False).encode("utf-8")
+    try:
+        data = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+                          allow_nan=False).encode("utf-8")
+    except UnicodeEncodeError as exc:
+        # Reject malformed Unicode rather than hashing with replacement or
+        # leaking an unstructured encoding exception across receipt boundaries.
+        raise PoolError("Unicode receipt content is not UTF-8 encodable") from exc
     return hashlib.sha256(data).hexdigest()
 
 
 def load_json(path: str | Path) -> dict:
-    """Decode ordinary UTF-8 and Windows PowerShell UTF-8-BOM JSON alike."""
-    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    """Decode BOM/plain UTF-8, refusing oversized transport inputs before parsing."""
+    with Path(path).open("rb") as file:
+        raw = file.read(_MAX_JSON_INPUT_BYTES + 1)
+    if len(raw) > _MAX_JSON_INPUT_BYTES:
+        raise PoolError("JSON input too large")
+    return json.loads(raw.decode("utf-8-sig"))
 
 
 def save_json_new(path: str | Path, value: dict) -> None:
@@ -223,6 +234,50 @@ def run_worker(job: dict, worker: str, *, base_url: str, model=None) -> dict:
     return receipt
 
 
+def _check_first_round_receipt_shape(job: dict, receipt: dict) -> None:
+    """Bound untrusted receipt fields and answers *before* digest serialization."""
+    if (set(receipt) != {"schema", "job_sha256", "worker", "model_id", "method",
+                         "answers", "receipt_sha256"}
+            or receipt.get("method") != "LIVE_LOCAL_MODEL_INFERENCE_UNATTESTED_HOST"
+            or type(receipt.get("receipt_sha256")) is not str):
+        raise PoolError("worker receipt fields mismatch")
+    rows = receipt.get("answers")
+    if type(rows) is not list or len(rows) != len(job["cases"]):
+        raise PoolError("answer IDs/order mismatch")
+    for row, case in zip(rows, job["cases"]):
+        if type(row) is not dict or set(row) != {"id", "text", "parsed_integer"}:
+            raise PoolError("worker answer fields mismatch")
+        if row["id"] != case["id"]:
+            raise PoolError("answer IDs/order mismatch")
+        if type(row["text"]) is not str or len(row["text"]) > 2000:
+            raise PoolError("worker answer text exceeds 2000 characters")
+        number = row["parsed_integer"]
+        if number is not None and (type(number) is not int or number.bit_length() > 270):
+            raise PoolError("worker parsed integer out of bounds")
+
+
+def _check_review_round_receipt_shape(job: dict, receipt: dict) -> None:
+    """Reject malformed critique data before hashing an untrusted receipt."""
+    if (set(receipt) != {"schema", "job_sha256", "worker", "model_id",
+                         "peer_receipts_sha256", "method", "answers", "receipt_sha256"}
+            or receipt.get("method") != "LIVE_LOCAL_PEER_CRITIQUE_UNATTESTED_HOST"
+            or type(receipt.get("receipt_sha256")) is not str):
+        raise PoolError("review receipt fields mismatch")
+    rows = receipt.get("answers")
+    if type(rows) is not list or len(rows) != len(job["cases"]):
+        raise PoolError("review case order mismatch")
+    for row, case in zip(rows, job["cases"]):
+        if type(row) is not dict or set(row) != {"id", "text", "parsed_integer"}:
+            raise PoolError("review answer fields mismatch")
+        if row["id"] != case["id"]:
+            raise PoolError("review case order mismatch")
+        if type(row["text"]) is not str or len(row["text"]) > 2000:
+            raise PoolError("review answer text exceeds 2000 characters")
+        number = row["parsed_integer"]
+        if number is not None and (type(number) is not int or number.bit_length() > 270):
+            raise PoolError("review parsed integer out of bounds")
+
+
 def collect(job: dict, oracle: dict, receipts: list[dict]) -> tuple[dict, list[dict]]:
     """Replay integer oracle; model agreement alone NEVER certifies correctness."""
     validate_job(job)
@@ -251,17 +306,14 @@ def collect(job: dict, oracle: dict, receipts: list[dict]) -> tuple[dict, list[d
         if (worker not in job["workers"]
                 or receipt.get("model_id") != job["workers"][worker]):
             raise PoolError("worker model mismatch")
+        _check_first_round_receipt_shape(job, receipt)
         if receipt.get("receipt_sha256") != _digest({
             k: v for k, v in receipt.items() if k != "receipt_sha256"
         }):
             raise PoolError("worker receipt digest mismatch")
-        answers = receipt.get("answers")
-        if (type(answers) is not list or len(answers) != len(job["cases"])
-                or [x.get("id") for x in answers] != [x["id"] for x in job["cases"]]):
-            raise PoolError("answer IDs/order mismatch")
-        for row in answers:
-            if type(row.get("text")) is not str or row.get("parsed_integer") != _numeric(row["text"]):
-                raise PoolError("worker answer parsing mismatch")
+        if any(row["parsed_integer"] != _numeric(row["text"])
+               for row in receipt["answers"]):
+            raise PoolError("worker answer parsing mismatch")
         _accept_delivery(seen, worker, receipt)
     if set(seen) != set(job["workers"]):
         return ({"status": "PARTIAL_WORKER_EVIDENCE_NOT_ADMITTED",
@@ -311,19 +363,14 @@ def _peer_snapshot(job: dict, receipts: list[dict]) -> tuple[dict, str]:
         name = receipt.get("worker")
         if name not in job["workers"] or receipt.get("model_id") != job["workers"][name]:
             raise PoolError("peer model identity mismatch")
+        _check_first_round_receipt_shape(job, receipt)
         if receipt.get("receipt_sha256") != _digest({
             k: v for k, v in receipt.items() if k != "receipt_sha256"
         }):
             raise PoolError("peer receipt digest mismatch")
-        rows = receipt.get("answers")
-        if (type(rows) is not list or len(rows) != len(job["cases"])
-                or [r.get("id") for r in rows] != [r["id"] for r in job["cases"]]):
-            raise PoolError("peer answer-case mismatch")
-        for row in rows:
-            if (type(row.get("text")) is not str
-                    or len(row["text"]) > 2000
-                    or row.get("parsed_integer") != _numeric(row["text"])):
-                raise PoolError("peer answer text mismatch")
+        if any(row["parsed_integer"] != _numeric(row["text"])
+               for row in receipt["answers"]):
+            raise PoolError("peer answer text mismatch")
         _accept_delivery(peers, name, receipt)
     if set(peers) != set(job["workers"]):
         raise PoolError("missing peer first-round worker")
@@ -389,16 +436,13 @@ def collect_reviews(job: dict, oracle: dict, first: list[dict],
             raise PoolError("review worker model mismatch")
         if receipt.get("peer_receipts_sha256") != peer_digest:
             raise PoolError("peer snapshot digest mismatch")
+        _check_review_round_receipt_shape(job, receipt)
         if receipt.get("receipt_sha256") != _digest({
             k: v for k, v in receipt.items() if k != "receipt_sha256"
         }):
             raise PoolError("review receipt digest mismatch")
         rows = receipt.get("answers")
-        if (type(rows) is not list or len(rows) != len(job["cases"])
-                or [r.get("id") for r in rows] != [case["id"] for case in job["cases"]]):
-            raise PoolError("review case order mismatch")
-        if any(type(row.get("text")) is not str or len(row["text"]) > 2000
-               or row.get("parsed_integer") != _numeric(row["text"]) for row in rows):
+        if any(row["parsed_integer"] != _numeric(row["text"]) for row in rows):
             raise PoolError("review answer parsing mismatch")
         _accept_delivery(found, worker, receipt)
     if set(found) != set(peers):

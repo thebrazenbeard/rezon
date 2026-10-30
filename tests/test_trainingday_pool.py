@@ -67,6 +67,58 @@ class PoolTests(unittest.TestCase):
         with self.assertRaisesRegex(PoolError, "digest"):
             collect(self.job, self.oracle, [receipt])
 
+    def test_self_hashed_oversized_first_answer_rejected_before_aggregation(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import (PoolError, _digest, _peer_snapshot,
+                                            collect, run_worker)
+        receipts = [run_worker(self.job, worker,
+                               base_url="http://127.0.0.1:11434/v1",
+                               model=Mock(complete=Mock(return_value="7")))
+                    for worker in self.workers]
+        bad = receipts[0]
+        bad["answers"][0]["text"] = "x" * 2001
+        bad["answers"][0]["parsed_integer"] = None
+        bad["receipt_sha256"] = _digest({k: v for k, v in bad.items()
+                                         if k != "receipt_sha256"})
+        with self.assertRaisesRegex(PoolError, "worker answer text"):
+            collect(self.job, self.oracle, receipts)
+        with self.assertRaisesRegex(PoolError, "worker answer text"):
+            _peer_snapshot(self.job, receipts)
+
+    def test_exact_answer_text_cap_is_accepted(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import collect, run_worker
+        receipts = [run_worker(self.job, worker,
+                               base_url="http://127.0.0.1:11434/v1",
+                               model=Mock(complete=Mock(return_value="x" * 2000)))
+                    for worker in self.workers]
+        summary, rows = collect(self.job, self.oracle, receipts)
+        self.assertEqual(summary["status"], "REPLAYED_ORACLE_NOT_MODEL_CONSENSUS")
+        self.assertEqual(len(rows), len(self.job["cases"]))
+
+    def test_transport_json_input_is_bounded_before_full_read(self):
+        import tempfile
+        from pathlib import Path
+        from rezon.trainingday_pool import PoolError, load_json
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "oversized-receipt.json"
+            path.write_text('{"filler":"' + ('x' * 600_000) + '"}', encoding="utf-8")
+            with self.assertRaisesRegex(PoolError, "JSON input too large"):
+                load_json(path)
+
+    def test_unbounded_extra_field_or_parsed_number_rejected_before_digest(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import PoolError, collect, run_worker
+        receipt = run_worker(self.job, "vn1", base_url="http://localhost:11434/v1",
+                             model=Mock(complete=Mock(return_value="7")))
+        receipt["unexpected"] = "x" * 600_000
+        with self.assertRaisesRegex(PoolError, "worker receipt fields"):
+            collect(self.job, self.oracle, [receipt])
+        del receipt["unexpected"]
+        receipt["answers"][0]["parsed_integer"] = 1 << 200_000
+        with self.assertRaisesRegex(PoolError, "worker parsed integer"):
+            collect(self.job, self.oracle, [receipt])
+
     def test_identical_replays_keep_aggregate_and_peer_review_outputs_stable(self):
         from unittest.mock import Mock
         from rezon.trainingday_pool import collect, collect_reviews, run_worker, run_review
@@ -98,6 +150,78 @@ class PoolTests(unittest.TestCase):
                                model=Mock(complete=Mock(return_value="9")))
         with self.assertRaisesRegex(PoolError, "conflicting duplicate"):
             collect_reviews(self.job, self.oracle, first, reviews + [alternate])
+
+    def test_review_receipt_shape_is_checked_before_digest(self):
+        from copy import deepcopy
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import (PoolError, _digest, collect_reviews,
+                                            run_worker, run_review)
+        first = [run_worker(self.job, worker, base_url="http://127.0.0.1:11434/v1",
+                            model=Mock(complete=Mock(return_value="7")))
+                 for worker in self.workers]
+        valid = [run_review(self.job, first, worker,
+                            base_url="http://127.0.0.1:11434/v1",
+                            model=Mock(complete=Mock(return_value="8")))
+                 for worker in self.workers]
+
+        for mutation, expected in (
+            (lambda r: r["answers"].__setitem__(0, 42), "review answer fields"),
+            (lambda r: r["answers"][0].__setitem__("text", "x" * 2001),
+             "review answer text"),
+            (lambda r: r["answers"][0].__setitem__("parsed_integer", 1 << 200_000),
+             "review parsed integer"),
+            (lambda r: r.__setitem__("unexpected", "x" * 600_000),
+             "review receipt fields"),
+        ):
+            with self.subTest(expected=expected):
+                reviews = deepcopy(valid)
+                mutation(reviews[0])
+                # The malformed object can have a syntactically valid self-hash;
+                # shape checks still must precede hash canonicalization.
+                if expected == "review answer fields":
+                    reviews[0]["receipt_sha256"] = _digest({
+                        k: v for k, v in reviews[0].items()
+                        if k != "receipt_sha256"
+                    })
+                with self.assertRaisesRegex(PoolError, expected):
+                    collect_reviews(self.job, self.oracle, first, reviews)
+
+    def test_review_exact_text_limit_remains_valid(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import collect_reviews, run_worker, run_review
+        first = [run_worker(self.job, worker, base_url="http://localhost:11434/v1",
+                            model=Mock(complete=Mock(return_value="7")))
+                 for worker in self.workers]
+        reviewed = [run_review(self.job, first, worker,
+                               base_url="http://localhost:11434/v1",
+                               model=Mock(complete=Mock(return_value="x" * 2000)))
+                    for worker in self.workers]
+        summary, rows = collect_reviews(self.job, self.oracle, first, reviewed)
+        self.assertEqual(summary["status"], "REVIEWED_WITH_ORACLE_NOT_TRAINING_ADMITTED")
+        self.assertEqual(len(rows), len(self.job["cases"]))
+        self.assertTrue(all(not row["qualified_for_neural_training"] for row in rows))
+
+    def test_lone_surrogate_receipt_digest_is_controlled_failure(self):
+        from rezon.trainingday_pool import PoolError, _digest
+        with self.assertRaisesRegex(PoolError, "Unicode"):
+            _digest({"text": "\ud800"})
+
+    def test_lone_surrogate_model_answer_is_controlled_failure(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import PoolError, run_worker
+        with self.assertRaisesRegex(PoolError, "Unicode"):
+            run_worker(self.job, "vn1", base_url="http://127.0.0.1:11434/v1",
+                       model=Mock(complete=Mock(return_value="\ud800")))
+
+    def test_lone_surrogate_review_answer_is_controlled_failure(self):
+        from unittest.mock import Mock
+        from rezon.trainingday_pool import PoolError, run_review, run_worker
+        first = [run_worker(self.job, worker, base_url="http://127.0.0.1:11434/v1",
+                            model=Mock(complete=Mock(return_value="7")))
+                 for worker in self.workers]
+        with self.assertRaisesRegex(PoolError, "Unicode"):
+            run_review(self.job, first, "vn1", base_url="http://127.0.0.1:11434/v1",
+                       model=Mock(complete=Mock(return_value="\ud800")))
 
     def test_modified_arithmetic_answer_rejected_even_before_worker_results(self):
         from rezon.trainingday_pool import PoolError, collect
