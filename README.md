@@ -54,6 +54,7 @@ A stronger model is never automatically an authority source. A reasoning node ma
 - `docs/EXECUTABLE_FRAMEWORK_DIRECTION.md` — runnable system direction
 - `docs/VERA_ADOPTION_CANDIDATES.md` — mechanisms that may be promoted into Vera later
 - [`docs/COLLECTIVE_RUNTIME_V1.md`](docs/COLLECTIVE_RUNTIME_V1.md) — model config, agent API, security boundaries, and verification
+- [`docs/TRAININGDAY_EXECUTOR_DELEGATION_V1.md`](docs/TRAININGDAY_EXECUTOR_DELEGATION_V1.md) — cross-host training inference, hash-bound peer critique, oracle admission, and actual three-node negative results
 
 ## Run locally
 
