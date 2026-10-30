@@ -91,6 +91,34 @@ class AdmissionTests(unittest.TestCase):
             verify_wave(job, oracle, {"schema": "rezon.trainingday.pool.v1.candidate_batch",
                                       "rows": rows})
 
+
+    def test_eval_code_row_is_hash_checked_but_not_used_as_math(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            train = _fixture(root, split="train", start=1,
+                             ops=[["add", 2], ["subtract", 1]])
+            evaluation = _fixture(root, split="eval", start=3,
+                                  ops=[["multiply", 2], ["add", 1]])
+            file = root / evaluation["path"]
+            raw = file.read_bytes() + (json.dumps({
+                "kind": "code", "source_repo": "heldout_repo",
+                "text": "This is not an arithmetic training example."
+            }) + "\n").encode()
+            file.write_bytes(raw)
+            evaluation["count"] = 2
+            evaluation["bytes"] = len(raw)
+            evaluation["sha256"] = hashlib.sha256(raw).hexdigest()
+            manifest = {"schema": "vera.trainingday.corpus.v1",
+                        "state": "CORPUS_BUILT_NO_MODEL_TRAINING",
+                        "seed": 29034, "counts": {"train": 1, "eval": 2},
+                        "shards": [train, evaluation]}
+            path = root / "manifest.json"
+            path.write_text(json.dumps(manifest))
+            _, _, _, receipt = scan_v2_manifest(
+                path, hashlib.sha256(path.read_bytes()).hexdigest())
+            self.assertEqual(receipt["eval_reasoning_rows"], 1)
+            self.assertNotIn("heldout_repo", json.dumps(receipt))
+
     def test_poisoned_manifest_replayed_answer_does_not_pass(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
