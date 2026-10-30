@@ -70,3 +70,13 @@ class PoolTests(unittest.TestCase):
         summary, rows = collect(self.job, self.oracle, [receipt])
         self.assertEqual(summary["status"], "PARTIAL_WORKER_EVIDENCE_NOT_ADMITTED")
         self.assertEqual(rows, [])
+
+    def test_windows_utf8_bom_config_is_read_as_json(self):
+        import tempfile
+        from pathlib import Path
+        from rezon.trainingday_pool import load_json
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "workers.json"
+            path.write_bytes(b"\xef\xbb\xbf" + b'{"vn1":"qwen","vn2":"granite"}')
+            self.assertEqual(load_json(path)["vn1"], "qwen")
+
