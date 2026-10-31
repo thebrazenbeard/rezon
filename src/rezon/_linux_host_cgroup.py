@@ -139,7 +139,20 @@ def _popen_bounded(command: list[str], *, deadline: float,
                 close_owned_fds()
                 release_permit_once()
         raise
-    if not done.wait(max(0, deadline - time.monotonic())):
+    try:
+        completed = done.wait(max(0, deadline - time.monotonic()))
+    except BaseException:
+        # The caller can be interrupted while the Popen worker is blocked or
+        # after it has delivered a child but before this thread observes it.
+        # Transfer every unreturned child to teardown, and mark late arrivals
+        # cancelled so that ONLY the worker cleans those up on completion.
+        with lock:
+            result["cancelled"] = True
+            late = result.pop("child", None)
+        if late is not None:
+            late_cleanup(late)
+        raise
+    if not completed:
         with lock:
             result["cancelled"] = True
             late = result.pop("child", None)
