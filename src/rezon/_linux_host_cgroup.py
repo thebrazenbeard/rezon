@@ -248,10 +248,17 @@ class LinuxCgroupFence:
             raise HostContainmentUnavailable("isolated child working directory unavailable")
         if time.monotonic() >= deadline:
             raise HostContainmentUnavailable("deadline elapsed before launch")
-        ready_r, ready_w = os.pipe()
-        env = {"PATH": "/usr/bin:/bin", "LANG": "C", "REZON_READY_FD": str(ready_w)}
+        # Build all caller-controlled strings BEFORE allocating native FDs;
+        # conversion failures or cancellation here must not leak either end.
         command = [str(self.helper), str(self.leaf), str(self.payload_uid),
                    str(self.payload_gid), "--", str(executable), *arguments]
+        ready_r, ready_w = os.pipe()
+        try:
+            env = {"PATH": "/usr/bin:/bin", "LANG": "C", "REZON_READY_FD": str(ready_w)}
+        except BaseException:
+            os.close(ready_w)
+            os.close(ready_r)
+            raise
         def _late_cleanup(child: subprocess.Popen) -> None:
             try:
                 self.kill_leaf()
