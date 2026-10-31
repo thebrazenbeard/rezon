@@ -17,6 +17,7 @@ from urllib.parse import urlsplit, urlunsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from .collective import _agent
+from ._process_supervision import LaunchOutcomeUnknown, launch_bounded, terminate_local_tree
 
 
 class ProviderError(RuntimeError):
@@ -207,13 +208,15 @@ def _request(url: str, headers: dict[str, str], body: dict, timeout: float) -> d
         private_workdir = tempfile.TemporaryDirectory(prefix="rezon-completion-")
         if time.monotonic() - start >= timeout:
             raise ProviderError("completion deadline expired before dispatch")
-        child = subprocess.Popen(
+        child = launch_bounded(
             [sys.executable, "-I", "-c", child_script, package_parent],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL, close_fds=True,
-            env=child_env, cwd=private_workdir.name,
+            env=child_env, cwd=private_workdir.name, deadline=start + timeout,
         )
         output = _communicate_bounded(child, serialized, start + timeout)
+    except LaunchOutcomeUnknown:
+        raise ProviderOutcomeUnknown("completion child launch uncertain; outcome unknown") from None
     except ProviderOutcomeUnknown:
         raise
     except (OSError, RuntimeError, ValueError):
@@ -227,21 +230,7 @@ def _request(url: str, headers: dict[str, str], body: dict, timeout: float) -> d
         # local network-capable subprocess. Child death does not roll back a
         # request already received at the origin.
         if child is not None:
-            try:
-                if child.poll() is None:
-                    child.kill()
-            except OSError:
-                pass
-            try:
-                child.wait(timeout=1)
-            except (OSError, subprocess.TimeoutExpired):
-                pass
-            for stream in (child.stdin, child.stdout):
-                try:
-                    if stream is not None and not stream.closed:
-                        stream.close()
-                except OSError:
-                    pass
+            terminate_local_tree(child)
         if private_workdir is not None:
             try:
                 private_workdir.cleanup()
@@ -438,11 +427,12 @@ class OpenAICompatibleModel:
                 system_root = os.environ.get("SystemRoot")
                 if system_root:
                     child_env["SystemRoot"] = system_root
-            child = subprocess.Popen(
+            child = launch_bounded(
                 [sys.executable, "-I", "-c", child_script, package_parent],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL, close_fds=True,
                 env=child_env, cwd=private_workdir.name,
+                deadline=start + timeout_seconds,
             )
             output = _communicate_bounded(
                 child, serialized, start + timeout_seconds, max_stdout=1024,
@@ -451,6 +441,8 @@ class OpenAICompatibleModel:
             # Catalog is a read-only, unauthenticated availability claim. Its
             # failure is generic rather than a POST replay ambiguity.
             raise ProviderError("catalog deadline, output or child failure") from None
+        except LaunchOutcomeUnknown:
+            raise ProviderError("catalog launch deadline or child failure") from None
         except ProviderError:
             raise
         except (OSError, RuntimeError, ValueError):
@@ -459,21 +451,7 @@ class OpenAICompatibleModel:
             # Includes caller interruption. A child timeout cannot strand a
             # credential-carrying catalog subprocess or its pipe handles.
             if child is not None:
-                try:
-                    if child.poll() is None:
-                        child.kill()
-                except OSError:
-                    pass
-                try:
-                    child.wait(timeout=1)
-                except (OSError, subprocess.TimeoutExpired):
-                    pass
-                for stream in (child.stdin, child.stdout):
-                    try:
-                        if stream is not None and not stream.closed:
-                            stream.close()
-                    except OSError:
-                        pass
+                terminate_local_tree(child)
             if private_workdir is not None:
                 try:
                     private_workdir.cleanup()
