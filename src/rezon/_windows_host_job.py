@@ -20,6 +20,9 @@ class HostJobUnavailable(RuntimeError):
     pass
 
 
+_CLOSE_OUTCOME_UNKNOWN = object()
+
+
 class JobKernel(Protocol):
     def create_job(self) -> object: ...
     def apply_limits(self, job: object, *, process_count: int, memory_bytes: int) -> None: ...
@@ -65,22 +68,28 @@ class JobChild:
         with self._close_lock:
             if self.closed:
                 return
-            # KILL_ON_JOB_CLOSE: attempt the job handle first. Retain every
-            # failed handle for retry; never claim teardown while one remains.
-            failures: list[Exception] = []
+            # KILL_ON_JOB_CLOSE: attempt the job handle first. Mark ownership
+            # BEFORE the native call: KeyboardInterrupt can occur after a
+            # successful CloseHandle but before Python resumes and clears the
+            # attribute. Reclosing that recycled value could close a foreign
+            # process's handle. On ANY uncertain outcome, permanently fail
+            # closed and require host reconciliation; never blindly retry it.
+            if any(getattr(self, name) is _CLOSE_OUTCOME_UNKNOWN
+                   for name in ("job", "thread", "process")):
+                raise HostJobUnavailable("native handle close outcome unknown; host reconciliation required")
             for name in ("job", "thread", "process"):
                 handle = getattr(self, name)
                 if handle is None:
                     continue
+                setattr(self, name, _CLOSE_OUTCOME_UNKNOWN)
                 try:
                     self.kernel.close(handle)
-                except Exception as exc:
-                    failures.append(exc)
-                else:
-                    setattr(self, name, None)
+                except BaseException:
+                    # Do not restore/retry a value that might already have
+                    # been closed and recycled by the OS.
+                    raise
+                setattr(self, name, None)
             self.closed = self.job is None and self.thread is None and self.process is None
-            if failures:
-                raise failures[0]
 
     def send_request(self, _request: bytes) -> None:
         """No unauthenticated or unbounded IPC is exposed by this launcher."""
@@ -123,7 +132,9 @@ class WindowsJobFence:
             kernel.assign(job, process)
             kernel.resume(thread)
             return JobChild(kernel=kernel, job=job, process=process, thread=thread)
-        except Exception as exc:
+        except BaseException as exc:
+            # Cancellation between the suspended creation, Job assignment,
+            # and resume must still terminate an unreturned native process.
             if process is not None:
                 try:
                     kernel.terminate(process)
@@ -135,6 +146,8 @@ class WindowsJobFence:
                         kernel.close(handle)
                     except Exception:
                         pass
+            if not isinstance(exc, Exception):
+                raise
             raise HostJobUnavailable("Windows Job Object admission failed closed") from exc
 
 
