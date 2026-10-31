@@ -82,6 +82,22 @@ class JobSourceContracts(unittest.TestCase):
         self.assertNotIn("resume", names)
         self.assertLess(names.index("terminate"), names.index("close"))
 
+    def test_keyboard_interrupt_after_suspension_terminates_native_child(self):
+        """Cancellation cannot strand a suspended process with open handles."""
+        class InterruptOnAssign(FakeJobKernel):
+            def assign(self, job, process):
+                self.record("assign")
+                raise KeyboardInterrupt("synthetic native launch cancellation")
+
+        kernel = InterruptOnAssign()
+        with self.assertRaises(KeyboardInterrupt):
+            self.fence._launch_with_kernel(kernel, **self.kwargs)
+        self.assertEqual([event[0] for event in kernel.events],
+                         ["create_job", "limit", "suspend", "assign", "terminate",
+                          "close", "close", "close"])
+        self.assertEqual(kernel.events[-3:],
+                         [("close", "job"), ("close", "thread"), ("close", "process")])
+
     def test_job_child_cannot_duplicate_native_handle_ownership(self):
         kernel = FakeJobKernel()
         child = self.fence._launch_with_kernel(kernel, **self.kwargs)
@@ -94,6 +110,26 @@ class JobSourceContracts(unittest.TestCase):
             child.close()
         child.close()
         self.assertEqual(len([event for event in kernel.events if event[0] == "close"]), 3)
+
+    def test_cancelled_close_cannot_reclose_recycled_native_handle(self):
+        """CloseHandle may succeed before a Python cancellation is raised."""
+        class InterruptAfterClose(FakeJobKernel):
+            def close(self, handle):
+                self.record("close", handle)
+                if handle == "job":
+                    raise KeyboardInterrupt("cancelled after OS closed job")
+
+        kernel = InterruptAfterClose()
+        child = self.fence._launch_with_kernel(kernel, **self.kwargs)
+        with self.assertRaises(KeyboardInterrupt):
+            child.close()
+        self.assertFalse(child.closed)
+        with self.assertRaises(HostJobUnavailable):
+            child.close()
+        # Retrying job's recycled handle value is more dangerous than an
+        # explicit unresolved host-custody leak; demand host reconciliation.
+        self.assertEqual([event for event in kernel.events if event[0] == "close"],
+                         [("close", "job")])
 
     def test_real_win32_kernel_never_implicitly_runs_on_linux(self):
         if sys.platform == "win32":
@@ -160,6 +196,85 @@ class CgroupSourceContracts(unittest.TestCase):
         finally:
             unblock.set()
             os.close(ready_r)
+
+    def test_interrupted_constructor_handoff_reclaims_unreturned_child(self):
+        """An interrupted done.wait cannot lose a worker-delivered child."""
+        events = []
+
+        class InterruptEvent:
+            def set(self):
+                events.append("done")
+
+            def wait(self, _timeout):
+                raise KeyboardInterrupt("interrupted while receiving child")
+
+        class InlineThread:
+            def __init__(self, *, target, **_kwargs):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        class FakeProcess:
+            pass
+
+        class FakePermit:
+            def acquire(self, **_kwargs):
+                return True
+
+            def release(self):
+                events.append("released")
+
+        proc = FakeProcess()
+        with patch("rezon._linux_host_cgroup.threading.Thread", InlineThread), \
+             patch("rezon._linux_host_cgroup.threading.Event", InterruptEvent), \
+             patch("rezon._linux_host_cgroup._LAUNCH_CAPACITY", FakePermit()), \
+             patch("rezon._linux_host_cgroup.subprocess.Popen", return_value=proc):
+            with self.assertRaises(KeyboardInterrupt):
+                _popen_bounded(["/not/executed"], deadline=time.monotonic() + 1,
+                               late_cleanup=lambda child: events.append(("clean", child)))
+        self.assertEqual(events, ["done", "released", ("clean", proc)])
+
+    def test_interrupted_wait_cancels_worker_that_finishes_later(self):
+        """The worker, not the interrupted caller, owns any late Popen child."""
+        events = []
+        pending = []
+
+        class InterruptEvent:
+            def set(self):
+                events.append("done")
+
+            def wait(self, _timeout):
+                raise KeyboardInterrupt("interrupted while worker is blocked")
+
+        class DeferredThread:
+            def __init__(self, *, target, **_kwargs):
+                pending.append(target)
+
+            def start(self):
+                return None
+
+        class FakeProcess:
+            pass
+
+        class FakePermit:
+            def acquire(self, **_kwargs):
+                return True
+
+            def release(self):
+                events.append("released")
+
+        proc = FakeProcess()
+        with patch("rezon._linux_host_cgroup.threading.Thread", DeferredThread), \
+             patch("rezon._linux_host_cgroup.threading.Event", InterruptEvent), \
+             patch("rezon._linux_host_cgroup._LAUNCH_CAPACITY", FakePermit()), \
+             patch("rezon._linux_host_cgroup.subprocess.Popen", return_value=proc):
+            with self.assertRaises(KeyboardInterrupt):
+                _popen_bounded(["/not/executed"], deadline=time.monotonic() + 1,
+                               late_cleanup=lambda child: events.append(("clean", child)))
+            self.assertEqual(events, [])
+            pending.pop()()
+        self.assertEqual(events, [("clean", proc), "done", "released"])
 
     def test_launch_cancellation_closes_readiness_reader(self):
         """BaseException cancellation must not leak a readiness read end."""
