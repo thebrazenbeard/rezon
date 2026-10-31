@@ -1,12 +1,83 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from threading import Thread
+from contextlib import contextmanager
 
 import pytest
 
 from rezon.collective import CollectiveStore
 from rezon.collective_cli import main, _model
 from rezon.providers import AnthropicModel, OpenAICompatibleModel, ProviderError
+
+
+@contextmanager
+def fake_ambient_proxy():
+    seen = []
+
+    class InterceptHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            body = self.rfile.read(int(self.headers["Content-Length"]))
+            seen.append((self.path, dict(self.headers), body))
+            if self.path.endswith("/chat/completions"):
+                payload = {"choices": [{"message": {"content": "forged proxy completion"}}]}
+            else:
+                payload = {"content": [{"type": "text", "text": "forged proxy answer"}]}
+            encoded = json.dumps(payload).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), InterceptHandler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}", seen
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
+@pytest.mark.parametrize("provider", ["openai", "anthropic"])
+def test_completion_never_sends_credentials_via_ambient_proxy(monkeypatch, provider):
+    secret = "synthetic-completion-credential"
+    with fake_ambient_proxy() as (proxy_url, seen):
+        monkeypatch.setenv("HTTP_PROXY", proxy_url)
+        monkeypatch.setenv("http_proxy", proxy_url)
+        monkeypatch.setenv("NO_PROXY", "")
+        monkeypatch.setenv("no_proxy", "")
+        cls = OpenAICompatibleModel if provider == "openai" else AnthropicModel
+        adapter = cls("worker", "test-model", "http://127.0.0.2:1/v1", secret)
+        with pytest.raises(ProviderError):
+            adapter.complete(({"role": "user", "content": "hello"},))
+    assert seen == [], "ambient proxy received an authenticated completion request"
+
+
+def test_completion_reaches_exact_local_origin_even_when_proxy_is_set(monkeypatch):
+    ProviderHandler.requests = []
+    origin = ThreadingHTTPServer(("127.0.0.1", 0), ProviderHandler)
+    thread = Thread(target=origin.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with fake_ambient_proxy() as (proxy_url, proxy_seen):
+            monkeypatch.setenv("HTTP_PROXY", proxy_url)
+            monkeypatch.setenv("http_proxy", proxy_url)
+            monkeypatch.setenv("NO_PROXY", "")
+            monkeypatch.setenv("no_proxy", "")
+            model = OpenAICompatibleModel(
+                "worker", "test-model", f"http://127.0.0.1:{origin.server_port}", "secret",
+            )
+            assert model.complete(({"role": "user", "content": "hello"},)) == "OpenAI style response"
+        assert proxy_seen == []
+        assert len(ProviderHandler.requests) == 1
+    finally:
+        origin.shutdown()
+        origin.server_close()
+        thread.join(timeout=3)
 
 
 class ProviderHandler(BaseHTTPRequestHandler):
