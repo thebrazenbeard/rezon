@@ -38,7 +38,8 @@ def terminate_local_tree(child: subprocess.Popen) -> None:
         child.wait(timeout=1)
     except (OSError, subprocess.TimeoutExpired):
         pass
-    for stream in (getattr(child, "stdin", None), getattr(child, "stdout", None)):
+    for stream in (getattr(child, "stdin", None), getattr(child, "stdout", None),
+                   getattr(child, "stderr", None)):
         try:
             if stream is not None and not stream.closed:
                 stream.close()
