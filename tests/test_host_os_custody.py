@@ -350,6 +350,42 @@ class CgroupSourceContracts(unittest.TestCase):
         with self.assertRaises(OSError):
             os.fstat(created["read"])
 
+    def test_command_construction_interrupt_allocates_no_pipe(self):
+        """The helper command must be constructed before readiness FD allocation."""
+        class InterruptedHelper:
+            def __str__(self):
+                raise KeyboardInterrupt("cancelled converting helper path")
+
+        fence = LinuxCgroupFence(Path("/sys/fs/cgroup"), InterruptedHelper(),
+                                 "0" * 64, 12345, 12345)
+        with tempfile.TemporaryDirectory() as dirname:
+            with patch.object(LinuxCgroupFence, "validate", return_value=None), \
+                 patch("rezon._linux_host_cgroup.os.pipe",
+                       side_effect=AssertionError("pipe allocated before command")):
+                with self.assertRaises(KeyboardInterrupt):
+                    fence.launch(Path(sys.executable), (),
+                                 deadline=time.monotonic() + 1, cwd=Path(dirname))
+
+    def test_readiness_env_interrupt_closes_both_pipe_ends(self):
+        """Even an interrupted FD-to-environment conversion releases both FDs."""
+        pipe = os.pipe()
+
+        class InterruptedFd(int):
+            def __str__(self):
+                raise KeyboardInterrupt("cancelled formatting readiness FD")
+
+        with tempfile.TemporaryDirectory() as dirname:
+            with patch.object(LinuxCgroupFence, "validate", return_value=None), \
+                 patch("rezon._linux_host_cgroup.os.pipe",
+                       return_value=(pipe[0], InterruptedFd(pipe[1]))):
+                with self.assertRaises(KeyboardInterrupt):
+                    self.make_unprovisioned().launch(
+                        Path(sys.executable), (), deadline=time.monotonic() + 1,
+                        cwd=Path(dirname))
+        for fd in pipe:
+            with self.assertRaises(OSError):
+                os.fstat(fd)
+
     def test_cancellation_after_native_start_kills_unreturned_child(self):
         """A cancelled membership check must not strand a launched payload."""
         class FakeProc:
