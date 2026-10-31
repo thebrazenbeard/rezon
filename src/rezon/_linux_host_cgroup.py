@@ -265,8 +265,13 @@ class LinuxCgroupFence:
                                   env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE, pass_fds=(ready_w,),
                                   close_fds=True, start_new_session=True, cwd=str(cwd))
-        except Exception as exc:
+        except BaseException as exc:
+            # Cancellation/KeyboardInterrupt must not leak the parent's
+            # readiness reader. The writer remains exclusively under bounded
+            # worker custody; closing it here could recycle a live pass_fd.
             os.close(ready_r)
+            if not isinstance(exc, Exception):
+                raise
             raise HostContainmentUnavailable("native launcher did not start within deadline") from exc
         try:
             with os.fdopen(ready_r, "rb", buffering=0) as ready_stream:
@@ -282,7 +287,10 @@ class LinuxCgroupFence:
             if not self._is_member(pid):
                 raise HostContainmentUnavailable("payload not independently visible in cgroup")
             return ContainedChild(fence=self, proc=proc, pid=pid)
-        except Exception:
+        except BaseException:
+            # A cancellation during placement readback is just as dangerous
+            # as an ordinary validation error: the child was already started
+            # and must not survive a caller that never received custody.
             try:
                 self.kill_leaf()
             finally:
