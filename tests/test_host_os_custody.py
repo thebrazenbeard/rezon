@@ -276,6 +276,52 @@ class CgroupSourceContracts(unittest.TestCase):
             pending.pop()()
         self.assertEqual(events, [("clean", proc), "done", "released"])
 
+    def test_post_wait_interrupt_reclaims_child_before_return(self):
+        """A successful wait is not yet an ownership transfer to the caller."""
+        events = []
+
+        class CompletedEvent:
+            def set(self):
+                events.append("done")
+
+            def wait(self, _timeout):
+                return True
+
+        class InlineThread:
+            def __init__(self, *, target, **_kwargs):
+                self.target = target
+
+            def start(self):
+                self.target()
+
+        class FakePermit:
+            def acquire(self, **_kwargs):
+                return True
+
+            def release(self):
+                events.append("released")
+
+        proc = object()
+
+        class InterruptTypeCheck(type):
+            def __call__(cls, *_args, **_kwargs):
+                return proc
+
+            def __instancecheck__(cls, _value):
+                raise KeyboardInterrupt("cancelled during final child validation")
+
+        class FakePopen(metaclass=InterruptTypeCheck):
+            pass
+
+        with patch("rezon._linux_host_cgroup.threading.Thread", InlineThread), \
+             patch("rezon._linux_host_cgroup.threading.Event", CompletedEvent), \
+             patch("rezon._linux_host_cgroup._LAUNCH_CAPACITY", FakePermit()), \
+             patch("rezon._linux_host_cgroup.subprocess.Popen", FakePopen):
+            with self.assertRaises(KeyboardInterrupt):
+                _popen_bounded(["/not/executed"], deadline=time.monotonic() + 1,
+                               late_cleanup=lambda child: events.append(("clean", child)))
+        self.assertEqual(events, ["done", "released", ("clean", proc)])
+
     def test_launch_cancellation_closes_readiness_reader(self):
         """BaseException cancellation must not leak a readiness read end."""
         created: dict[str, int] = {}
