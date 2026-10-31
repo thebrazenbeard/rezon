@@ -141,9 +141,18 @@ def _popen_bounded(command: list[str], *, deadline: float,
         raise
     try:
         completed = done.wait(max(0, deadline - time.monotonic()))
+        if not completed:
+            raise HostContainmentUnavailable("native launch exceeded deadline before request dispatch")
+        child = result.get("child")
+        if child is None:
+            raise HostContainmentUnavailable("native launch failed before request dispatch")
+        assert isinstance(child, subprocess.Popen)
+        # The caller takes ownership only after every synchronous check has
+        # completed. All failures/cancellations before this return are reaped.
+        return child
     except BaseException:
         # The caller can be interrupted while the Popen worker is blocked or
-        # after it has delivered a child but before this thread observes it.
+        # after it has delivered a child but before ownership is returned.
         # Transfer every unreturned child to teardown, and mark late arrivals
         # cancelled so that ONLY the worker cleans those up on completion.
         with lock:
@@ -152,18 +161,6 @@ def _popen_bounded(command: list[str], *, deadline: float,
         if late is not None:
             late_cleanup(late)
         raise
-    if not completed:
-        with lock:
-            result["cancelled"] = True
-            late = result.pop("child", None)
-        if late is not None:
-            late_cleanup(late)
-        raise HostContainmentUnavailable("native launch exceeded deadline before request dispatch")
-    child = result.get("child")
-    if child is None:
-        raise HostContainmentUnavailable("native launch failed before request dispatch")
-    assert isinstance(child, subprocess.Popen)
-    return child
 
 
 def _check_secure_ancestors(path: Path) -> None:
