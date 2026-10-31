@@ -20,7 +20,7 @@ Rezon is reusable outside any particular AI assistant or computer installation. 
 
 The larger multi-host topology, durable governance interfaces, metacognition, and reasoning-method taxonomy remain research directions. Start with [Foundation](docs/FOUNDATION.md), [Kernel contracts](docs/contracts/REASONING_NODE_V0.md), [Collective runtime](docs/COLLECTIVE_RUNTIME_V1.md), and [multi-node topology](docs/MULTINODE_TOPOLOGY.md) for the exact scope.
 
-## Quick start: local and offline
+## Quick start: local, no model provider required
 
 Requires **Python 3.12+**. From a checkout, create an isolated environment and install the package and test runner:
 
@@ -30,7 +30,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-On Windows use `.venv\Scripts\python.exe` instead of `.venv/bin/python`. The test suite exercises socket-based local gateways, so an environment that forbids loopback socket creation will need an appropriate isolated test runner. Tests do not contact production model providers by default.
+On Windows create the environment with `py -3.12 -m venv .venv`, then use `.venv\Scripts\python.exe` instead of `.venv/bin/python`. Installing dependencies may require package-network access; the test and qualifier workflows do not contact production model providers by default. The test suite exercises socket-based local gateways, so an environment that forbids loopback socket creation will need an appropriate isolated test runner.
 
 To exercise the protocol **without any model API keys or external model calls**, choose a new, private output path:
 
