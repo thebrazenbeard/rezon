@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import ipaddress
 import json
 import os
@@ -18,6 +18,8 @@ from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_ope
 
 from .collective import _agent
 from ._process_supervision import LaunchOutcomeUnknown, launch_bounded, terminate_local_tree
+from ._linux_host_cgroup import LinuxCgroupFence
+from ._windows_host_job import WindowsJobFence
 
 
 class ProviderError(RuntimeError):
@@ -26,6 +28,40 @@ class ProviderError(RuntimeError):
 
 class ProviderOutcomeUnknown(ProviderError):
     """A sent request may have completed remotely; do not retry it blindly."""
+
+
+def _launch_provider_child(args: list[str], *, deadline: float,
+                           host_process_fence: LinuxCgroupFence | WindowsJobFence | None,
+                           **popen_kwargs):
+    """Launch with explicit OS custody when a host-provisioned fence is supplied.
+
+    Returning (Popen, ContainedChild|None) keeps the existing bounded request
+    transport. The fence owns cgroup-wide termination even for setsid children.
+    Native Windows Job custody has no qualified bounded pipe transport yet and
+    therefore cannot transfer request bytes; it fails closed at this seam.
+    """
+    if host_process_fence is None:
+        return launch_bounded(args, deadline=deadline, **popen_kwargs), None
+    if type(host_process_fence) is not LinuxCgroupFence:
+        raise LaunchOutcomeUnknown("host-owned process transport unavailable")
+    if os.name == "nt" or type(args) is not list or not args:
+        raise LaunchOutcomeUnknown("host-owned process transport unavailable")
+    try:
+        contained = host_process_fence.launch(
+            Path(args[0]), tuple(args[1:]), deadline=deadline,
+            cwd=Path(popen_kwargs["cwd"]),
+        )
+    except Exception:
+        # The native launcher itself must clean up late/failing child custody.
+        raise LaunchOutcomeUnknown("host cgroup launch unavailable") from None
+    return contained.proc, contained
+
+
+def _close_provider_child(child, contained) -> None:
+    if contained is None:
+        terminate_local_tree(child)
+    else:
+        contained.close()
 
 
 class _NoRedirect(HTTPRedirectHandler):
@@ -105,8 +141,10 @@ def _communicate_bounded(child: subprocess.Popen, serialized: bytes,
     output = bytearray()
     read_done = threading.Event()
     write_done = threading.Event()
+    stderr_done = threading.Event()
     status: dict[str, bool] = {"oversized": False, "reader_error": False,
-                               "writer_error": False}
+                               "writer_error": False, "stderr_error": False,
+                               "stderr_oversized": False}
 
     def reader() -> None:
         try:
@@ -140,18 +178,41 @@ def _communicate_bounded(child: subprocess.Popen, serialized: bytes,
                 pass
             write_done.set()
 
+    def stderr_reader() -> None:
+        # The Linux atomic cgroup helper has a diagnostic pipe; leaving it
+        # undrained lets a noisy helper or payload block at the pipe limit.
+        # Diagnostics are discarded and strictly capped, never exposed.
+        try:
+            stream = getattr(child, "stderr", None)
+            if stream is not None:
+                retained = 0
+                while True:
+                    block = stream.read1(4096)
+                    if not block:
+                        break
+                    retained += len(block)
+                    if retained > 4096:
+                        status["stderr_oversized"] = True
+                        break
+        except (OSError, ValueError):
+            status["stderr_error"] = True
+        finally:
+            stderr_done.set()
+
     threads = (
         threading.Thread(target=reader, name="rezon-bounded-stdout", daemon=True),
         threading.Thread(target=writer, name="rezon-bounded-stdin", daemon=True),
+        threading.Thread(target=stderr_reader, name="rezon-bounded-stderr", daemon=True),
     )
     for thread in threads:
         thread.start()
     while True:
-        if status["oversized"]:
-            raise ProviderOutcomeUnknown("completion child stdout limit exceeded; outcome unknown")
-        if status["reader_error"] or status["writer_error"]:
+        if status["oversized"] or status["stderr_oversized"]:
+            raise ProviderOutcomeUnknown("completion child output limit exceeded; outcome unknown")
+        if status["reader_error"] or status["writer_error"] or status["stderr_error"]:
             raise ProviderOutcomeUnknown("completion child pipe failed; outcome unknown")
-        if read_done.is_set() and write_done.is_set() and child.poll() is not None:
+        if (read_done.is_set() and write_done.is_set() and stderr_done.is_set()
+                and child.poll() is not None):
             return bytes(output)
         remaining = deadline - time.monotonic()
         if remaining <= 0:
@@ -159,7 +220,8 @@ def _communicate_bounded(child: subprocess.Popen, serialized: bytes,
         read_done.wait(min(0.01, remaining))
 
 
-def _request(url: str, headers: dict[str, str], body: dict, timeout: float) -> dict:
+def _request(url: str, headers: dict[str, str], body: dict, timeout: float,
+             *, host_process_fence: LinuxCgroupFence | WindowsJobFence | None = None) -> dict:
     """Enforce one monotonic deadline across connection and slow-drip response.
 
     urllib socket timeouts apply to each blocking receive, so a server may
@@ -200,6 +262,7 @@ def _request(url: str, headers: dict[str, str], body: dict, timeout: float) -> d
             child_env["SystemRoot"] = system_root
 
     child = None
+    contained = None
     private_workdir = None
     try:
         # Avoid giving the child access to a potentially user-writable or
@@ -208,11 +271,12 @@ def _request(url: str, headers: dict[str, str], body: dict, timeout: float) -> d
         private_workdir = tempfile.TemporaryDirectory(prefix="rezon-completion-")
         if time.monotonic() - start >= timeout:
             raise ProviderError("completion deadline expired before dispatch")
-        child = launch_bounded(
+        child, contained = _launch_provider_child(
             [sys.executable, "-I", "-c", child_script, package_parent],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL, close_fds=True,
             env=child_env, cwd=private_workdir.name, deadline=start + timeout,
+            host_process_fence=host_process_fence,
         )
         output = _communicate_bounded(child, serialized, start + timeout)
     except LaunchOutcomeUnknown:
@@ -229,13 +293,19 @@ def _request(url: str, headers: dict[str, str], body: dict, timeout: float) -> d
         # Preserve the caller's interruption signal but never strand the
         # local network-capable subprocess. Child death does not roll back a
         # request already received at the origin.
-        if child is not None:
-            terminate_local_tree(child)
-        if private_workdir is not None:
-            try:
-                private_workdir.cleanup()
-            except OSError:
-                pass
+        try:
+            if child is not None:
+                try:
+                    _close_provider_child(child, contained)
+                except Exception:
+                    raise ProviderOutcomeUnknown(
+                        "completion containment teardown unverified; outcome unknown") from None
+        finally:
+            if private_workdir is not None:
+                try:
+                    private_workdir.cleanup()
+                except OSError:
+                    pass
     if child.returncode != 0 or len(output) > 1_100_000:
         raise ProviderOutcomeUnknown("completion child failed after dispatch; outcome unknown")
     try:
@@ -350,8 +420,13 @@ class OpenAICompatibleModel:
     allow_insecure_http: bool = False
     max_tokens: int | None = None
     reasoning_effort: str | None = None
+    host_process_fence: LinuxCgroupFence | WindowsJobFence | None = field(
+        default=None, repr=False, compare=False)
 
     def __post_init__(self):
+        if self.host_process_fence is not None and type(self.host_process_fence) not in (
+                LinuxCgroupFence, WindowsJobFence):
+            raise ValueError("unrecognized host process custody adapter")
         _agent(self.agent_id)
         if type(self.model) is not str or not self.model:
             raise ValueError("model is required")
@@ -374,7 +449,7 @@ class OpenAICompatibleModel:
         response = _request(
             _endpoint(self.base_url, "/chat/completions", self.allow_insecure_http),
             {"Authorization": f"Bearer {self.api_key}"}, body,
-            self.timeout_seconds,
+            self.timeout_seconds, host_process_fence=self.host_process_fence,
         )
         try:
             content = response["choices"][0]["message"]["content"]
@@ -410,6 +485,7 @@ class OpenAICompatibleModel:
         }).encode("utf-8")
         start = time.monotonic()
         child = None
+        contained = None
         private_workdir = None
         try:
             private_workdir = tempfile.TemporaryDirectory(prefix="rezon-catalog-")
@@ -427,12 +503,13 @@ class OpenAICompatibleModel:
                 system_root = os.environ.get("SystemRoot")
                 if system_root:
                     child_env["SystemRoot"] = system_root
-            child = launch_bounded(
+            child, contained = _launch_provider_child(
                 [sys.executable, "-I", "-c", child_script, package_parent],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL, close_fds=True,
                 env=child_env, cwd=private_workdir.name,
                 deadline=start + timeout_seconds,
+                host_process_fence=self.host_process_fence,
             )
             output = _communicate_bounded(
                 child, serialized, start + timeout_seconds, max_stdout=1024,
@@ -450,13 +527,18 @@ class OpenAICompatibleModel:
         finally:
             # Includes caller interruption. A child timeout cannot strand a
             # credential-carrying catalog subprocess or its pipe handles.
-            if child is not None:
-                terminate_local_tree(child)
-            if private_workdir is not None:
-                try:
-                    private_workdir.cleanup()
-                except OSError:
-                    pass
+            try:
+                if child is not None:
+                    try:
+                        _close_provider_child(child, contained)
+                    except Exception:
+                        raise ProviderError("catalog containment teardown unverified") from None
+            finally:
+                if private_workdir is not None:
+                    try:
+                        private_workdir.cleanup()
+                    except OSError:
+                        pass
         if child.returncode != 0 or len(output) > 1024:
             raise ProviderError("catalog request failed")
         try:
@@ -480,8 +562,13 @@ class AnthropicModel:
     timeout_seconds: float = 30.0
     allow_insecure_http: bool = False
     max_tokens: int = 2048
+    host_process_fence: LinuxCgroupFence | WindowsJobFence | None = field(
+        default=None, repr=False, compare=False)
 
     def __post_init__(self):
+        if self.host_process_fence is not None and type(self.host_process_fence) not in (
+                LinuxCgroupFence, WindowsJobFence):
+            raise ValueError("unrecognized host process custody adapter")
         _agent(self.agent_id)
         if type(self.model) is not str or not self.model or type(self.api_key) is not str or not self.api_key:
             raise ValueError("model and API key are required")
@@ -502,7 +589,7 @@ class AnthropicModel:
         response = _request(
             _endpoint(self.base_url, "/messages", self.allow_insecure_http),
             {"x-api-key": self.api_key, "anthropic-version": "2023-06-01"},
-            body, self.timeout_seconds,
+            body, self.timeout_seconds, host_process_fence=self.host_process_fence,
         )
         try:
             blocks = response["content"]
