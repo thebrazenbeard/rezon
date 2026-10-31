@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 from threading import Event
 import time
 import unittest
@@ -159,6 +160,72 @@ class CgroupSourceContracts(unittest.TestCase):
         finally:
             unblock.set()
             os.close(ready_r)
+
+    def test_launch_cancellation_closes_readiness_reader(self):
+        """BaseException cancellation must not leak a readiness read end."""
+        created: dict[str, int] = {}
+        actual_pipe = os.pipe
+
+        def record_pipe():
+            read_fd, write_fd = actual_pipe()
+            created.update(read=read_fd, write=write_fd)
+            return read_fd, write_fd
+
+        def interrupted_constructor(_command, **kwargs):
+            # Simulate the launch worker releasing its exclusively owned FD
+            # before cancellation escapes through the calling thread.
+            os.close(kwargs["owned_fds"][0])
+            raise KeyboardInterrupt("synthetic cancellation")
+
+        with tempfile.TemporaryDirectory() as dirname:
+            with patch.object(LinuxCgroupFence, "validate", return_value=None), \
+                 patch("rezon._linux_host_cgroup.os.pipe", side_effect=record_pipe), \
+                 patch("rezon._linux_host_cgroup._popen_bounded",
+                       side_effect=interrupted_constructor):
+                with self.assertRaises(KeyboardInterrupt):
+                    self.make_unprovisioned().launch(
+                        Path(sys.executable), (), deadline=time.monotonic() + 1,
+                        cwd=Path(dirname))
+        with self.assertRaises(OSError):
+            os.fstat(created["read"])
+
+    def test_cancellation_after_native_start_kills_unreturned_child(self):
+        """A cancelled membership check must not strand a launched payload."""
+        class FakeProc:
+            stdin = stdout = stderr = None
+            killed = False
+            waited = False
+
+            def kill(self):
+                self.killed = True
+
+            def wait(self, *, timeout):
+                self.waited = True
+                return 0
+
+        child = FakeProc()
+        killed: list[bool] = []
+
+        def fake_constructor(_command, **kwargs):
+            os.write(kwargs["owned_fds"][0], b"123\n")
+            os.close(kwargs["owned_fds"][0])
+            return child
+
+        with tempfile.TemporaryDirectory() as dirname:
+            with patch.object(LinuxCgroupFence, "validate", return_value=None), \
+                 patch.object(LinuxCgroupFence, "_is_member",
+                              side_effect=KeyboardInterrupt), \
+                 patch.object(LinuxCgroupFence, "kill_leaf",
+                              side_effect=lambda: killed.append(True)), \
+                 patch("rezon._linux_host_cgroup._popen_bounded",
+                       side_effect=fake_constructor):
+                with self.assertRaises(KeyboardInterrupt):
+                    self.make_unprovisioned().launch(
+                        Path(sys.executable), (), deadline=time.monotonic() + 1,
+                        cwd=Path(dirname))
+        self.assertTrue(killed)
+        self.assertTrue(child.killed)
+        self.assertTrue(child.waited)
 
     def test_trusted_fence_optin_denies_before_network_dispatch(self):
         with self.assertRaises(ProviderOutcomeUnknown):
