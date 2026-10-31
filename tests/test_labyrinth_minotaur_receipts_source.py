@@ -4,14 +4,26 @@ from __future__ import annotations
 
 from dataclasses import replace
 import json
+from pathlib import Path
+import sys
 import unittest
 
-from experiments.labyrinth_minotaur_receipts.qualification import (
-    Claim, EvidenceStatus, ExactPins, HostPin, HostReceipts,
-    QualificationError, QualificationVerdict, RoleKeys, SignedReceipt,
-    LABYRINTH_FIVE_ARMS, qualify_source_envelope,
-    require_qualified_distributed_execution, sign_source_receipt,
-)
+# Pytest imports test modules with tests/ on sys.path. This source-only fixture
+# deliberately lives outside Rezon's installed runtime package.
+SOURCE_REPO_ROOT = Path(__file__).resolve().parents[1]
+_added_repo_root = str(SOURCE_REPO_ROOT) not in sys.path
+if _added_repo_root:
+    sys.path.append(str(SOURCE_REPO_ROOT))
+try:
+    from experiments.labyrinth_minotaur_receipts.qualification import (
+        Claim, EvidenceStatus, ExactPins, HostPin, HostReceipts,
+        QualificationError, QualificationVerdict, RoleKeys, SignedReceipt,
+        LABYRINTH_FIVE_ARMS, qualify_source_envelope,
+        require_qualified_distributed_execution, sign_source_receipt,
+    )
+finally:
+    if _added_repo_root:
+        sys.path.remove(str(SOURCE_REPO_ROOT))
 
 
 KEYS = RoleKeys(b"lease-test-only-key-0000000001",
