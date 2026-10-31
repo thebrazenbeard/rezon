@@ -1,251 +1,137 @@
 # Rezon
 
-Rezon is an executable multi-faceted reasoning project: a place to study, formalize, test, and eventually run heterogeneous reasoning as a coordinated system rather than treating one model invocation as the whole reasoning process.
+**Rezon is an experimental, provider-independent reasoning kernel and collective-reasoning toolkit.** It lets applications structure a reasoning task, preserve evidence and source boundaries, compare distinct answers and objections, and produce attributable receipts. Its optional collective runtime can ask multiple configured model endpoints in parallel and integrate their responses.
 
-The project deliberately separates four things that are often collapsed together:
+Rezon is reusable outside any particular AI assistant or computer installation. It is **not** tensor/model parallelism, shared VRAM, an automatic cluster scheduler, or distributed consensus. The implemented collective uses a single SQLite episode store; multiple processes or privately connected hosts can participate through explicit, operator-controlled interfaces.
 
-1. **Reasoning methods** — deduction, induction, abduction, causality, counterfactuals, planning, analogy, probabilistic inference, semantic reasoning, adversarial challenge, and more.
-2. **Reasoning topology** — how several reasoning processes cooperate, oppose, verify, retrieve, route, and integrate.
-3. **State and identity** — what subject is being reasoned about, what changed, what persisted, and what evidence supports continuity.
-4. **Execution** — provider/model adapters, worker routing, receipts, provenance, resource constraints, and runtime behavior.
+> **License:** Source-available proprietary software. The [LICENSE](LICENSE) permits limited private noncommercial evaluation, security review, interoperability assessment, education, and research; it does not grant general redistribution or commercial deployment rights. See [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) for separate commercial permissions.
 
-Rezon's V0 reasoning kernel is executable. The optional V1 collective layer
-provides a bounded, local implementation of concurrent multi-model reasoning;
-the wider distributed topology below remains a roadmap, not a deployed system.
+## What is implemented
 
-## Core direction
+| Part | Reusable function | Important limit |
+| --- | --- | --- |
+| [V0 kernel](src/rezon/runner.py) | Typed reasoning episodes, node execution, task/identity boundaries, source-admission controls, receipts, and deterministic replay/benchmark support | No epistemic truth guarantee or authorization to execute effects |
+| [Collective V1](src/rezon/collective.py) | Concurrent independent model responses, peer reviews, SQLite persistence, and input-digest-bound synthesis | One authoritative local store; not distributed consensus or shared neural inference |
+| [Collective CLI](src/rezon/collective_cli.py) | Explicitly run an episode, serve an authenticated loopback gateway, import external reviewed findings, or synthesize an existing episode | The operator provisions providers, credentials, and trusted ingress |
+| [Worker client](src/rezon/worker_client.py) | One-shot status, answer, and review participation with bounded replay and redirect handling | Neither the worker token nor response attests a physical host or authentic model |
+| [T'Kal hearing](src/rezon/tkal_network.py) | Opt-in four-worker challenge, defense, and resolution over the collective gateway | A recorded REFINE/SUSTAIN decision is not independently verified truth |
+| [Portable federation](src/rezon/federation.py) | Blind commitment/reveal and cross-peer objection records that can travel over an external transport | Digests detect ordinary substitution; they do not authenticate people, hosts, or chronology |
+| [Isolated qualifier](src/rezon/qualify_isolated.py) | Local protocol exercise with temporary credentials, a SQLite fixture, and explicit qualification report | Most fixture contributions are synthetic; no remote installation or live worker independence is proven |
 
-A working Rezon system should eventually support a flow like:
+The larger multi-host topology, durable governance interfaces, metacognition, and reasoning-method taxonomy remain research directions. Start with [Foundation](docs/FOUNDATION.md), [Kernel contracts](docs/contracts/REASONING_NODE_V0.md), [Collective runtime](docs/COLLECTIVE_RUNTIME_V1.md), and [multi-node topology](docs/MULTINODE_TOPOLOGY.md) for the exact scope.
 
-```text
-TaskEnvelope
-  -> Decomposer / Planner
-  -> Heterogeneous Reasoning Nodes
-  -> Opposition / Falsification Lane
-  -> Retrieval + Semantic / Provenance Verification
-  -> Integrator
-  -> ResultReceipt
-```
+## Quick start: local and offline
 
-Cross-cutting state substrates:
-
-```text
-Persistent Subject / Identity Track
-Multi-View State Graph / Hypergraph
-Evidence + Provenance Ledger
-```
-
-A stronger model is never automatically an authority source. A reasoning node may be more capable, more expensive, or more specialized without being entitled to promote identity, consent, facts, deployment state, or governance claims.
-
-## Documents
-
-- `docs/FOUNDATION.md` — project principles and scope
-- `docs/REASONING_TAXONOMY.md` — reasoning families worth modeling
-- `docs/HUMAN_AI_REASONING_SYNTHESIS.md` — transferable human/AI reasoning mechanisms
-- `docs/IDENTITY_TRACKING.md` — persistent identity under discontinuous observations
-- `docs/MULTIVIEW_HYPERGRAPH_STATE.md` — many-to-many, multi-view state representation
-- `docs/HIERARCHICAL_DISTRIBUTED_REASONING.md` — slow/fast and heterogeneous worker topology
-- `docs/ADVERSARIAL_COLLABORATION.md` — literal-proposition hostile review method
-- `docs/RETRIEVAL_CONTEXT.md` — reasoning-based retrieval and context selection
-- `docs/SEMANTIC_PROVENANCE.md` — knowledge graphs, ontologies, provenance, repair
-- `docs/WORKER_ROUTING_ULTRA.md` — optional high-reasoning worker routing
-- `docs/EVALUATION_AND_FALSIFICATION.md` — how Rezon should try to prove itself wrong
-- `docs/SOURCE_TRANSFER_MATRIX.md` — source-by-source transfer analysis
-- `docs/EXECUTABLE_FRAMEWORK_DIRECTION.md` — runnable system direction
-- `docs/VERA_ADOPTION_CANDIDATES.md` — mechanisms that may be promoted into Vera later
-- [`docs/COLLECTIVE_RUNTIME_V1.md`](docs/COLLECTIVE_RUNTIME_V1.md) — model config, agent API, security boundaries, and verification
-
-## Run locally
-
-Python 3.12+ is required. From a clone:
+Requires **Python 3.12+**. From a checkout, create an isolated environment and install the package and test runner:
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 .venv/bin/python -m pip install -e . pytest
 .venv/bin/python -m pytest -q
 ```
 
-On Windows, replace `.venv/bin/python` with `.venv\Scripts\python.exe`.
+On Windows use `.venv\Scripts\python.exe` instead of `.venv/bin/python`. The test suite exercises socket-based local gateways, so an environment that forbids loopback socket creation will need an appropriate isolated test runner. Tests do not contact production model providers by default.
 
-For concurrent model reasoning, configure two or more OpenAI-compatible or
-Anthropic endpoints and a synthesis model using the [collective runtime guide](docs/COLLECTIVE_RUNTIME_V1.md).
-The CLI runs independent first answers **in parallel**, then concurrent peer
-critique, then a synthesis bound to the exact saved input state:
+To exercise the protocol **without any model API keys or external model calls**, choose a new, private output path:
+
+```bash
+.venv/bin/python -m rezon.qualify_isolated --output ./private-qualification
+```
+
+This creates a local SQLite fixture and a JSON report. The directory must not already exist. Keep it out of source control: it contains example episode content, even though the generated credentials are not persisted. A passing REFINE result proves that the isolated protocol gates ran, **not** real-world reasoning quality or independently authenticated workers.
+
+## Opt-in collective reasoning across model endpoints
+
+Prepare `models.json` with two or more independent agent identifiers and configured OpenAI-compatible or Anthropic endpoints. The following addresses and model identifiers are **placeholders**, not working services:
+
+```json
+{
+  "models": [
+    {
+      "agent_id": "analyst_a",
+      "provider": "openai_compatible",
+      "model": "configured-model-a",
+      "base_url": "https://model-a.example/v1",
+      "api_key_env": "REZON_MODEL_A_KEY"
+    },
+    {
+      "agent_id": "analyst_b",
+      "provider": "openai_compatible",
+      "model": "configured-model-b",
+      "base_url": "https://model-b.example/v1",
+      "api_key_env": "REZON_MODEL_B_KEY"
+    }
+  ]
+}
+```
+
+Prepare `integrator.json` as a **single model specification**, rather than a `models` array:
+
+```json
+{
+  "agent_id": "integrator",
+  "provider": "openai_compatible",
+  "model": "configured-integrator",
+  "base_url": "https://synthesis.example/v1",
+  "api_key_env": "REZON_INTEGRATOR_KEY"
+}
+```
+
+Provision each key privately in its named environment variable and substitute genuine, validated endpoint addresses and model IDs. Then run:
 
 ```bash
 .venv/bin/python -m rezon.collective_cli run \
-  --db ./rezon-episodes.sqlite3 --prompt "Compare these explanations" \
-  --models-config ./models.json --integrator-config ./integrator.json
+  --db ./private-episodes.sqlite3 \
+  --prompt "Compare two competing explanations for this observation" \
+  --models-config ./models.json \
+  --integrator-config ./integrator.json
 ```
 
-For a local Ollama installation, point each OpenAI-compatible model at
-`http://127.0.0.1:11434/v1`, with its `api_key_env` set to an environment
-variable containing any nonempty loopback-only placeholder. Supported optional
-per-model controls include `timeout_seconds`, `max_tokens`, and
-`reasoning_effort` (where supported by the local model/endpoint). See the
-[VN1 Ollama qualification note](docs/VN1_OLLAMA_2026-10-23.md) for a
-reproducible, two-model smoke test and its limitations.
+The CLI asks the configured models for initial answers concurrently, then has them critique peers, and synthesizes the saved, digest-bound round. It returns an episode ID and per-worker outcomes; a failed or incomplete review does not silently become a qualified synthesis. Provider wire compatibility, model identity, independence, factual accuracy, and latency/performance are **not** established by supplying the configuration.
 
-Separately running agents can instead submit answers and reviews to the
-authenticated, **loopback-only** HTTP gateway. Configuration and routes are in
-the guide. Neither mode verifies a model's factual accuracy, claims authority,
-or supplies production-ready distributed consensus.
+For a model server on the **same** machine, an OpenAI-compatible loopback base URL such as `http://127.0.0.1:11434/v1` may be used with the required `api_key_env` value (a nonempty local placeholder where the server does not require authentication). Remote HTTP is rejected by default; an explicit insecure-HTTP override exists but is **not** recommended for credentials on untrusted networks. Review the [provider and collective configuration guide](docs/COLLECTIVE_RUNTIME_V1.md) before enabling this path.
 
-For a separate read-only state observer, optionally set
-`REZON_COLLECTIVE_STATE_READ_TOKEN` to **32 cryptographically random bytes
-encoded as 64 lowercase hex characters** (generate with
-`python -c "import secrets; print(secrets.token_hex(32))"`), distinct from the
-admin and every worker credential before launching `collective_cli serve`.
-The client **never transmits this secret as a bearer**. Instead it requests
-`GET /v1/read-challenge` with the exact state path and fresh client nonce,
-**verifies the server's challenge MAC before issuing any request proof**, proves
-possession using a single-use, 10-second nonce-bound HMAC for
-`GET /v1/episodes/{id}/state`, and authenticates the exact response bytes with
-a distinct server HMAC. Every MAC binds `GET`, exact path, both nonces, server
-epoch, and the numeric `127.0.0.1:port` derived from the server's *actual
-accepted socket* (not the caller's `Host` header). The role cannot create episodes,
-submit answers/reviews, synthesize, or use T'Kal hearing endpoints. If unset,
-the additional credential role does not exist. A state reader can see prompt
-and worker content for any requested episode; keep the token private and the
-service loopback-only. Challenge issuance is stateless, so unauthenticated
-challenge floods allocate no pending slots. At most 4096 successfully consumed
-nonce IDs are retained for 10 seconds under a lock to block replay, and a
-server restart changes the random epoch. The credential format rejects short
-or trivially repeated keys, but **only the operator can ensure its randomness**;
-human-chosen 64-character passwords remain susceptible to offline guessing. This
-separates mutation authority but does not attest
-host independence, qualify statements, or establish model consensus.
+## Separate workers and private gateways
 
-## T'Kal-in-ket hearing (opt-in)
-
-Use the existing authenticated loopback-only Collective V1 gateway with the
-explicit `--tkal` flag:
+The optional authenticated gateway is bound to **127.0.0.1**. The operator provisions a distinct random admin credential and a different credential per enrolled worker; the service does not create, copy, or distribute those secrets. For example, after configuring the environment and selecting a private database path:
 
 ```bash
-python -m rezon.collective_cli serve --db ./private-collective.sqlite3 --tkal
+.venv/bin/python -m rezon.collective_cli serve --db ./private-episodes.sqlite3 --port 8765
 ```
 
-This adds durable three-lens challenge, defense, resolution, REFINE and
-SUSTAIN inquiry over a four-worker Collective episode. Three distinct
-cross-peer exchanges are required for SUSTAIN; self-targeted initial reviews,
-waived challenges or proposer-only replies do not qualify. Without `--tkal`,
-the hearing routes are absent. Details: [Virtual hearing guide](docs/TKAL_VIRTUAL_NETWORK_V1.md) and [gateway qualification](docs/qualification/REZON_VIRTUAL_HEARING_GATEWAY_20261023.md).
+Other hosts can reach this loopback service only through a separately governed private tunnel or authenticated HTTPS proxy. The [worker client](docs/PRIVATE_WORKER_CLIENT_V1.md) supports one-shot `status`, `answer`, and `review` operations. To check a previously authorized episode with an operator-provisioned `REZON_WORKER_TOKEN`:
 
-The gate verifies attributed records and digest consistency, NOT independent
-physical host identity, trustworthiness of model outputs, or factual truth.
-No remote TLS ingress or four-machine persistent service is installed. The
-real four-source episode was primary-relayed into a single persisted Rezon
-store, not a qualified direct four-device mesh.
-
-The repository's hidden VS Code folder-open execution was removed from
-source in security PR #106. This does not prove that previously exposed
-machines are uncompromised. See [source triage](docs/security/WORKSPACE_AUTORUN_TRIAGE_20261023.md).
-
-## Private worker execution (one-shot)
-
-The [private worker client](docs/PRIVATE_WORKER_CLIENT_V1.md) runs a **single**
-`status`, `answer`, or `review` action against the existing authenticated
-Collective API. An authorized operator must separately provision each worker's
-`REZON_WORKER_TOKEN`; the client cannot extract or distribute secrets, weaken
-SSH host-key validation, or grant itself a model identity.
-
-```sh
-python -m rezon.worker_client status --gateway https://vn2.tail86ea75.ts.net \
-  --episode collective-REPLACE_WITH_ID
+```bash
+.venv/bin/python -m rezon.worker_client status \
+  --gateway https://gateway.example.com \
+  --episode collective-REPLACE_WITH_REAL_ID
 ```
 
-An alternative, **owner-local** enrollment flow is available in
-[the OS credential vault guide](docs/OWNER_LOCAL_CREDENTIAL_ENROLLMENT_V1.md).
-The new `rezon.owner_worker` commands verify a specific worker's gateway
-identity, then store its bearer in that local user's Windows Credential
-Manager or Linux Secret Service—without shell arguments, plaintext files, or
-ChatGPT-connected credential transfer. Enrollment refuses noninteractive
-terminals, and each one-shot action checks the role again:
+The example address and episode ID must be replaced. External gateways require verified HTTPS; bearer redirects are refused. No password should be placed in a README, command-line argument, committed config, or shared transcript. The [owner-local credential guide](docs/OWNER_LOCAL_CREDENTIAL_ENROLLMENT_V1.md) describes optional private enrollment through supported OS credential vaults, not remote enrollment performed by this project.
 
-```sh
-python -m rezon.owner_worker enroll --role vn1 --gateway https://vn2.tail86ea75.ts.net --episode collective-REPLACE_WITH_ID
-python -m rezon.owner_worker status --role vn1 --gateway https://vn2.tail86ea75.ts.net --episode collective-REPLACE_WITH_ID
-```
+For gateway monitoring, `/healthz` reports process liveness. Authenticated `/readyz` additionally tests a bounded read of required SQLite schema; neither proves write permission, provider availability, worker quorum, or host identity. A [read-only probe](scripts/collective_gateway_probe.py) is available for a previously enrolled worker. The optional read-only state observer uses a separate nonce-bound HMAC protocol, not a general bearer authority; see [Collective V1](docs/COLLECTIVE_RUNTIME_V1.md) for its exact replay and disclosure limitations.
 
-This does **not** automatically enroll the current running machines; the owner
-must privately provide each assigned bearer in a local interactive session.
+An explicit `--tkal` on `collective_cli serve` enables virtual hearing routes; without it those routes are absent. See the [T'Kal guide](docs/TKAL_VIRTUAL_NETWORK_V1.md) and [qualification notes](docs/qualification/REZON_VIRTUAL_HEARING_GATEWAY_20261023.md). An isolated or relayed four-source hearing is not a proven independent four-device network.
 
-For `answer` and `review`, configure a localhost OpenAI-compatible model and
-its separate API-key environment variable. External gateways require HTTPS
-and certificate validation; bearer redirects are refused. Accepted receipts
-are **unattested**, and ambiguous network writes are marked
-`OUTCOME_UNKNOWN`, never automatically retried. This does **not** qualify a
-four-machine inference episode or permanently connected worker mesh.
-An explicit repeated `review` checks the immutable gateway review state before
-local inference; if that worker already reviewed, it stops without another
-model call or POST. This is replay avoidance for completed reviews, **not** a
-cross-process claim lock: simultaneous first attempts can still both infer.
+## Authority, evidence, and security
 
-## Read-only gateway readiness probe
+- **No authority transfer:** A model answer, provider adapter, source reference, worker credential, or successful review cannot grant identity, consent, tool permissions, deployment approval, or execution authority. A host must authenticate and authorize protected effects separately, with host-owned immutable identity/provider binding appropriate to its threat model.
+- **No model-identity attestation:** Worker IDs and digests are recorded assertions. Separate strings or network connections do not prove physically independent machines, model providers, or minds.
+- **No inference pooling:** Collective V1 performs *several model requests and synthesis*. It does not shard one model's layers, split its KV cache, pool GPU memory, or prove performance improvements over one model.
+- **No consensus-truth claim:** The SQLite store supplies durable episode records and digest-bound currentness, not independent custody, proof of evidence, factual verification, or Byzantine consensus.
+- **Secret and data custody:** Prompts, answers, critiques, and saved qualification artifacts can be sensitive. Use owner-controlled paths, restrictive OS permissions, configured provider privacy terms, TLS where applicable, and separately managed credential rotation. Do not expose the loopback gateway directly to the Internet.
+- **Network ambiguity:** One-shot worker writes may be marked `OUTCOME_UNKNOWN`, not automatically replayed. Review receipts and server state before retrying. Some source-level checks are process-local or nonadversarial and must not be promoted into formal host security guarantees.
 
-The unauthenticated `/healthz` endpoint reports process liveness with
-`200 {"service":"rezon-collective","status":"alive"}`; its previous `ready`
-label did **not** attest that the persistent SQLite store was reachable.
-Authenticated `/readyz` accepts an existing admin or worker bearer and performs
-a serialized, bounded, SQLite read-only schema probe: `200/ready` for the
-required tables/columns or `503/unavailable` with no database details. It
-never creates or repairs a missing database. For T'Kal-enabled gateways the
-T'Kal tables are also checked. A healthy read does **not** certify write
-permissions, model availability, worker quorum, or physical host identity.
-Scripts and operators must use `/readyz` in addition to `/healthz`; clients
-expecting the historical health `status=ready` should update their probe.
+The repository includes [security notes for a previously removed editor-startup risk](docs/security/WORKSPACE_AUTORUN_TRIAGE_20261023.md). Removal of unsafe source content is not proof any previously exposed host is clean.
 
-The optional standard-library
-[`scripts/collective_gateway_probe.py`](scripts/collective_gateway_probe.py)
-checks the Rezon health schema and separately checks authorized episode access
-using a pre-provisioned worker token **from the operator's local environment**:
+## Project status and validation
 
-```sh
-python scripts/collective_gateway_probe.py --url https://vn2.tail86ea75.ts.net --episode collective-REPLACE_WITH_REAL_ID --token-env REZON_WORKER_TOKEN
-```
+Kernel V0 and the optional collective V1 are implemented and covered by source tests. Against public `main` at `b25518b525b8d31c8e8730a3b4d23088d2c66cdc`, an isolated Python 3.12 environment passed **454 tests and 27 subtests**; the isolated no-model T'Kal qualifier returned `REFINE` with four fixture answers and `live_model_calls: 0`. This is local test evidence, not deployed-provider, physical-host, or independent security qualification.
 
-It never provisions, prints or retrieves credentials, sends a POST, executes a
-model, or grants access. Remote HTTP is rejected; redirected requests are
-rejected rather than forwarding a bearer to another destination. A reachable
-gateway or bearer-authorized episode is **not** physical host or model
-attestation. Without a previously enrolled token and episode this probe cannot
-qualify remote participation.
+More detailed research and interfaces:
 
-## Reproducible isolated T'Kal protocol qualification
+- [Reasoning taxonomy](docs/REASONING_TAXONOMY.md) and [adversarial collaboration](docs/ADVERSARIAL_COLLABORATION.md)
+- [State/effect semantics](docs/STATE_AND_EFFECT_SEMANTICS.md) and [identity tracking](docs/IDENTITY_TRACKING.md)
+- [Retrieval/provenance](docs/SEMANTIC_PROVENANCE.md) and [evaluation/falsification](docs/EVALUATION_AND_FALSIFICATION.md)
+- [Benchmark reference](docs/qualification/BENCHMARK_V1_REFERENCE.md) and [kernel acceptance notes](docs/qualification/KERNEL_V0_ACCEPTANCE.md)
 
-Use the opt-in [isolated qualifier](src/rezon/qualify_isolated.py) to
-exercise the actual localhost HTTP gateway, separate ephemeral worker
-bearers, durable SQLite first answers/peer reviews, hearing challenges,
-attributed defenses and a final REFINE determination, without reading or
-changing the running production service or its credentials.
-
-For an offline protocol-only test, run:
-
-```sh
-python -m rezon.qualify_isolated --output ./qualification-fixture
-```
-
-On VN2, optionally verify one actual locally hosted Granite inference:
-
-```sh
-python -m rezon.qualify_isolated --output ./qualification-real-model   --model /home/patrick/vera-review-sandbox/models/ibm-granite_granite-3.3-2b-instruct-Q4_K_M.gguf   --model-url http://127.0.0.1:11435/v1 --max-tokens 120
-```
-
-The output directory must not exist. It contains an owner-private SQLite
-database and a secret-free JSON report. Generated credentials remain in
-process memory and are not persisted. All nonlocal model URLs are rejected.
-The qualifier refuses Python optimized mode because it would disable
-assertion-based protocol checks. **Fixture workers are not independent live
-model executions:** with --model exactly one worker invokes a real model,
-and the other answers, peer reviews and defenses are labeled synthetic.
-This is not production credential enrollment, host attestation or proof
-of scientific truth.
-
-## Current status
-
-Kernel V0 and the opt-in collective V1 are executable and covered by automated
-tests, including two independently authenticated HTTP workers, separate-process
-durability, simulated provider protocols, peer critique, and stale-result
-rejection. The backend is one SQLite authority, not a distributed-consensus
-system. No live model-provider deployment, remote installation, Vera adoption,
-or measured reasoning improvement has been established by these source tests.
