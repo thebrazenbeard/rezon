@@ -30,7 +30,7 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
-On Windows create the environment with `py -3.12 -m venv .venv`, then use `.venv\Scripts\python.exe` instead of `.venv/bin/python`. Installing dependencies may require package-network access; the test and qualifier workflows do not contact production model providers by default. The test suite exercises socket-based local gateways, so an environment that forbids loopback socket creation will need an appropriate isolated test runner.
+In Windows PowerShell, create the environment with `py -3.12 -m venv .venv`, then invoke `./.venv/Scripts/python.exe` (or `.\.venv\Scripts\python.exe`) instead of `.venv/bin/python`. Installing dependencies may require package-network access; the test and qualifier workflows do not contact production model providers by default. The test suite exercises socket-based local gateways, so an environment that forbids loopback socket creation will need an appropriate isolated test runner.
 
 To exercise the protocol **without any model API keys or external model calls**, choose a new, private output path:
 
