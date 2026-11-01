@@ -16,6 +16,70 @@ class RunEvidenceError(ValueError):
     pass
 
 
+def _exact_strings(value: object) -> bool:
+    return type(value) is tuple and all(type(item) is str for item in value)
+
+
+def _exact_string_pairs(value: object) -> bool:
+    return type(value) is tuple and all(
+        type(pair) is tuple
+        and len(pair) == 2
+        and all(type(item) is str for item in pair)
+        for pair in value
+    )
+
+
+def _validate_json_field_types(
+    receipt: ResultReceipt,
+    records: tuple[TraceRecord, ...],
+) -> None:
+    """Keep mutable model/provider values out of the digest-bound JSON snapshot."""
+    for field in ("task_id", "episode_version"):
+        if type(getattr(receipt, field)) is not str:
+            raise RunEvidenceError(f"receipt {field} must be a string")
+    for field in ("accepted_claim_ids", "rejected_claim_ids", "unresolved",
+                  "source_versions", "execution_ids"):
+        if not _exact_strings(getattr(receipt, field)):
+            raise RunEvidenceError(f"receipt {field} must be a string tuple")
+    for field in ("execution_output_digests", "execution_producer_ids"):
+        if not _exact_string_pairs(getattr(receipt, field)):
+            raise RunEvidenceError(f"receipt {field} must contain string pairs")
+    if (receipt.task_envelope_digest is not None
+            and type(receipt.task_envelope_digest) is not str):
+        raise RunEvidenceError("receipt task_envelope_digest must be a string")
+    if type(receipt.claim_disposition_complete) is not bool:
+        raise RunEvidenceError("receipt claim_disposition_complete must be a bool")
+    if (type(receipt.failures) is not tuple
+            or any(type(item) is not FailureState for item in receipt.failures)):
+        raise RunEvidenceError("receipt failures must be FailureState values")
+
+    for record in records:
+        for field in ("execution_id", "node_id", "episode_version"):
+            if type(getattr(record, field)) is not str:
+                raise RunEvidenceError(f"trace {field} must be a string")
+        for field in (
+            "visible_proposition_ids", "blinded_proposition_ids",
+            "visible_relation_ids", "blinded_relation_ids",
+            "emitted_proposition_ids", "source_refs", "source_versions",
+            "reported_source_refs", "reported_source_versions",
+        ):
+            if not _exact_strings(getattr(record, field)):
+                raise RunEvidenceError(f"trace {field} must be a string tuple")
+        for field in (
+            "task_envelope_digest", "executor_task_specification_digest",
+            "executor_episode_version", "canonical_producer_execution_id",
+            "canonical_episode_snapshot_digest", "canonical_output_digest",
+        ):
+            value = getattr(record, field)
+            if value is not None and type(value) is not str:
+                raise RunEvidenceError(f"trace {field} must be a string")
+        if type(record.independence_demonstrated) is not bool:
+            raise RunEvidenceError("trace independence_demonstrated must be a bool")
+        if (type(record.failures) is not tuple
+                or any(type(item) is not FailureState for item in record.failures)):
+            raise RunEvidenceError("trace failures must be FailureState values")
+
+
 def _require_exact_outcome(outcome: RunOutcome) -> tuple[ResultReceipt, tuple[TraceRecord, ...]]:
     if type(outcome) is not RunOutcome:
         raise RunEvidenceError("run evidence requires exact RunOutcome")
@@ -164,6 +228,7 @@ def export_run_evidence(outcome: RunOutcome) -> dict[str, object]:
     """
 
     receipt, records = _require_exact_outcome(outcome)
+    _validate_json_field_types(receipt, records)
     _validate_receipt_trace_binding(receipt, records)
 
     body: dict[str, object] = {
@@ -171,13 +236,20 @@ def export_run_evidence(outcome: RunOutcome) -> dict[str, object]:
         "receipt": _receipt_payload(receipt),
         "executions": [_record_payload(record) for record in records],
     }
-    encoded = json.dumps(
-        body,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    ).encode("utf-8")
+    try:
+        encoded = json.dumps(
+            body,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise RunEvidenceError("run evidence is not canonical JSON") from exc
+    # Decode the bytes that were actually hashed: no mutable input object or
+    # serialization-time alias may change the returned evidence behind its digest.
+    snapshot = json.loads(encoded)
     return {
-        **body,
+        **snapshot,
         "evidence_digest": sha256(encoded).hexdigest(),
     }
