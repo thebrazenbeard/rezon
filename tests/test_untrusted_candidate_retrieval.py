@@ -46,6 +46,19 @@ def test_retrieved_only_receipt_cannot_be_promoted_by_itself():
     assert episode.snapshot().current_propositions == ()
 
 
+def test_candidate_content_change_changes_receipt_identity():
+    first = search_untrusted_candidates(
+        "retrieval", source_id="repo", source_version="same",
+        documents=(CandidateDocument("file:a", "retrieval first revision"),),
+    )
+    changed = search_untrusted_candidates(
+        "retrieval", source_id="repo", source_version="same",
+        documents=(CandidateDocument("file:a", "retrieval second revision"),),
+    )
+    assert first.returned_refs == changed.returned_refs
+    assert first.retrieval_id != changed.retrieval_id
+
+
 def test_no_match_yields_empty_unadmitted_receipt():
     receipt = search_untrusted_candidates(
         "orbital", source_id="repo:public", source_version="sha123",
