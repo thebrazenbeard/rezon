@@ -57,7 +57,7 @@ def search_untrusted_candidates(
     if type(max_results) is not int or not 1 <= max_results <= MAX_RESULTS:
         raise ValueError("max_results outside supported bound")
     references: set[str] = set()
-    ranked: list[tuple[int, str]] = []
+    ranked: list[tuple[int, str, str]] = []
     terms = _tokens(query)
     for doc in documents:
         if type(doc) is not CandidateDocument:
@@ -67,11 +67,12 @@ def search_untrusted_candidates(
         references.add(doc.ref)
         score = len(terms & _tokens(doc.text))
         if score:
-            ranked.append((score, doc.ref))
+            ranked.append((score, doc.ref, sha256(doc.text.encode('utf-8')).hexdigest()))
     ranked.sort(key=lambda pair: (-pair[0], pair[1]))
-    hits = tuple(ref for _score, ref in ranked[:max_results])
+    hits = tuple(ref for _score, ref, _digest in ranked[:max_results])
+    selected_bindings = tuple((ref, digest) for _score, ref, digest in ranked[:max_results])
     binding = json.dumps(
-        [query, source_id, source_version, hits], ensure_ascii=False,
+        [query, source_id, source_version, selected_bindings], ensure_ascii=False,
         separators=(",", ":"),
     ).encode("utf-8")
     retrieval_id = "lexical-candidate:" + sha256(binding).hexdigest()
