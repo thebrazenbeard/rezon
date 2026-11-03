@@ -64,14 +64,14 @@ def search_untrusted_candidates(
             raise ValueError("documents must be exact CandidateDocument instances")
         # Frozen dataclass construction is not a validation boundary:
         # object.__setattr__ can replace fields after __post_init__.
-        _exact_text(doc.ref, "ref", 512)
-        _exact_text(doc.text, "text", MAX_TEXT_CHARS)
-        if doc.ref in references:
+        ref = _exact_text(doc.ref, "ref", 512)
+        content = _exact_text(doc.text, "text", MAX_TEXT_CHARS)
+        if ref in references:
             raise ValueError("duplicate document reference")
-        references.add(doc.ref)
-        score = len(terms & _tokens(doc.text))
+        references.add(ref)
+        score = len(terms & _tokens(content))
         if score:
-            ranked.append((score, doc.ref, sha256(doc.text.encode('utf-8')).hexdigest()))
+            ranked.append((score, ref, sha256(content.encode('utf-8')).hexdigest()))
     ranked.sort(key=lambda pair: (-pair[0], pair[1]))
     hits = tuple(ref for _score, ref, _digest in ranked[:max_results])
     selected_bindings = tuple((ref, digest) for _score, ref, digest in ranked[:max_results])
