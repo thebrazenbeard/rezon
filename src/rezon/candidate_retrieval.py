@@ -62,6 +62,10 @@ def search_untrusted_candidates(
     for doc in documents:
         if type(doc) is not CandidateDocument:
             raise ValueError("documents must be exact CandidateDocument instances")
+        # Frozen dataclass construction is not a validation boundary:
+        # object.__setattr__ can replace fields after __post_init__.
+        _exact_text(doc.ref, "ref", 512)
+        _exact_text(doc.text, "text", MAX_TEXT_CHARS)
         if doc.ref in references:
             raise ValueError("duplicate document reference")
         references.add(doc.ref)
