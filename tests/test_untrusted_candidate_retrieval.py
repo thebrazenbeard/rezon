@@ -109,6 +109,24 @@ def test_resource_bounds_and_untrusted_collections():
         )
 
 
+def test_postconstruction_tampering_cannot_bypass_candidate_bounds():
+    candidate = CandidateDocument("safe-ref", "retrieval")
+    # Frozen dataclasses do not prevent object.__setattr__ or crafted objects.
+    object.__setattr__(candidate, "text", "retrieval" + "x" * 16385)
+    with pytest.raises(ValueError, match="too long"):
+        search_untrusted_candidates(
+            "retrieval", source_id="repo", source_version="v1",
+            documents=(candidate,),
+        )
+    object.__setattr__(candidate, "text", "retrieval")
+    object.__setattr__(candidate, "ref", "r" * 513)
+    with pytest.raises(ValueError, match="too long"):
+        search_untrusted_candidates(
+            "retrieval", source_id="repo", source_version="v1",
+            documents=(candidate,),
+        )
+
+
 def test_no_network_disk_model_or_authority_side_effects(tmp_path):
     receipt = search_untrusted_candidates(
         "retrieval", source_id="repo", source_version="pinned",
