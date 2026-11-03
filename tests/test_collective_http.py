@@ -460,7 +460,7 @@ def test_short_valid_json_body_cannot_create_episode_with_false_length():
                 client.shutdown(socket.SHUT_WR)
                 response = client.recv(4096)
             assert b"400 Bad Request" in response
-            with sqlite3.connect(f"{tmp}/episodes.sqlite3") as db:
+            with closing(sqlite3.connect(f"{tmp}/episodes.sqlite3")) as db:
                 assert db.execute("SELECT count(*) FROM episodes").fetchone() == (0,)
         finally:
             server.shutdown()
