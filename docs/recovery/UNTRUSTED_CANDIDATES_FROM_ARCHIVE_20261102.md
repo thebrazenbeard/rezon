@@ -8,13 +8,13 @@ Receipt IDs include cryptographic digests of the **selected documents' text**, n
 
 ## Bounded behavior and tests
 
-Document collections must be exact tuples of at most 512 exact `CandidateDocument` values; texts are at most 16,384 characters, queries 4,096 characters, and result limits 1–32. Duplicate references, strange subclasses, oversized inputs, and invalid result caps fail closed. The function never creates a canonical Episode evidence proposition.
+Document collections must be exact tuples of at most 512 exact `CandidateDocument` values; texts are at most 16,384 characters, queries 4,096 characters, and result limits 1–32. Duplicate references, strange subclasses, oversized inputs, and invalid result caps fail closed. Candidate fields are revalidated **at search time** because Python's `object.__setattr__` can mutate a frozen dataclass after construction. The function never creates a canonical Episode evidence proposition.
 
 ```bash
 python -m pytest -q tests/test_untrusted_candidate_retrieval.py tests/test_retrieval_execution.py
 ```
 
-On Lappy Windows Python 3.12, fourteen focused and existing retrieval tests passed. The new receipt-content-binding regression was first observed **failing**, then passed after digest binding was added.
+On Lappy Windows Python 3.12, fifteen focused and existing retrieval tests passed. Both the receipt-content-binding regression and the postconstruction candidate-tampering regression were first observed **failing**, then passed after the respective repairs.
 
 > **Hostile challenge:** A lexical-overlap rank is neither semantic correctness nor factual authority. If the source-version string is fabricated, this function cannot detect that. Even exact content digests are substitution checks, not signatures or evaluator custody. Production evidence requires the existing Rezon admission policy and separately qualified source/currentness bindings.
 
