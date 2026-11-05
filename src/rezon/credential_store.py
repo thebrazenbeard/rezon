@@ -32,6 +32,51 @@ def validate_token(token: str) -> str:
     return token
 
 
+def _python_service() -> object:
+    """Use the existing user keyring without needing system package privileges."""
+    try:
+        import secretstorage
+        return secretstorage
+    except ImportError:
+        raise CredentialError("Python Secret Service client unavailable") from None
+
+
+def _python_linux_save(role: str, token: str) -> None:
+    service = _python_service()
+    try:
+        bus = service.dbus_init()
+        collection = service.get_default_collection(bus)
+        if collection.is_locked():
+            raise CredentialError("local keyring is locked")
+        collection.create_item(
+            "Rezon worker " + role,
+            {"service": "rezon-tkik", "role": role},
+            token.encode("ascii"),
+            replace=True,
+        )
+    except CredentialError:
+        raise
+    except Exception:
+        raise CredentialError("local Secret Service could not store credential") from None
+
+
+def _python_linux_load(role: str) -> str:
+    service = _python_service()
+    try:
+        bus = service.dbus_init()
+        matches = list(service.search_items(
+            bus, {"service": "rezon-tkik", "role": role},
+        ))
+        if len(matches) != 1 or matches[0].is_locked():
+            raise CredentialError("no single unlocked role credential found")
+        secret = matches[0].get_secret().decode("ascii")
+    except CredentialError:
+        raise
+    except Exception:
+        raise CredentialError("local Secret Service could not read credential") from None
+    return validate_token(secret)
+
+
 def _linux_save(role: str, token: str) -> None:
     try:
         r = subprocess.run(
@@ -40,7 +85,10 @@ def _linux_save(role: str, token: str) -> None:
             input=token + "\n", capture_output=True, text=True, timeout=25,
             check=False,
         )
-    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+    except FileNotFoundError:
+        _python_linux_save(role, token)
+        return
+    except (OSError, subprocess.TimeoutExpired):
         raise CredentialError("local Secret Service unavailable") from None
     if r.returncode:
         raise CredentialError("local Secret Service could not store credential")
@@ -52,7 +100,9 @@ def _linux_load(role: str) -> str:
             ["secret-tool", "lookup", "service", "rezon-tkik", "role", role],
             capture_output=True, text=True, timeout=20, check=False,
         )
-    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+    except FileNotFoundError:
+        return _python_linux_load(role)
+    except (OSError, subprocess.TimeoutExpired):
         raise CredentialError("local Secret Service unavailable") from None
     if r.returncode:
         raise CredentialError("worker credential not available")

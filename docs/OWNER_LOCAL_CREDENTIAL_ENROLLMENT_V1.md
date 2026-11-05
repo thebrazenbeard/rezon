@@ -10,7 +10,13 @@ The production VN2 tailnet gateway runs at `https://vn2.tail86ea75.ts.net`. The 
 
 The owner must securely obtain each machine's assigned worker credential outside ChatGPT-connected terminals: `lappy` and `malaphor` separately on Lappy, `vn1` on VN1, and `vn2` on VN2. Do not use another worker's or the admin bearer as a substitute.
 
-The enrollment client uses **Windows Credential Manager** (per-user Generic Credentials, target `RezonTKIK/worker/<role>`) or the local **Linux Secret Service** (via `secret-tool`, with attributes `service=rezon-tkik` and `role=<role>`). The local vault must be available/unlocked. If the platform vault cannot be accessed, the operation fails; there is no plaintext-token-file fallback. On Linux this requires `secret-tool` from `libsecret-tools` and an unlocked Secret Service session.
+The enrollment client uses **Windows Credential Manager** (per-user Generic Credentials, target `RezonTKIK/worker/<role>`) or the local **Linux Secret Service** (via `secret-tool`, with attributes `service=rezon-tkik` and `role=<role>`). The local vault must be available/unlocked. If the platform vault cannot be accessed, the operation fails; there is no plaintext-token-file fallback. On Linux it uses `secret-tool` from `libsecret-tools` when available; otherwise it uses the `secretstorage` Python client against the **same** unlocked Secret Service. To install the pinned user-level backend without sudo from a Rezon checkout, run:
+
+```bash
+"$HOME/.local/share/rezon-venv/bin/python" -m pip install 'secretstorage==3.5.0'
+```
+
+The source binding for this optional dependency is declared as `.[linux-keyring]` in `pyproject.toml`. VN2 can access the already-running GNOME keyring; it does not need a second keyring or any privileged package installation. Neither backend writes a plaintext worker token file.
 
 ## Enroll in an owner-controlled terminal
 
