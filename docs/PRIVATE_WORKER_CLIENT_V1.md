@@ -6,7 +6,7 @@ Source-bound server: `thebrazenbeard/rezon@a13b7d5357ce5e2372eeda5fbe0551544a4c1
 
 ## Requirements
 
-Python 3.12+, this repository's Rezon package, a configured local OpenAI-compatible model (including Ollama) and an **individually provisioned** Rezon worker credential. Provision credentials by an explicitly authorized operator channel. Do not copy tokens into chats, command-line arguments, issue comments, Git files, or execution logs. The client **does not retrieve credentials from VN2, modify SSH authorized_keys, or weaken TLS**.
+Python 3.12+, this repository's Rezon package, an explicitly configured **numeric-loopback** OpenAI-compatible or Anthropic Messages API endpoint, and an **individually provisioned** Rezon worker credential. Provision credentials by an explicitly authorized operator channel. Do not copy tokens into chats, command-line arguments, issue comments, Git files, or execution logs. The client **does not retrieve credentials from another machine, modify SSH authorized_keys, or weaken TLS**.
 
 In each worker process, set `REZON_WORKER_TOKEN` from a local protected credential store. For Ollama's localhost OpenAI-compatible API set `REZON_MODEL_API_KEY` to a nonempty, localhost-only placeholder; do not use that placeholder for remote provider endpoints. The server uses a separate administrator credential to create episodes and open hearings; never give that token to a worker.
 
@@ -16,33 +16,39 @@ Use the actual episode ID from the server's authorized operator. This is a patte
 
 ```sh
 python -m rezon.worker_client status \
-  --gateway https://vn2.tail86ea75.ts.net \
+  --gateway https://gateway.example \
   --episode collective-REPLACE_WITH_ID
 
 python -m rezon.worker_client answer \
-  --gateway https://vn2.tail86ea75.ts.net \
+  --gateway https://gateway.example \
   --episode collective-REPLACE_WITH_ID \
   --model gemma3:1b \
   --model-url http://127.0.0.1:11434/v1
 
 # Only after the last initial answer is present:
 python -m rezon.worker_client review \
-  --gateway https://vn2.tail86ea75.ts.net \
+  --gateway https://gateway.example \
   --episode collective-REPLACE_WITH_ID \
   --model gemma3:1b
 ```
 
-Each invocation uses the token-bound identity the server returns, not a caller-supplied worker label. `answer` asks the local model to assess the original prompt before peer answers are available. `review` fetches the complete sealed first round, targets other participants' answers, then submits an adversarial critique. An incomplete first round yields a 409 conflict; no model invocation or fake review is created. The client does not automatically defend challenges or determine the case. The optional `--max-tokens N` controls the local model generation budget (integer 1`1024, default 1024); use a lower value such as `--max-tokens 240` for CPU-only models whose completions may otherwise outlast `--timeout`.
+Each invocation uses the token-bound identity the server returns, not a caller-supplied worker label. `answer` asks the configured model to assess the original prompt before peer answers are available. `review` fetches the complete sealed first round, targets other participants' answers, then submits an adversarial critique. An incomplete first round yields a 409 conflict; no model invocation or fake review is created. The client does not automatically defend challenges or determine the case. The optional `--max-tokens N` controls the model generation budget (integer 1–1024, default 1024); use a lower value such as `--max-tokens 240` for CPU-only models whose completions may otherwise outlast `--timeout`.
+
+The worker defaults to `--provider openai_compatible` for existing local model configurations. A locally hosted Anthropic-compatible Messages endpoint can instead be selected for either `answer` or `review` with `--provider anthropic`, an explicit `--model-url http://127.0.0.1:PORT/v1`, and a local credential stored in the environment variable named by `--model-key-env` (default `REZON_MODEL_API_KEY`). Replace `PORT` with the actual port of the locally installed compatible server. The provider protocol is recorded as unverified receipt metadata; changing protocols does not grant a new worker role or protected execution authority.
+
+**Remote model URLs are disabled for this one-shot worker.** Only literal `127.0.0.1` or `[::1]` with an explicit numeric port are accepted; DNS hostnames (including `localhost`), alternative IPv4 spellings, userinfo, fragments, queries and malformed authorities are rejected before any gateway read. This client is stacked on Rezon provider subprocess PR #147: the standalone OpenAI-compatible and Anthropic adapters both use an explicit no-proxy HTTP opener **at dispatch**, so ambient `http_proxy` or `no_proxy` changes cannot redirect the prompt through a system proxy. The worker's credential-bearing gateway request also disables ambient proxies and redirects; a gateway requiring a proxy is not supported by this source-bound route. There is deliberately no `--allow-remote` flag: future remote model access needs an independently authenticated, immutable host-issued provider/subject/effect policy and corresponding outbound transport enforcement, neither of which this source provides. This is source-level confinement, not a hardware or OS network egress guarantee.
 
 ### Local model compatibility readback
 
 On VN1 with the existing Rezon `OpenAICompatibleModel` adapter against localhost Ollama, `gemma3:1b` returned nonempty completion text in a bounded smoke test. `lfm2.5-thinking:1.2b` and `qwen3:1.7b` returned `ProviderError: provider returned invalid or oversized text` on the same adapter route. This establishes an **adapter compatibility gap**, not evidence that those models are inherently unable to reason. Do not select them for an unattended worker without separately verifying a nonempty response. These model-only smokes did not submit anything to the remote Rezon gateway.
 
-The client prints only bounded receipt metadata: episode ID, token-bound agent ID, input SHA-256, contribution ID and *self-declared* model name. It does not echo the bearer token, private model text or underlying prompt. An accepted submission is `ACCEPTED_UNATTESTED`, not proof of independent execution, hardware identity, scientific accuracy or permission for protected effects.
+The client prints only bounded receipt metadata: episode ID, token-bound agent ID, input SHA-256, contribution ID, configured provider protocol, and *self-declared* model name. It does not echo the bearer token, private model text or underlying prompt. An accepted submission is `ACCEPTED_UNATTESTED`, not proof of independent execution, hardware identity, scientific accuracy or permission for protected effects.
 
 ## Network and failure gates
 
 - Only HTTPS gateways, or HTTP on a loopback host, are admitted. HTTPS certificate validation remains enabled.
+- Gateway bearer tokens are sent directly to the configured origin, never through an automatically discovered HTTP(S) proxy.
+- Model endpoints have a separate stricter rule: numeric loopback with an explicit port only; remote HTTPS model APIs are refused before gateway or provider calls.
 - Redirects are never followed with bearer credentials. The client sends no token to a redirected destination.
 - A read error reports a bounded failure. An ambiguous **POST transport failure** returns exit code 3 and `OUTCOME_UNKNOWN`; it never retries a possibly committed submission. The operator must check existing episode state before any manual replay.
 - The gateway must accept the contribution ID matching the token-bound worker; otherwise the receipt is rejected.
@@ -56,4 +62,4 @@ python -m pytest -q tests/test_worker_client.py
 python -m pytest -q
 ```
 
-Tests cover local HTTP integration with a temporary SQLite store, credential and roster binding, no model call before review barriers, peer-target integrity, HTTPS-only off-host gateways, blocked token-bearing redirects, bounded error output, and post-dispatch outcome uncertainty. All test credentials and model outputs are synthetic. Real cross-device model execution and a genuine fourth model source require separate signed/logged host execution evidence and secure credential provisioning.
+Tests cover local HTTP integration with a temporary SQLite store, both model-protocol requests and answer/review submissions, numeric-loopback model confinement, direct-origin proxy and redirect denials, a post-preflight proxy-environment mutation with separate direct/proxy localhost servers, credential and roster binding, no model call before review barriers, peer-target integrity, HTTPS-only off-host gateways, blocked token-bearing redirects, bounded error output, and post-dispatch outcome uncertainty. All test credentials and model outputs are synthetic. These tests must be rerun on the exact stacked #147 head; earlier main-based results do not qualify this differential. Real cross-device model execution and a genuine fourth model source require separate signed/logged host execution evidence and secure credential provisioning.
