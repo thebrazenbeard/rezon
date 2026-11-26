@@ -71,6 +71,43 @@ class CanonicalJsonEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(RunEvidenceError, "JSON"):
             export_run_evidence(outcome_with_source_ref("\ud800"))
 
+    def test_producer_bound_unicode_uses_canonical_json_error_contract(self):
+        from rezon.provenance import canonical_producer_execution_id
+
+        outcome = outcome_with_source_ref("public:sha256:abc")
+        node_id = "node-\u03b1"
+        producer_id = canonical_producer_execution_id(node_id, "s", None, "o")
+        record = replace(
+            outcome.trace.records[0], node_id=node_id,
+            canonical_episode_snapshot_digest="s", canonical_output_digest="o",
+            canonical_producer_execution_id=producer_id,
+        )
+        receipt = replace(
+            outcome.receipt,
+            execution_output_digests=(("exec-1", "o"),),
+            execution_producer_ids=(("exec-1", producer_id),),
+        )
+        valid = RunOutcome(receipt, ExecutionTrace(records=(record,)))
+        evidence = export_run_evidence(valid)
+        self.assertEqual(evidence["executions"][0]["node_id"], node_id)
+        self.assertEqual(evidence["receipt"]["execution_producer_ids"],
+                         [["exec-1", producer_id]])
+        body = {k: v for k, v in evidence.items() if k != "evidence_digest"}
+        canonical = json.dumps(body, sort_keys=True, separators=(",", ":"),
+                               ensure_ascii=False, allow_nan=False).encode("utf-8")
+        self.assertEqual(evidence["evidence_digest"], sha256(canonical).hexdigest())
+        for field in ("node_id", "canonical_episode_snapshot_digest",
+                      "executor_task_specification_digest", "canonical_output_digest"):
+            with self.subTest(field=field):
+                # Keep receipt bindings consistent so the malformed string reaches
+                # producer recomputation, rather than an unrelated earlier guard.
+                bad = replace(record, **{field: "\ud800"})
+                bound = receipt
+                if field == "canonical_output_digest":
+                    bound = replace(receipt, execution_output_digests=(("exec-1", "\ud800"),))
+                with self.assertRaisesRegex(RunEvidenceError, "canonical JSON"):
+                    export_run_evidence(RunOutcome(bound, ExecutionTrace(records=(bad,))))
+
     def test_returned_snapshot_matches_digest(self):
         exported = export_run_evidence(outcome_with_source_ref("public:sha256:abc"))
         body = {key: value for key, value in exported.items() if key != "evidence_digest"}

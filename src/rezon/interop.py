@@ -162,12 +162,15 @@ def _validate_receipt_trace_binding(
             raise RunEvidenceError(
                 "canonical producer binding requires snapshot and output digests"
             )
-        expected_producer_id = canonical_producer_execution_id(
-            record.node_id,
-            record.canonical_episode_snapshot_digest,
-            record.executor_task_specification_digest,
-            record.canonical_output_digest,
-        )
+        try:
+            expected_producer_id = canonical_producer_execution_id(
+                record.node_id,
+                record.canonical_episode_snapshot_digest,
+                record.executor_task_specification_digest,
+                record.canonical_output_digest,
+            )
+        except UnicodeEncodeError as exc:
+            raise RunEvidenceError("run evidence is not canonical JSON") from exc
         if producer_id != expected_producer_id:
             raise RunEvidenceError(
                 "trace canonical producer identity does not recompute"
