@@ -229,7 +229,7 @@ class Episode:
         while True:
             changed = False
 
-            for dependent_id in tuple(self._active_propositions):
+            for dependent_id in sorted(self._active_propositions):
                 dependent = self._propositions[dependent_id]
                 if any(source_ref in invalidated_refs for source_ref in dependent.source_refs):
                     self._active_propositions.remove(dependent_id)
@@ -241,7 +241,7 @@ class Episode:
                     invalidated_refs.add(dependent_id)
                     changed = True
 
-            for relation_id in tuple(self._active_relations):
+            for relation_id in sorted(self._active_relations):
                 relation = self._relations[relation_id]
                 participant_invalid = any(
                     participant.ref_id in invalidated_refs
