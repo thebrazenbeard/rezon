@@ -15,9 +15,9 @@ import re
 import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
-from .providers import OpenAICompatibleModel
+from .providers import AnthropicModel, OpenAICompatibleModel
 
 _EPISODE = re.compile(r"collective-[a-f0-9]{32}\Z")
 _MAX_RESPONSE = 1_000_000
@@ -34,6 +34,34 @@ class OutcomeUnknown(WorkerClientError):
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
+
+
+def _local_model_endpoint(url: str) -> str:
+    """Constrain model prompts/peer text to a literal local endpoint.
+
+    A remote HTTPS URL is not a host-authenticated provider grant. Until a
+    separate immutable host policy exists there is deliberately no CLI
+    override for remote model egress. The PR147 provider subprocess opens
+    only a direct origin connection; this is not an OS egress attestation.
+    """
+    if (type(url) is not str or not url or len(url) > 2048
+            or any(ord(ch) < 33 or ord(ch) > 126 or ch == "\\" for ch in url)):
+        raise WorkerClientError("local model endpoint required")
+    try:
+        parsed = urlsplit(url)
+        port = parsed.port
+    except ValueError:
+        raise WorkerClientError("local model endpoint required") from None
+    if (parsed.scheme not in ("http", "https")
+            or parsed.hostname not in ("127.0.0.1", "::1")
+            or parsed.username is not None or parsed.password is not None
+            or parsed.query or parsed.fragment
+            or port is None or not 1 <= port <= 65535):
+        raise WorkerClientError("local model endpoint required")
+    expected_host = "127.0.0.1" if parsed.hostname == "127.0.0.1" else "[::1]"
+    if parsed.netloc != f"{expected_host}:{port}":
+        raise WorkerClientError("local model endpoint required")
+    return url
 
 
 def _gateway(url: str) -> str:
@@ -74,7 +102,10 @@ def _request(gateway: str, route: str, token: str, method: str = "GET",
         **({"Content-Type": "application/json"} if method == "POST" else {}),
     })
     try:
-        with build_opener(_NoRedirect).open(request, timeout=timeout) as response:
+        # A no-redirect opener still discovers HTTP(S)_PROXY by default and
+        # could disclose a worker bearer to an ambient proxy on the FIRST
+        # request. Pin direct transport for the credential-bearing gateway.
+        with build_opener(ProxyHandler({}), _NoRedirect).open(request, timeout=timeout) as response:
             if method == "POST" and response.status != 201:
                 raise WorkerClientError("unexpected post response")
             if method == "GET" and response.status != 200:
@@ -104,7 +135,8 @@ def _request(gateway: str, route: str, token: str, method: str = "GET",
 
 def run(action: str, gateway: str, episode_id: str, token: str,
         model_id: str | None = None, model_url: str = "http://127.0.0.1:11434/v1",
-        model_api_key: str | None = None, timeout: int = 40, max_tokens: int = 1024) -> dict:
+        model_api_key: str | None = None, timeout: int = 40, max_tokens: int = 1024,
+        model_provider: str = "openai_compatible") -> dict:
     """Single explicit action; never loops or retries a dispatched POST."""
     root = _gateway(gateway)
     if type(episode_id) is not str or not _EPISODE.fullmatch(episode_id):
@@ -113,8 +145,14 @@ def run(action: str, gateway: str, episode_id: str, token: str,
         raise WorkerClientError("invalid timeout")
     if type(max_tokens) is not int or not 1 <= max_tokens <= 1024:
         raise WorkerClientError("invalid model token budget")
+    if type(model_provider) is not str or model_provider not in ("openai_compatible", "anthropic"):
+        raise WorkerClientError("invalid model provider")
     if action not in ("status", "answer", "review"):
         raise WorkerClientError("unknown worker action")
+    if action in ("answer", "review"):
+        # Fail before even reading the gateway, so a denied model route cannot
+        # disclose an episode's prompt or peer text through later inference.
+        _local_model_endpoint(model_url)
     base = "/v1/episodes/" + episode_id
     record = _request(root, base, token, timeout=timeout)
     agent = record.get("agent_id")
@@ -186,8 +224,11 @@ def run(action: str, gateway: str, episode_id: str, token: str,
              "\nPeer answers:\n" + "\n".join(peers)},
         )
         route = base + "/reviews"
-    model = OpenAICompatibleModel(agent, model_id, model_url, model_api_key,
-                                  timeout_seconds=timeout, max_tokens=max_tokens)
+    # Provider selection affects only the independently configured model call.
+    # It cannot change the gateway worker identity or its bounded action scope.
+    model_type = OpenAICompatibleModel if model_provider == "openai_compatible" else AnthropicModel
+    model = model_type(agent, model_id, model_url, model_api_key,
+                       timeout_seconds=timeout, max_tokens=max_tokens)
     output = model.complete(messages)
     # Plain text is a claim, not a signed independent-host attestation.
     if type(output) is not str or not output.strip() or len(output) > 32_768:
@@ -203,6 +244,7 @@ def run(action: str, gateway: str, episode_id: str, token: str,
     return {"episode_id": episode_id, "agent_id": agent,
             "contribution_id": expected, "kind": action,
             "input_sha256": input_sha, "model_claim": model_id,
+            "model_protocol": model_provider,
             "gateway_status": "ACCEPTED_UNATTESTED",
             "host_independence_verified": False, "authority": "NONE"}
 
@@ -214,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--episode", required=True)
     parser.add_argument("--token-env", default="REZON_WORKER_TOKEN")
     parser.add_argument("--model")
+    parser.add_argument("--provider", choices=("openai_compatible", "anthropic"),
+                        default="openai_compatible", help="explicit model endpoint protocol")
     parser.add_argument("--model-url", default="http://127.0.0.1:11434/v1")
     parser.add_argument("--model-key-env", default="REZON_MODEL_API_KEY")
     parser.add_argument("--timeout", type=int, default=40)
@@ -225,7 +269,8 @@ def main(argv: list[str] | None = None) -> int:
                      model_id=args.model,
                      model_url=args.model_url,
                      model_api_key=os.environ.get(args.model_key_env),
-                     timeout=args.timeout, max_tokens=args.max_tokens)
+                     timeout=args.timeout, max_tokens=args.max_tokens,
+                     model_provider=args.provider)
     except OutcomeUnknown:
         print("OUTCOME_UNKNOWN: inspect episode before retrying", file=sys.stderr)
         return 3
