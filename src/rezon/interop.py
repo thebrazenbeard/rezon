@@ -101,7 +101,12 @@ def _validate_receipt_trace_binding(
     if receipt.effect_state is not EffectState.PLAN:
         raise RunEvidenceError("run evidence may export PLAN receipts only")
 
+    if receipt.accepted_claim_ids or receipt.rejected_claim_ids or receipt.claim_disposition_complete:
+        raise RunEvidenceError("run evidence cannot assert claim disposition")
+
     expected_execution_ids = tuple(record.execution_id for record in records)
+    if any(not execution_id for execution_id in expected_execution_ids) or len(set(expected_execution_ids)) != len(expected_execution_ids):
+        raise RunEvidenceError("trace execution ids must be non-empty and unique")
     if receipt.execution_ids != expected_execution_ids:
         raise RunEvidenceError("receipt execution ids do not match trace")
 
